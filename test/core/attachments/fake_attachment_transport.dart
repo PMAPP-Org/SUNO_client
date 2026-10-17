@@ -1,7 +1,12 @@
 // Fake de `AttachmentTransport` — mismo patrón que `FakeSyncTransport`
 // (`test/core/sync/fake_sync_transport.dart`): cola de respuestas
 // programables, sin red real.
-import 'dart:typed_data';
+//
+// `upload()` **consume el stream** como lo haría un cliente HTTP real. Con
+// `abandonUploadAfterFirstChunk` deja de leer tras el primer trozo y devuelve
+// un error **sin cancelar la suscripción**: el caso de un cliente HTTP que se
+// corta a mitad. Así se prueba que el servicio cierra el archivo igualmente.
+import 'dart:async';
 
 import 'package:visitacampo/core/attachments/attachment_result.dart';
 import 'package:visitacampo/core/attachments/attachment_transport.dart';
@@ -14,11 +19,11 @@ class FakeAttachmentTransport implements AttachmentTransport {
   final List<String> presignedShas = [];
   final List<String> committedShas = [];
 
-  /// Los `bytes` que recibió cada llamada a `upload()`, en orden — permite a
-  /// un test comprobar que lo que llegó es realmente un `Uint8List` (hallazgo
-  /// Importante de la revisión final: antes de este fix el tipo declarado no
-  /// garantizaba nada en tiempo de ejecución).
-  final List<Uint8List> uploadedBytes = [];
+  /// Lo que llegó en cada `upload()`, ya leído del stream.
+  final List<List<int>> uploadedBytes = [];
+  final List<int> uploadedLengths = [];
+
+  bool abandonUploadAfterFirstChunk = false;
 
   @override
   Future<AttachmentResult<PresignData>> presign({
@@ -37,8 +42,23 @@ class FakeAttachmentTransport implements AttachmentTransport {
   Future<AttachmentResult<void>> upload({
     required String uploadUrl,
     required Map<String, String> headers,
-    required Uint8List bytes,
+    required Stream<List<int>> body,
+    required int length,
   }) async {
+    uploadedLengths.add(length);
+    if (abandonUploadAfterFirstChunk) {
+      final firstChunk = Completer<void>();
+      // Se escucha y se deja la suscripción colgada a propósito.
+      body.listen((_) {
+        if (!firstChunk.isCompleted) firstChunk.complete();
+      });
+      await firstChunk.future;
+      return const AttachmentResult.err(AttachmentError.network('conexión cortada a mitad'));
+    }
+    final bytes = <int>[];
+    await for (final chunk in body) {
+      bytes.addAll(chunk);
+    }
     uploadedBytes.add(bytes);
     if (uploadResponses.isEmpty) {
       throw StateError('FakeAttachmentTransport.upload() sin respuesta programada.');

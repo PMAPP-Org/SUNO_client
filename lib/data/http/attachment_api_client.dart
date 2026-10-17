@@ -4,7 +4,6 @@
 // un host de object storage (Cloudflare R2/MinIO), que autentica por firma
 // en la propia URL, no con el bearer token de la API de VisitaCampo — mismo
 // motivo por el que `AuthInterceptor` no debe interceptar esta llamada.
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -62,20 +61,21 @@ class AttachmentApiClient implements AttachmentTransport {
   Future<AttachmentResult<void>> upload({
     required String uploadUrl,
     required Map<String, String> headers,
-    required Uint8List bytes,
+    required Stream<List<int>> body,
+    required int length,
   }) async {
     try {
       await _uploadDio.put<void>(
         uploadUrl,
-        // `Uint8List.fromList` es una copia sin costo real cuando `bytes` ya
-        // es un `Uint8List` (el caso común) y una red de seguridad si algún
-        // día dejara de serlo: el tipo del parámetro ya lo garantiza en
-        // compilación, pero Dio decide cómo serializar `data:` mirando el
-        // tipo en **tiempo de ejecución**, así que la garantía se refuerza
-        // en el propio punto donde Dio la consume (hallazgo Importante de la
-        // revisión final — ver el docstring de `AttachmentTransport.upload`).
-        data: Uint8List.fromList(bytes),
-        options: Options(headers: headers),
+        // Un `Stream` en `data:` hace que Dio lo envíe tal cual, por trozos,
+        // sin pasar por su transformer de texto/JSON y sin bufferizarlo:
+        // exige `Content-Length`, que es además lo que firma el presign.
+        data: body,
+        options: Options(
+          headers: {...headers, Headers.contentLengthHeader: length.toString()},
+          // El object storage responde 200/204 sin cuerpo útil.
+          responseType: ResponseType.plain,
+        ),
       );
       return const AttachmentResult.ok(null);
     } on DioException catch (e) {

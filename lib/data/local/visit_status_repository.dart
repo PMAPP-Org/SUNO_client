@@ -6,8 +6,10 @@
 // - **rechazada**: alguna está en `quarantine` (se revisa en la pantalla de
 //   conflictos, Paso 23);
 // - **sincronizada**: ninguna queda en el outbox.
-// Aparte, cuántos de sus adjuntos siguen sin subir (`AttachmentQueue` distinto
-// de `uploaded`): una visita puede estar sincronizada con fotos pendientes.
+// Aparte, el estado de sus adjuntos en `AttachmentQueue` (Paso 18): cuántos
+// están por subir (`pending`/`uploading`, se suben solos) y cuántos fallaron
+// de forma permanente (`failed`, necesitan que el agente actúe). Una visita
+// puede estar sincronizada con fotos todavía por subir.
 import 'package:drift/drift.dart';
 import 'package:meta/meta.dart';
 
@@ -24,6 +26,7 @@ class VisitSummary {
     required this.status,
     required this.attachments,
     required this.pendingUploads,
+    this.failedUploads = 0,
   });
 
   final String id;
@@ -33,7 +36,12 @@ class VisitSummary {
   final DateTime capturedAt;
   final VisitSyncStatus status;
   final int attachments;
+
+  /// Por subir: se reintentan solos.
   final int pendingUploads;
+
+  /// Fallidos de forma permanente: hay que reintentarlos a mano.
+  final int failedUploads;
 }
 
 class VisitStatusRepository {
@@ -96,11 +104,12 @@ class VisitStatusRepository {
             _ => VisitSyncStatus.synced,
           },
           attachments: attachmentsByVisit[visit.id]?.length ?? 0,
-          pendingUploads: [
-            for (final a in attachmentsByVisit[visit.id] ?? const <VisitAttachment>[])
-              if (uploadState[a.sha256] != null && uploadState[a.sha256] != 'uploaded') a,
-          ].length,
+          pendingUploads: _countIn(attachmentsByVisit[visit.id], uploadState, const {'pending', 'uploading'}),
+          failedUploads: _countIn(attachmentsByVisit[visit.id], uploadState, const {'failed'}),
         ),
     ];
   }
+
+  static int _countIn(List<VisitAttachment>? attachments, Map<String, String> uploadState, Set<String> states) =>
+      (attachments ?? const <VisitAttachment>[]).where((a) => states.contains(uploadState[a.sha256])).length;
 }

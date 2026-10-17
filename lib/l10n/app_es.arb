@@ -34,6 +34,11 @@
   "@homeVisitAttachments": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "homeVisitFailedUploads": "{count, plural, =1{1 con error} other{{count} con error}}",
+  "@homeVisitFailedUploads": {
+    "description": "Adjuntos que no se pudieron subir y no se reintentan solos.",
+    "placeholders": { "count": { "type": "int" } }
+  },
   "homeVisitPendingUploads": "{count, plural, =1{1 por subir} other{{count} por subir}}",
   "@homeVisitPendingUploads": {
     "placeholders": { "count": { "type": "int" } }
@@ -52,7 +57,7 @@
   "@syncComplete": {
     "placeholders": { "applied": { "type": "int" }, "uploaded": { "type": "int" } }
   },
-  "syncIncomplete": "Sincronización incompleta: {applied, plural, =1{1 visita aplicada} other{{applied} visitas aplicadas}}, {quarantined, plural, =1{1 rechazada} other{{quarantined} rechazadas}}, {deferred, plural, =1{1 pendiente de reintento} other{{deferred} pendientes de reintento}}, {uploaded, plural, =1{1 adjunto subido} other{{uploaded} adjuntos subidos}}, {failedAttachments, plural, =1{1 adjunto fallido} other{{failedAttachments} adjuntos fallidos}}.",
+  "syncIncomplete": "Sincronización incompleta: {applied, plural, =1{1 visita aplicada} other{{applied} visitas aplicadas}}, {quarantined, plural, =1{1 rechazada} other{{quarantined} rechazadas}}, {deferred, plural, =1{1 pendiente de reintento} other{{deferred} pendientes de reintento}}, {uploaded, plural, =1{1 adjunto subido} other{{uploaded} adjuntos subidos}}, {failedAttachments, plural, =1{1 adjunto sin subir} other{{failedAttachments} adjuntos sin subir}}.",
   "@syncIncomplete": {
     "placeholders": {
       "applied": { "type": "int" },

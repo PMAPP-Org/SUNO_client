@@ -15,8 +15,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'attachments/attachment_upload_scheduler.dart';
 import 'attachments/attachment_upload_service.dart';
 import 'auth/auth_controller.dart';
+import 'auth/auth_state.dart';
 import 'auth/token_store.dart';
 import 'capture/photo_capture.dart';
 import 'capture/signature_store.dart';
@@ -78,6 +80,14 @@ class AppDependencies {
   final PhotoCapture photoCapture;
   final SyncEngine syncEngine;
   final AttachmentUploadService attachmentUploadService;
+
+  /// Paso 18: drena la cola de adjuntos sola (arranque, primer plano,
+  /// periódico, tras capturar). Una sola instancia: el single-flight solo
+  /// protege si todos los disparos pasan por el mismo objeto.
+  late final AttachmentUploadScheduler uploadScheduler = AttachmentUploadScheduler(
+    service: attachmentUploadService,
+    isAuthenticated: () => authController.state is Authenticated,
+  );
 
   /// Paso 22: dónde se guardan las firmas y el guardado de una visita.
   final SignatureStore signatureStore;
