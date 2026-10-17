@@ -23,6 +23,20 @@ updates:
       dart:
         patterns: ["*"]
     open-pull-requests-limit: 5
+    # Migraciones planificadas, no semanales: saltos que exigen preparar algo
+    # más que un PR. Se retiran al planificarlas; las alertas de SEGURIDAD de
+    # Dependabot no se ven afectadas.
+    ignore:
+      # freezed 4 exige Dart >= 3.13: llega con la subida de Flutter (hoy
+      # 3.44.9, fijada en los workflows), y freezed_annotation va a la par.
+      - dependency-name: "freezed"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "freezed_annotation"
+        update-types: ["version-update:semver-major"]
+      # Almacenamiento cifrado de la sesión: sus opciones (Keychain/Keystore)
+      # se revisan en el Paso 16 (TrustStore y almacenamiento seguro).
+      - dependency-name: "flutter_secure_storage"
+        update-types: ["version-update:semver-major"]
 
   # Semgrep (tool/requirements-sast.txt). Dependabot sube la versión en el
   # .txt pero NO regenera el .lock: quien revise el PR lo regenera con el
