@@ -66,15 +66,32 @@ abstract class PushOpOutcome with _$PushOpOutcome {
   factory PushOpOutcome.fromJson(Map<String, dynamic> json) => _$PushOpOutcomeFromJson(json);
 }
 
-/// `OpErrorSchema`. `message` es el único campo que `SyncEngine` expone al
-/// usuario (`OutboxOpState.quarantine.reason`) — nunca `details`, que puede
-/// llevar fragmentos del payload que falló (RD-12, mismo principio que en
-/// el servidor: el error nunca hace eco del dato sensible).
+/// `OpErrorSchema`. `message` y `code` se muestran tal cual. De `details` el
+/// cliente solo extrae pares `field`/`reason` ([fieldViolations]) para señalar
+/// en pantalla qué campo corregir (Paso 23). El servidor ya los emite
+/// redactados, sin el valor que falló (RD-12: `redacted_validation_details`,
+/// `violation_details`), y aquí además se descarta cualquier otra cosa.
 @freezed
 abstract class PushOpError with _$PushOpError {
-  const factory PushOpError({required String code, required String message}) = _PushOpError;
+  const factory PushOpError({required String code, required String message, Map<String, dynamic>? details}) =
+      _PushOpError;
 
   factory PushOpError.fromJson(Map<String, dynamic> json) => _$PushOpErrorFromJson(json);
+}
+
+/// Un campo señalado por el servidor: `answers.altura_cm` / `out_of_range`.
+typedef FieldViolation = ({String field, String reason});
+
+/// Los pares `field`/`reason` de `details`, en sus dos formas del contrato:
+/// `{"field", "reason"}` suelto o `{"errors": [{...}, ...]}`. Solo cadenas.
+List<FieldViolation> fieldViolations(Map<String, dynamic>? details) {
+  if (details == null) return const [];
+  final entries = details['errors'] is List ? details['errors'] as List : [details];
+  return [
+    for (final entry in entries)
+      if (entry is Map && entry['field'] is String && entry['reason'] is String)
+        (field: entry['field'] as String, reason: entry['reason'] as String),
+  ];
 }
 
 @freezed

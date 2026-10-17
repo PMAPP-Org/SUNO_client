@@ -72,6 +72,17 @@ class OutboxOps extends Table {
   /// Nunca lleva `details` del error (RD-12: nunca el dato que falló).
   TextColumn get errorMessage => text().nullable()();
 
+  /// Revisión de cuarentena (Paso 23, `schemaVersion` 6):
+  /// - `errorCode`: `code` del contrato (`validation_error`, `not_found`,
+  ///   `conflict`…), que decide qué acciones ofrece la pantalla;
+  /// - `errorFieldsJson`: los pares `field`/`reason` que señaló el servidor
+  ///   (`fieldViolations`), solo eso;
+  /// - `serverRowJson`: la fila autoritativa de un `conflict`. Se guarda en
+  ///   vez de aplicarla, para no pisar la versión del agente sin que él decida.
+  TextColumn get errorCode => text().nullable()();
+  TextColumn get errorFieldsJson => text().nullable()();
+  TextColumn get serverRowJson => text().nullable()();
+
   /// Estado de la máquina de doc 08 §4.3, como texto (Paso 12 define el
   /// `sealed class OutboxOpState` que produce/consume estos valores).
   TextColumn get state => text()();

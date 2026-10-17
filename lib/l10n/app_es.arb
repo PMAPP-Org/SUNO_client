@@ -46,6 +46,49 @@
   "visitStatusPending": "Pendiente",
   "visitStatusSynced": "Sincronizada",
   "visitStatusRejected": "Rechazada",
+  "homeReviewPending": "{count, plural, =1{1 visita para revisar} other{{count} visitas para revisar}}",
+  "@homeReviewPending": {
+    "description": "Botón de la portada que abre la revisión de visitas rechazadas o en conflicto.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "reviewTitle": "Para revisar",
+  "reviewEmpty": "No hay visitas para revisar.",
+  "reviewKindConflict": "Cambió en el servidor",
+  "reviewKindRejected": "Rechazada por el servidor",
+  "reviewConflictExplain": "Alguien modificó esta visita en el servidor mientras tenías tu versión sin enviar. Elige cuál se queda.",
+  "reviewServerSays": "Motivo: {message}",
+  "@reviewServerSays": {
+    "placeholders": { "message": { "type": "String" } }
+  },
+  "reviewViolation": "{field}: {problem}",
+  "@reviewViolation": {
+    "placeholders": { "field": { "type": "String" }, "problem": { "type": "String" } }
+  },
+  "reviewDiffField": "Campo",
+  "reviewDiffMine": "Tu versión",
+  "reviewDiffServer": "En el servidor",
+  "reviewNoValue": "—",
+  "reviewYes": "Sí",
+  "reviewNo": "No",
+  "reviewResendMine": "Enviar mi versión",
+  "reviewAcceptServer": "Quedarme con la del servidor",
+  "reviewCorrect": "Corregir",
+  "reviewRetry": "Reintentar",
+  "reviewDiscard": "Descartar visita",
+  "reviewConfirmCancel": "Cancelar",
+  "reviewAcceptServerTitle": "¿Quedarte con la versión del servidor?",
+  "reviewAcceptServerBody": "Se perderán tus cambios en esta visita. No se puede deshacer.",
+  "reviewAcceptServerConfirm": "Sí, usar la del servidor",
+  "reviewDiscardTitle": "¿Descartar esta visita?",
+  "reviewDiscardBody": "Se borrará del teléfono con sus fotos. El servidor no la tiene, así que no se podrá recuperar.",
+  "reviewDiscardConfirm": "Sí, descartar",
+  "reviewQueued": "Listo: se enviará en la próxima sincronización.",
+  "reviewResolved": "Listo: la visita quedó con la versión del servidor.",
+  "reviewDiscarded": "Visita descartada.",
+
+  "correctionTitle": "Corregir visita",
+  "correctionSave": "Guardar y reenviar",
 
   "signatureTitle": "Firma",
   "signatureHint": "Firma con el dedo dentro del recuadro.",

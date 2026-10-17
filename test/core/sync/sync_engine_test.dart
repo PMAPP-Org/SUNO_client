@@ -1,6 +1,8 @@
 // `SyncEngine` — Paso 12, los 4 casos obligatorios de doc 08 §8:
 // idempotencia, backoff (reloj falso), conflicto, cursor expirado. Más el
 // test de parseo estricto (RD-02/RD-03: nunca una excepción no capturada).
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:visitacampo/core/sync/result.dart';
@@ -61,8 +63,8 @@ void main() {
     'created_by': 'user-1',
   };
 
-  group('conflicto (inflight → conflicted → [*], sin merge de 3 vías)', () {
-    test('server_row reemplaza la fila local; el outbox op se borra', () async {
+  group('conflicto de una visita (Paso 23: a revisión, sin merge de 3 vías)', () {
+    test('va a cuarentena con la fila del servidor guardada, sin pisar la del agente', () async {
       final engine = buildEngine();
       await engine.enqueueVisitOp(
         entityId: 'visit-1',
@@ -88,13 +90,76 @@ void main() {
 
       final report = await engine.drainOutbox();
 
-      expect(report.conflicted, 1);
+      expect(report.quarantined, 1);
       expect(report.applied, 0);
-      expect(await db.select(db.outboxOps).get(), isEmpty, reason: 'conflicted → [*]: sin rastro en el outbox');
+      final op = await db.select(db.outboxOps).getSingle();
+      expect(op.state, 'quarantine', reason: 'el agente decide qué versión gana');
+      expect(op.errorCode, 'conflict');
+      final saved = jsonDecode(op.serverRowJson!) as Map<String, dynamic>;
+      expect((saved['data'] as Map)['lat'], 9.9, reason: 'la fila del servidor queda guardada para comparar');
+      expect(await db.select(db.visits).get(), isEmpty, reason: 'nada se aplicó a la BD local');
+    });
 
-      final visit = await (db.select(db.visits)..where((t) => t.id.equals('visit-1'))).getSingle();
-      expect(visit.version, 2, reason: 'la fila local queda con la versión autoritativa del servidor');
-      expect(visit.lat, 9.9, reason: 'server_row reemplaza la fila local entera, no un merge de campos');
+    test('un rechazo guarda el código y solo los pares field/reason de details', () async {
+      final engine = buildEngine();
+      await engine.enqueueVisitOp(entityId: 'visit-1', opType: 'create', payload: visitPayload());
+      transport.pushResponses.add(
+        Result.ok(
+          const PushResponse(
+            schemaVersion: 1,
+            results: [
+              PushOpOutcome(
+                opUuid: 'id-0',
+                status: 'rejected',
+                error: PushOpError(
+                  code: 'validation_error',
+                  message: 'Answers do not match the form template version schema.',
+                  details: {
+                    'errors': [
+                      {'field': 'answers.altura_cm', 'reason': 'out_of_range', 'input': 900},
+                      {'field': 7, 'reason': 'basura'},
+                    ],
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await engine.drainOutbox();
+
+      final op = await db.select(db.outboxOps).getSingle();
+      expect(op.errorCode, 'validation_error');
+      expect(jsonDecode(op.errorFieldsJson!), [
+        {'field': 'answers.altura_cm', 'reason': 'out_of_range'},
+      ], reason: 'sin el valor que falló (RD-12) y sin entradas que no sean field/reason de texto');
+    });
+
+    test('reintentar asigna un op_uuid nuevo (el servidor recuerda el rechazo del anterior)', () async {
+      final engine = buildEngine();
+      await engine.enqueueVisitOp(entityId: 'visit-1', opType: 'create', payload: visitPayload());
+      transport.pushResponses.add(
+        Result.ok(
+          const PushResponse(
+            schemaVersion: 1,
+            results: [
+              PushOpOutcome(
+                opUuid: 'id-0',
+                status: 'rejected',
+                error: PushOpError(code: 'not_found', message: 'Plantilla desconocida.'),
+              ),
+            ],
+          ),
+        ),
+      );
+      await engine.drainOutbox();
+
+      final newUuid = await engine.retryQuarantined('id-0');
+
+      expect(newUuid, isNot('id-0'));
+      final op = await db.select(db.outboxOps).getSingle();
+      expect((op.opUuid, op.state, op.errorCode, op.errorMessage), (newUuid, 'pending', null, null));
     });
   });
 

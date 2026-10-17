@@ -20,6 +20,7 @@ import '../../l10n/l10n.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../capture/capture_screen.dart';
+import '../review/review_screen.dart';
 import 'visit_status_list.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -62,13 +63,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
+  /// Visitas en cuarentena (Paso 23): el aviso "N para revisar".
+  int _toReview = 0;
+
   Future<void> _loadVisits() async {
     final dependencies = ref.read(appDependenciesProvider);
     final authState = dependencies.authController.state;
-    final visits = authState is Authenticated
-        ? await dependencies.visitStatus.recentVisits(orgId: authState.user.orgId)
-        : const <VisitSummary>[];
-    if (mounted) setState(() => _visits = visits);
+    final orgId = authState is Authenticated ? authState.user.orgId : null;
+    final visits = orgId == null
+        ? const <VisitSummary>[]
+        : await dependencies.visitStatus.recentVisits(orgId: orgId);
+    final toReview = orgId == null ? 0 : await dependencies.quarantine.count(orgId: orgId);
+    if (mounted) {
+      setState(() {
+        _visits = visits;
+        _toReview = toReview;
+      });
+    }
+  }
+
+  Future<void> _openReview() async {
+    final authState = ref.read(appDependenciesProvider).authController.state;
+    if (authState is! Authenticated) return;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => ReviewScreen(orgId: authState.user.orgId)));
+    await _loadVisits();
   }
 
   Future<void> _sync() async {
@@ -152,6 +172,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             isLoading: _isSyncing,
             onPressed: _sync,
           ),
+          if (_toReview > 0) ...[
+            const AppGap.sm(),
+            // Badge de cuarentena (Paso 23): que el agente no las pierda de vista.
+            FilledButton.tonalIcon(
+              key: const Key('home_review_button'),
+              icon: const Icon(Icons.report_problem_outlined),
+              label: Text(l10n.homeReviewPending(_toReview)),
+              onPressed: _openReview,
+            ),
+          ],
           const AppGap.lg(),
           Text(l10n.homeRecentVisits, style: Theme.of(context).textTheme.titleMedium),
           if (_visits == null)
