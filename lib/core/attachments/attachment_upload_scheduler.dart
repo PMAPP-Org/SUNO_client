@@ -82,6 +82,11 @@ class AttachmentUploadScheduler {
   }
 
   Future<AttachmentDrainReport> _drain(bool force) async {
+    // Arranca siempre en asíncrono. Si `drainPending` lanzara de forma
+    // síncrona, el `finally` (`_running = null`) correría *antes* de que
+    // `nudge` asignara `_running`, que quedaría apuntando para siempre a un
+    // futuro terminado: ningún disparo posterior volvería a drenar.
+    await Future<void>.value();
     try {
       var report = await service.drainPending(force: force);
       while (_again) {
@@ -93,8 +98,21 @@ class AttachmentUploadScheduler {
       lastReport = report;
       _drained.add(report);
       return report;
+    } on Object catch (error, stack) {
+      // Un drenaje que falla (p. ej. la BD local) no puede convertirse en un
+      // error asíncrono no controlado desde el temporizador: se informa y el
+      // siguiente disparo lo vuelve a intentar. Nada se pierde: la cola está
+      // en la BD, no en memoria.
+      _again = false;
+      _againForced = false;
+      onError?.call(error, stack);
+      return AttachmentDrainReport.empty;
     } finally {
       _running = null;
     }
   }
+
+  /// Dónde se informa un drenaje fallido (por defecto, a ningún sitio; la app
+  /// lo puede enviar a su log).
+  void Function(Object error, StackTrace stack)? onError;
 }

@@ -34,6 +34,23 @@ class _GatedTransport extends FakeAttachmentTransport {
       const AttachmentResult.ok(null);
 }
 
+/// Servicio cuyo primer drenaje falla como fallaría la BD local.
+class _ThrowingOnceService extends AttachmentUploadService {
+  _ThrowingOnceService(AppDatabase db, AttachmentTransport transport)
+    : super(db: db, transport: transport, files: FakeFileSource({'/f/1.jpg': [1, 2, 3]}));
+
+  var _thrown = false;
+
+  @override
+  Future<AttachmentDrainReport> drainPending({bool force = false}) {
+    if (!_thrown) {
+      _thrown = true;
+      throw StateError('disco lleno');
+    }
+    return super.drainPending(force: force);
+  }
+}
+
 class _FakeTimer implements Timer {
   _FakeTimer(this.callback);
   final void Function(Timer) callback;
@@ -132,6 +149,22 @@ void main() {
     scheduler.stop();
     expect(timer!.cancelled, isTrue);
     await sub.cancel();
+  });
+
+  test('un drenaje que lanza no escapa como error no controlado y el siguiente funciona', () async {
+    final errors = <Object>[];
+    final broken = AttachmentUploadScheduler(
+      service: _ThrowingOnceService(db, transport),
+      isAuthenticated: () => true,
+      periodic: (interval, callback) => _FakeTimer(callback),
+    )..onError = (error, _) => errors.add(error);
+    transport.gate.complete();
+    await enqueue('a' * 64, '/f/1.jpg');
+
+    expect((await broken.nudge()).uploaded, 0, reason: 'informe vacío, sin excepción');
+    expect(errors.single, isA<StateError>());
+
+    expect((await broken.nudge()).uploaded, 1, reason: 'el siguiente disparo reintenta');
   });
 
   test('start es idempotente', () async {
