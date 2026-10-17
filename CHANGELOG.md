@@ -4,6 +4,24 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.3.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.2.0...v0.3.0) (2026-10-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* split the Flutter app out of the monorepo into SUNO_client
+
+### Agregado
+
+* **attachments:** background upload queue with retry (Paso 18) ([#3](https://github.com/PMAPP-Org/SUNO_client/issues/3)) ([041338f](https://github.com/PMAPP-Org/SUNO_client/commit/041338f5c68d80de495e67f5bc077a3ce75dddc8))
+* offline visit capture with photos and signature (Paso 22) ([#21](https://github.com/PMAPP-Org/SUNO_client/issues/21)) ([08b767e](https://github.com/PMAPP-Org/SUNO_client/commit/08b767e59c31e67edd156797e62f164d7c3f5a4c))
+* **sync:** review rejected and conflicting visits (Paso 23) ([#4](https://github.com/PMAPP-Org/SUNO_client/issues/4)) ([a9007c0](https://github.com/PMAPP-Org/SUNO_client/commit/a9007c004dc8d02cd3dc966f0056cbc39c5cc30a))
+
+
+### Dependencias y build
+
+* split the Flutter app out of the monorepo into SUNO_client ([3810cac](https://github.com/PMAPP-Org/SUNO_client/commit/3810cac5eaf6a9de20c8531f7c61f562da466f35))
+
 ## [0.2.0](https://github.com/PMAPP-Org/Seguimiento_Proyectos/compare/v0.1.0...v0.2.0) (2026-10-17)
 
 
