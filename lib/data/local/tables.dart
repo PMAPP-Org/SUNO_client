@@ -94,8 +94,12 @@ class AttachmentQueue extends Table {
   TextColumn get sha256 => text()();
   TextColumn get localPath => text()();
 
-  /// `pending` | `uploading` | `uploaded` | `failed` — la máquina de subida
-  /// en segundo plano (Paso 18) define las transiciones exactas.
+  /// `pending` | `uploading` | `uploaded` | `failed`. Transiciones (Paso 18,
+  /// `AttachmentUploadService`): `pending → uploading → uploaded`; un fallo
+  /// transitorio (red, 5xx, URL caducada) vuelve a `pending` con backoff; uno
+  /// permanente (archivo ausente, 4xx de validación) pasa a `failed` hasta
+  /// que el agente lo reintenta. Un `uploading` huérfano (la app murió a
+  /// mitad) vuelve a `pending` al arrancar.
   TextColumn get state => text()();
   DateTimeColumn get createdAt => dateTime()();
 
@@ -104,6 +108,18 @@ class AttachmentQueue extends Table {
   /// JPEG de la cámara; la firma es PNG, y el servidor comprueba los magic
   /// bytes contra este valor.
   TextColumn get mime => text().withDefault(const Constant('image/jpeg'))();
+
+  /// Reintento en segundo plano (Paso 18, `schemaVersion` 5). Se persiste, a
+  /// diferencia del backoff del outbox de datos: una foto que no sube por
+  /// mala cobertura no debe reintentarse en ráfaga cada vez que se abre la app.
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+
+  /// `null`: se puede intentar ya.
+  DateTimeColumn get nextAttemptAt => dateTime().nullable()();
+
+  /// Motivo del último fallo, para mostrárselo al agente. Nunca lleva la URL
+  /// prefirmada ni el cuerpo de la respuesta (RD-12).
+  TextColumn get lastError => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {sha256};

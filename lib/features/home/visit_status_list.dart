@@ -31,6 +31,7 @@ class VisitStatusList extends StatelessWidget {
                 _when(localizations, visit.capturedAt.toLocal()),
                 if (visit.attachments > 0) l10n.homeVisitAttachments(visit.attachments),
                 if (visit.pendingUploads > 0) l10n.homeVisitPendingUploads(visit.pendingUploads),
+                if (visit.failedUploads > 0) l10n.homeVisitFailedUploads(visit.failedUploads),
               ].join(' · '),
             ),
             trailing: _StatusChip(status: visit.status),

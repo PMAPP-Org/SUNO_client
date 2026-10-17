@@ -1,20 +1,10 @@
-// `AttachmentApiClient.upload()` — hallazgo Importante de la revisión final:
-// `upload()` declaraba `bytes` como `List<int>` y lo pasaba directo a Dio.
-// Dio solo envía binario crudo en `data:` cuando el valor es efectivamente un
-// `Uint8List` en tiempo de ejecución; con cualquier otro `List<int>` cae en
-// el transformer por defecto (pensado para JSON) y la subida se corrompe
-// (bytes equivocados, checksum distinto al que el `commit` prefirmado
-// espera). Esto pasaba desapercibido porque `File.readAsBytes()` devuelve un
-// `Uint8List` por accidente de implementación, y el test anterior solo
-// ejercía un `List<int>.filled(...)` sin pasar por un `HttpClientAdapter`
-// real, así que nunca comprobaba qué le llegaba de verdad a Dio.
-//
-// Este test usa `FakeHttpClientAdapter` (mismo fake que
-// `test/data/http/sync_api_client_test.dart` y `test/core/auth/
-// api_client_test.dart`) para inspeccionar `RequestOptions.data` tal como lo
-// vería el adapter real -- si `upload()` volviera a declarar/pasar un
-// `List<int>` que no fuera `Uint8List` en tiempo de ejecución, la aserción de
-// tipo de este test fallaría.
+// `AttachmentApiClient.upload()` (Paso 18): el `PUT` al object storage envía
+// el archivo **en streaming**, sin pasar por el transformer de texto/JSON de
+// Dio. Se comprueba sobre lo que Dio entrega de verdad al adaptador HTTP
+// (`requestStream`), no sobre `RequestOptions.data`: así un cambio que
+// volviera a serializar el cuerpo (y corrompiera el checksum firmado en el
+// presign) haría fallar el test.
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -22,37 +12,72 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:visitacampo/core/attachments/attachment_result.dart';
 import 'package:visitacampo/data/http/attachment_api_client.dart';
 
-import '../../core/auth/fake_http_client_adapter.dart';
+/// Adaptador que lee el cuerpo enviado, como lo haría el socket.
+class _WireAdapter implements HttpClientAdapter {
+  _WireAdapter(this.status);
+  final int status;
+  final List<int> received = [];
+  RequestOptions? options;
+
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+    this.options = options;
+    if (requestStream != null) {
+      await for (final chunk in requestStream) {
+        received.addAll(chunk);
+      }
+    }
+    return ResponseBody.fromString('', status);
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+AttachmentApiClient _client(_WireAdapter adapter) => AttachmentApiClient(
+  dio: Dio(BaseOptions(baseUrl: 'https://api.test')),
+  accessTokenProvider: () => 'unused',
+  uploadDio: Dio()..httpClientAdapter = adapter,
+);
+
+Stream<List<int>> _chunks(List<int> bytes, int size) async* {
+  for (var i = 0; i < bytes.length; i += size) {
+    yield bytes.sublist(i, i + size > bytes.length ? bytes.length : i + size);
+  }
+}
 
 void main() {
-  test('upload() envia los bytes a Dio como Uint8List, no como List<int> generico', () async {
-    final adapter = FakeHttpClientAdapter(
-      (options) => ResponseBody.fromString('', 200),
-    );
-    final uploadDio = Dio()..httpClientAdapter = adapter;
-    final client = AttachmentApiClient(
-      dio: Dio(BaseOptions(baseUrl: 'https://api.test')),
-      accessTokenProvider: () => 'unused',
-      uploadDio: uploadDio,
-    );
+  test('upload() envía el stream byte a byte, con Content-Length y las cabeceras firmadas', () async {
+    final adapter = _WireAdapter(200);
+    // Todos los valores de byte, incluidos los que una serialización como
+    // texto (UTF-8, JSON) alteraría.
+    final bytes = List<int>.generate(256, (i) => i);
 
-    // Deliberadamente una lista que NO es un Uint8List en el sitio de la
-    // llamada (una lista de enteros generada, como haría cualquier código
-    // que no pasara por `File.readAsBytes()`): si `upload()` no reforzara el
-    // tipo en el punto donde llama a Dio, `options.data` llegaría siendo
-    // este mismo `List<int>` y la aserción de abajo fallaría.
-    final bytes = Uint8List.fromList(List<int>.generate(16, (i) => i));
-
-    final result = await client.upload(
+    final result = await _client(adapter).upload(
       uploadUrl: 'https://blob.test/put',
-      headers: const {'x-amz-meta-sha256': 'abc'},
-      bytes: bytes,
+      headers: const {'x-amz-checksum-sha256': 'abc'},
+      body: _chunks(bytes, 7),
+      length: bytes.length,
     );
 
     expect(result.isOk, isTrue);
-    expect(adapter.requests, hasLength(1));
-    final sentData = adapter.requests.single.data;
-    expect(sentData, isA<Uint8List>());
-    expect(sentData, orderedEquals(bytes));
+    expect(adapter.received, orderedEquals(bytes));
+    final headers = adapter.options!.headers;
+    expect(headers[Headers.contentLengthHeader], '256');
+    expect(headers['x-amz-checksum-sha256'], 'abc');
+    expect(headers.containsKey('Authorization'), isFalse, reason: 'la URL firmada no lleva el bearer de la API');
+  });
+
+  test('upload() traduce un 403 del object storage (URL caducada) a error con su código', () async {
+    final result = await _client(_WireAdapter(403)).upload(
+      uploadUrl: 'https://blob.test/put',
+      headers: const {},
+      body: _chunks([1, 2, 3], 2),
+      length: 3,
+    );
+
+    expect(result, isA<AttachmentErr<void>>());
+    final error = (result as AttachmentErr<void>).error;
+    expect(error, isA<AttachmentUnexpectedStatus>().having((e) => e.statusCode, 'statusCode', 403));
   });
 }

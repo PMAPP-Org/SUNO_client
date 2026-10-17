@@ -53,7 +53,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.forTesting(QueryExecutor executor) => AppDatabase._(executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -78,6 +78,13 @@ class AppDatabase extends _$AppDatabase {
       if (from < 4) {
         await migrator.createTable(visitAttachments);
         await migrator.addColumn(attachmentQueue, attachmentQueue.mime);
+      }
+      // v4 → v5 (Paso 18): estado del reintento de cada subida. Aditiva: lo
+      // ya encolado empieza con 0 intentos y se puede intentar de inmediato.
+      if (from < 5) {
+        await migrator.addColumn(attachmentQueue, attachmentQueue.attempts);
+        await migrator.addColumn(attachmentQueue, attachmentQueue.nextAttemptAt);
+        await migrator.addColumn(attachmentQueue, attachmentQueue.lastError);
       }
     },
   );

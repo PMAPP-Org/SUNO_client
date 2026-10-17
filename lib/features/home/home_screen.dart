@@ -1,12 +1,17 @@
-// Pantalla posterior al login. Botón "Nueva visita" (Tarea 6) + "Sincronizar"
-// (Tarea 7 del plan de despliegue del demo): dispara, en orden,
-// `drainOutbox()` (push del outbox de visitas), `drainPending()` (subida de
-// adjuntos pendientes) y `pull()` (trae cambios del servidor) — sin
-// reintento en segundo plano (Paso 18, diferido): todo ocurre en primer
-// plano mientras la pantalla muestra un indicador de progreso.
+// Pantalla posterior al login: "Nueva visita", "Sincronizar" y las visitas
+// recientes con su estado.
+//
+// - "Sincronizar" hace, en orden, `drainOutbox()` (push de datos), un
+//   drenaje de la cola de adjuntos y `pull()`.
+// - Los adjuntos además se suben solos (Paso 18): el planificador arranca con
+//   esta pantalla (la sesión ya existe), vuelve a drenar cuando la app pasa a
+//   primer plano y cada minuto, y la lista se refresca tras cada drenaje.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/attachments/attachment_upload_scheduler.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/providers.dart';
 import '../../core/sync/result.dart';
@@ -30,10 +35,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Visitas recientes con su estado (Paso 22). `null` mientras se cargan.
   List<VisitSummary>? _visits;
 
+  late final AppLifecycleListener _lifecycle;
+  StreamSubscription<void>? _drained;
+
+  /// Se guarda aquí porque `ref` ya no se puede usar dentro de `dispose()`:
+  /// sin esta referencia el temporizador periódico sobreviviría a la pantalla
+  /// (y a cerrar sesión).
+  late final AttachmentUploadScheduler _scheduler;
+
   @override
   void initState() {
     super.initState();
     _loadVisits();
+    _scheduler = ref.read(appDependenciesProvider).uploadScheduler;
+    _drained = _scheduler.drained.listen((_) => _loadVisits());
+    // Al volver de segundo plano: puede haber red de nuevo.
+    _lifecycle = AppLifecycleListener(onResume: () => unawaited(_scheduler.nudge()));
+    unawaited(_scheduler.start());
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    unawaited(_drained?.cancel());
+    _scheduler.stop();
+    super.dispose();
   }
 
   Future<void> _loadVisits() async {
@@ -51,7 +77,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     try {
       final drainReport = await dependencies.syncEngine.drainOutbox();
-      final attachmentReport = await dependencies.attachmentUploadService.drainPending();
+      // Por el planificador, no directo al servicio: si ya hay un drenaje en
+      // curso (periódico, tras capturar) se espera a él en vez de correr dos.
+      // `force`: el agente lo pidió, se intenta ya aunque haya backoff.
+      final attachmentReport = await dependencies.uploadScheduler.nudge(force: true);
+      // Lo que queda sin subir tras el intento, no solo lo que falló en esta
+      // pasada: una foto en espera de reintento también es "no subida aún".
+      final notUploaded = await dependencies.attachmentUploadService.outstanding();
       final pullResult = await dependencies.syncEngine.pull();
 
       if (!mounted) return;
@@ -65,7 +97,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final hasIssues =
           drainReport.quarantined > 0 ||
           drainReport.deferred > 0 ||
-          attachmentReport.failed > 0 ||
+          notUploaded > 0 ||
           !pullResult.isOk;
 
       final l10n = context.l10n;
@@ -76,7 +108,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 drainReport.quarantined,
                 drainReport.deferred,
                 attachmentReport.uploaded,
-                attachmentReport.failed,
+                notUploaded,
               ),
               if (!pullResult.isOk) l10n.syncPullFailed,
             ].join(' ')

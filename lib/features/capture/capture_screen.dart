@@ -9,6 +9,7 @@
 //   precisión) y fotos adicionales.
 // - Guardar es local e inmediato (`VisitCapture.save`): la visita aparece en
 //   la pantalla de inicio sin esperar a la red.
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -197,6 +198,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+    // Las fotos empiezan a subir ya, sin esperar al siguiente ciclo (Paso 18).
+    // Sin `await`: la subida no retiene la pantalla ni el guardado.
+    unawaited(dependencies.uploadScheduler.nudge());
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.captureSaved)));
     Navigator.of(context).pop();

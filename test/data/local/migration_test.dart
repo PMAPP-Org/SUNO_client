@@ -225,4 +225,58 @@ void main() {
         );
     expect(await db.select(db.visitAttachments).get(), hasLength(1));
   });
+
+  test('v4 → v5: las subidas encoladas conservan su estado y empiezan sin backoff', () async {
+    final raw = sqlite3.sqlite3.openInMemory();
+    addTearDown(raw.close);
+
+    // Esquema v4 (Paso 22) a mano: solo las tablas que esta migración toca o
+    // necesita para abrir; `createAll` no se ejecuta en un upgrade.
+    raw.execute('''
+      CREATE TABLE visits (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, version INTEGER NOT NULL,
+        change_seq INTEGER NULL, deleted_at INTEGER NULL, template_version_id TEXT NOT NULL,
+        answers_json TEXT NOT NULL, lat REAL NULL, lon REAL NULL, accuracy_m REAL NULL,
+        altitude_m REAL NULL, captured_at INTEGER NOT NULL, device_id TEXT NOT NULL,
+        created_by TEXT NOT NULL
+      );
+      CREATE TABLE outbox_ops (
+        op_uuid TEXT NOT NULL PRIMARY KEY, entity TEXT NOT NULL, entity_id TEXT NOT NULL,
+        op_type TEXT NOT NULL, base_version INTEGER NULL, payload_json TEXT NOT NULL,
+        state TEXT NOT NULL, created_at INTEGER NOT NULL, error_message TEXT NULL
+      );
+      CREATE TABLE attachment_queue (
+        sha256 TEXT NOT NULL PRIMARY KEY, local_path TEXT NOT NULL, state TEXT NOT NULL,
+        created_at INTEGER NOT NULL, mime TEXT NOT NULL DEFAULT 'image/jpeg'
+      );
+      CREATE TABLE sync_cursor (id INTEGER NOT NULL PRIMARY KEY, cursor TEXT NOT NULL, updated_at INTEGER NOT NULL);
+      CREATE TABLE form_template_versions (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, template_id TEXT NOT NULL,
+        version_number INTEGER NOT NULL, name TEXT NULL, definition_json TEXT NOT NULL,
+        published_at INTEGER NULL, deleted_at INTEGER NULL, version INTEGER NOT NULL,
+        change_seq INTEGER NULL
+      );
+      CREATE TABLE visit_attachments (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, visit_id TEXT NOT NULL,
+        sha256 TEXT NOT NULL, role TEXT NOT NULL, caption TEXT NULL, captured_at INTEGER NOT NULL,
+        position INTEGER NOT NULL, version INTEGER NULL, change_seq INTEGER NULL
+      );
+    ''');
+    raw.execute('PRAGMA user_version = 4;');
+    raw.execute(
+      "INSERT INTO attachment_queue (sha256, local_path, state, created_at, mime) VALUES "
+      "('${'a' * 64}', '/firmas/1.png', 'failed', 1767225600, 'image/png'), "
+      "('${'b' * 64}', '/fotos/2.jpg', 'pending', 1767225600, 'image/jpeg');",
+    );
+
+    final db = AppDatabase.forTesting(NativeDatabase.opened(raw));
+    addTearDown(db.close);
+
+    final rows = {for (final r in await db.select(db.attachmentQueue).get()) r.sha256: r};
+    expect((rows['a' * 64]!.state, rows['a' * 64]!.mime), ('failed', 'image/png'), reason: 'los datos de v4 sobreviven');
+    expect(rows['b' * 64]!.state, 'pending');
+    for (final r in rows.values) {
+      expect((r.attempts, r.nextAttemptAt, r.lastError), (0, null, null), reason: 'sin backoff heredado');
+    }
+  });
 }
