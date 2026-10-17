@@ -11,7 +11,11 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
+import 'package:visitacampo/core/sync/quarantine_service.dart';
+import 'package:visitacampo/core/sync/sync_engine.dart';
 import 'package:visitacampo/data/local/database.dart';
+
+import '../../core/sync/fake_sync_transport.dart';
 
 void main() {
   test('v1 → v2: los datos existentes sobreviven, sync_cursor queda disponible', () async {
@@ -279,4 +283,66 @@ void main() {
       expect((r.attempts, r.nextAttemptAt, r.lastError), (0, null, null), reason: 'sin backoff heredado');
     }
   });
+
+  test('v5 → v6: una op ya en cuarentena conserva su motivo y queda revisable', () async {
+    final raw = sqlite3.sqlite3.openInMemory();
+    addTearDown(raw.close);
+
+    // Esquema v5 (Paso 18): v4 + reintento de la cola de subida.
+    raw.execute('''
+      CREATE TABLE visits (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, version INTEGER NOT NULL,
+        change_seq INTEGER NULL, deleted_at INTEGER NULL, template_version_id TEXT NOT NULL,
+        answers_json TEXT NOT NULL, lat REAL NULL, lon REAL NULL, accuracy_m REAL NULL,
+        altitude_m REAL NULL, captured_at INTEGER NOT NULL, device_id TEXT NOT NULL,
+        created_by TEXT NOT NULL
+      );
+      CREATE TABLE outbox_ops (
+        op_uuid TEXT NOT NULL PRIMARY KEY, entity TEXT NOT NULL, entity_id TEXT NOT NULL,
+        op_type TEXT NOT NULL, base_version INTEGER NULL, payload_json TEXT NOT NULL,
+        state TEXT NOT NULL, created_at INTEGER NOT NULL, error_message TEXT NULL
+      );
+      CREATE TABLE attachment_queue (
+        sha256 TEXT NOT NULL PRIMARY KEY, local_path TEXT NOT NULL, state TEXT NOT NULL,
+        created_at INTEGER NOT NULL, mime TEXT NOT NULL DEFAULT 'image/jpeg',
+        attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at INTEGER NULL, last_error TEXT NULL
+      );
+      CREATE TABLE sync_cursor (id INTEGER NOT NULL PRIMARY KEY, cursor TEXT NOT NULL, updated_at INTEGER NOT NULL);
+      CREATE TABLE form_template_versions (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, template_id TEXT NOT NULL,
+        version_number INTEGER NOT NULL, name TEXT NULL, definition_json TEXT NOT NULL,
+        published_at INTEGER NULL, deleted_at INTEGER NULL, version INTEGER NOT NULL,
+        change_seq INTEGER NULL
+      );
+      CREATE TABLE visit_attachments (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, visit_id TEXT NOT NULL,
+        sha256 TEXT NOT NULL, role TEXT NOT NULL, caption TEXT NULL, captured_at INTEGER NOT NULL,
+        position INTEGER NOT NULL, version INTEGER NULL, change_seq INTEGER NULL
+      );
+    ''');
+    raw.execute('PRAGMA user_version = 5;');
+    raw.execute(
+      "INSERT INTO visits (id, org_id, version, template_version_id, answers_json, captured_at, device_id, created_by) "
+      "VALUES ('visit-1', 'org-1', 1, 'tv-1', '{}', 1767225600, 'device-1', 'user-1');",
+    );
+    raw.execute(
+      "INSERT INTO outbox_ops (op_uuid, entity, entity_id, op_type, payload_json, state, created_at, error_message) "
+      "VALUES ('op-1', 'visit', 'visit-1', 'create', '{\"id\": \"visit-1\"}', 'quarantine', 1767225600, 'Plantilla desconocida.');",
+    );
+
+    final db = AppDatabase.forTesting(NativeDatabase.opened(raw));
+    addTearDown(db.close);
+
+    final op = await db.select(db.outboxOps).getSingle();
+    expect((op.state, op.errorMessage), ('quarantine', 'Plantilla desconocida.'));
+    expect((op.errorCode, op.errorFieldsJson, op.serverRowJson), (null, null, null), reason: 'sin detalle previo');
+
+    // Y la revisión la entiende como un rechazo sin campos que corregir.
+    final item = (await QuarantineService(
+      db: db,
+      engine: SyncEngine(db: db, transport: FakeSyncTransport(), deviceId: 'device-1'),
+    ).list(orgId: 'org-1')).single;
+    expect((item.kind, item.canCorrect, item.message), (QuarantineKind.rejected, false, 'Plantilla desconocida.'));
+  });
 }
+

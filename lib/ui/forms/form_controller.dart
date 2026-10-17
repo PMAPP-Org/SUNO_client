@@ -10,11 +10,20 @@ import '../../core/forms/form_definition.dart';
 import '../../core/forms/visibility.dart';
 
 class FormController extends ChangeNotifier {
-  FormController(this.definition, {Map<String, Object?> initialAnswers = const {}})
-    : _answers = Map.of(initialAnswers);
+  FormController(
+    this.definition, {
+    Map<String, Object?> initialAnswers = const {},
+    Map<String, String> serverErrors = const {},
+  }) : _answers = Map.of(initialAnswers),
+       _serverErrors = Map.of(serverErrors);
 
   final FormDefinition definition;
   final Map<String, Object?> _answers;
+
+  /// Errores que señaló el **servidor** al rechazar la visita (Paso 23), por
+  /// clave de campo. Se muestran desde el principio —son la razón de abrir el
+  /// formulario— y el de un campo desaparece en cuanto el agente lo cambia.
+  final Map<String, String> _serverErrors;
 
   /// Los errores se muestran tras el primer intento de guardar, no mientras
   /// el agente todavía está escribiendo.
@@ -35,6 +44,8 @@ class FormController extends ChangeNotifier {
 
   /// El `reason` del primer error de [key], si hay que mostrarlo.
   String? errorFor(String key) {
+    final fromServer = _serverErrors[key];
+    if (fromServer != null) return fromServer;
     if (!_showErrors) return null;
     for (final violation in violations) {
       if (violation.fieldKey == key) return violation.reason;
@@ -45,18 +56,25 @@ class FormController extends ChangeNotifier {
   /// Fija la respuesta de [key]. Un valor en blanco **quita** la clave: así
   /// `answers` no lleva `""` ni `[]` que el servidor tendría que interpretar.
   void setAnswer(String key, Object? value) {
+    final hadServerError = _serverErrors.remove(key) != null;
     if (isBlank(value)) {
-      if (_answers.remove(key) == null) return;
+      if (_answers.remove(key) == null && !hadServerError) return;
     } else {
       _answers[key] = value;
     }
     notifyListeners();
   }
 
-  /// Intento de guardar: muestra los errores y devuelve si no hay ninguno.
+  /// Intento de guardar: muestra los errores y devuelve si no hay ninguno
+  /// (ni locales ni pendientes del servidor).
   bool validate() {
     _showErrors = true;
+    // Un error del servidor sobre un campo que no se ve (oculto, o una clave
+    // que la plantilla no declara) no lo puede arreglar el agente, y su
+    // respuesta tampoco viajará: al guardar solo van los campos visibles.
+    final visible = {for (final field in visibleFields) field.key};
+    _serverErrors.removeWhere((key, _) => !visible.contains(key));
     notifyListeners();
-    return violations.isEmpty;
+    return violations.isEmpty && _serverErrors.isEmpty;
   }
 }

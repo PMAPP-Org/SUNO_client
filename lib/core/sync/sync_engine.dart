@@ -198,10 +198,28 @@ class SyncEngine {
           continue;
         }
 
-        // `applied`/`conflict` son terminales para esta op: `conflicted →
-        // [*]` del diagrama (doc 08 §4.3) — la fila local se reemplaza por
-        // `server_row` y el OutboxOp se borra, sin "merge de 3 vías"
-        // (ADR-003, decisión explícita).
+        // Conflicto de una **visita** (Paso 23): a cuarentena con la fila del
+        // servidor guardada, sin aplicarla. Sigue sin haber merge de 3 vías
+        // (ADR-003), pero quien elige qué versión gana es el agente: aplicar
+        // `server_row` aquí borraría su trabajo sin que lo sepa (N-05 del doc
+        // 08 §7.2). Lo resuelve `QuarantineService`.
+        if (outcome.status == 'conflict' && row.entity == 'visit') {
+          final serverRow = outcome.serverRow;
+          await (db.update(db.outboxOps)..where((t) => t.opUuid.equals(row.opUuid))).write(
+            OutboxOpsCompanion(
+              state: const Value(_stateQuarantine),
+              errorCode: const Value('conflict'),
+              errorMessage: Value(outcome.error?.message ?? 'La visita cambió en el servidor.'),
+              errorFieldsJson: const Value(null),
+              serverRowJson: Value(serverRow == null ? null : jsonEncode(serverRow)),
+            ),
+          );
+          quarantined++;
+          continue;
+        }
+
+        // `applied` (y el conflicto de un adjunto, que el agente no edita) son
+        // terminales: la fila local toma `server_row` si viene y la op se borra.
         if (outcome.status == 'applied' || outcome.status == 'conflict') {
           if (outcome.serverRow != null && !await _applyServerRecord(outcome.serverRow!)) {
             // `server_row` que no se puede interpretar: no se aplica a medias
@@ -225,6 +243,7 @@ class SyncEngine {
           // `rejected → quarantine` inmediato (tarea 5): nunca se descarta
           // en silencio.
           final reason = outcome.error?.message ?? 'El servidor rechazó la operación.';
+          final fields = fieldViolations(outcome.error?.details);
           await (db.update(db.outboxOps)..where(
                 (t) => t.opUuid.equals(row.opUuid),
               ))
@@ -232,6 +251,10 @@ class SyncEngine {
                 OutboxOpsCompanion(
                   state: const Value(_stateQuarantine),
                   errorMessage: Value(reason),
+                  errorCode: Value(outcome.error?.code),
+                  errorFieldsJson: Value(
+                    fields.isEmpty ? null : jsonEncode([for (final f in fields) {'field': f.field, 'reason': f.reason}]),
+                  ),
                 ),
               );
           quarantined++;
@@ -291,6 +314,13 @@ class SyncEngine {
   /// `data` de la visita, y los tests usaban esa misma forma equivocada: un
   /// `conflict` real del servidor hacía saltar un `TypeError` dentro de la
   /// transacción y la op quedaba atascada en `inflight`.)
+  /// Aplica un `EntityRecord` del servidor a la BD local (para
+  /// `QuarantineService`, cuando el agente elige la versión del servidor).
+  Future<bool> applyServerRecord(Map<String, dynamic> record) => _applyServerRecord(record);
+
+  /// Un `op_uuid` nuevo (UUIDv7), con el mismo generador que el resto del outbox.
+  String newOpUuid() => _generateId();
+
   Future<bool> _applyServerRecord(Map<String, dynamic> record) async {
     final data = record['data'];
     if (data is! Map<String, dynamic>) return false;
@@ -430,11 +460,27 @@ class SyncEngine {
     );
   }
 
-  /// `quarantine → pending`: reintento explícito del usuario (Paso 23).
-  Future<void> retryQuarantined(String opUuid) {
-    return (db.update(db.outboxOps)..where((t) => t.opUuid.equals(opUuid))).write(
-      const OutboxOpsCompanion(state: Value(_statePending), errorMessage: Value(null)),
+  /// `quarantine → pending`: reintento explícito del usuario (Paso 23), con
+  /// **un `op_uuid` nuevo**. El servidor guarda en `sync_op_log` el resultado
+  /// de cada operación, rechazos incluidos, y responde a un reenvío del mismo
+  /// `op_uuid` con ese resultado guardado (idempotencia): reintentar con el
+  /// mismo identificador devolvía el mismo rechazo para siempre.
+  ///
+  /// Se conserva el `createdAt` (y por tanto el orden) de la op original.
+  Future<String> retryQuarantined(String opUuid) async {
+    final newUuid = _generateId();
+    await (db.update(db.outboxOps)..where((t) => t.opUuid.equals(opUuid))).write(
+      OutboxOpsCompanion(
+        opUuid: Value(newUuid),
+        state: const Value(_statePending),
+        errorMessage: const Value(null),
+        errorCode: const Value(null),
+        errorFieldsJson: const Value(null),
+        serverRowJson: const Value(null),
+      ),
     );
+    _backoffState.remove(opUuid);
+    return newUuid;
   }
 
   /// `quarantine → [*]`: descarte explícito del usuario (Paso 23). Borra el

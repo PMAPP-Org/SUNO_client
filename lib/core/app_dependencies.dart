@@ -26,6 +26,7 @@ import 'capture/visit_capture.dart';
 import 'constants.dart';
 import 'device/device_id_store.dart';
 import 'location/location_source.dart';
+import 'sync/quarantine_service.dart';
 import 'sync/sync_engine.dart';
 import '../data/capture/file_signature_store.dart';
 import '../data/capture/image_picker_photo_capture.dart';
@@ -95,6 +96,9 @@ class AppDependencies {
 
   /// Estado de sincronización de las visitas, para la pantalla de inicio.
   VisitStatusRepository get visitStatus => VisitStatusRepository(database);
+
+  /// Revisión de la cuarentena (Paso 23), sobre el mismo `SyncEngine`.
+  QuarantineService get quarantine => QuarantineService(db: database, engine: syncEngine);
 
   /// Caché de plantillas (Paso 21): **la misma** instancia que alimenta el
   /// pull, para que las pantallas vean su invalidación.

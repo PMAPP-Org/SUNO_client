@@ -53,7 +53,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.forTesting(QueryExecutor executor) => AppDatabase._(executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -85,6 +85,13 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(attachmentQueue, attachmentQueue.attempts);
         await migrator.addColumn(attachmentQueue, attachmentQueue.nextAttemptAt);
         await migrator.addColumn(attachmentQueue, attachmentQueue.lastError);
+      }
+      // v5 → v6 (Paso 23): datos para revisar la cuarentena. Aditiva: una op
+      // ya en cuarentena conserva su motivo y simplemente no tiene detalle.
+      if (from < 6) {
+        await migrator.addColumn(outboxOps, outboxOps.errorCode);
+        await migrator.addColumn(outboxOps, outboxOps.errorFieldsJson);
+        await migrator.addColumn(outboxOps, outboxOps.serverRowJson);
       }
     },
   );

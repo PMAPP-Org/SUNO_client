@@ -11,6 +11,7 @@
 // fallo con su conteo real, no el mensaje de éxito de siempre.
 
 import 'package:dio/dio.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -162,6 +163,69 @@ void main() {
       expect(attachmentTransport.presignedShas, hasLength(2), reason: 'el botón reintentó aunque había backoff');
     },
   );
+
+  testWidgets('con visitas en cuarentena aparece el aviso y lleva a la revisión (Paso 23)', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    await db
+        .into(db.visits)
+        .insert(
+          VisitsCompanion.insert(
+            id: 'visit-1',
+            orgId: 'org-1',
+            version: 1,
+            templateVersionId: 'tv-1',
+            answersJson: '{}',
+            capturedAt: DateTime.utc(2026, 10, 17),
+            deviceId: 'device-1',
+            createdBy: 'user-1',
+          ),
+        );
+    await db
+        .into(db.outboxOps)
+        .insert(
+          OutboxOpsCompanion.insert(
+            opUuid: 'op-1',
+            entity: 'visit',
+            entityId: 'visit-1',
+            opType: 'create',
+            payloadJson: '{"id": "visit-1"}',
+            state: 'quarantine',
+            createdAt: DateTime.utc(2026, 10, 17),
+            errorMessage: const Value('Plantilla desconocida.'),
+          ),
+        );
+    final authTransport = FakeAuthTransport()
+      ..loginResponses.add(AuthResult.ok(LoginResponse(tokens: _tokenPair(), user: _user)));
+    final authController = AuthController(transport: authTransport, tokenStore: FakeTokenStore(), deviceId: 'device-1');
+    await authController.login(
+      username: 'agente1',
+      password: 'secret',
+      deviceInfo: const DeviceInfo(deviceId: 'device-1', platform: 'android', appVersion: '1.0.0'),
+    );
+    final dependencies = AppDependencies(
+      database: db,
+      dio: Dio(),
+      authController: authController,
+      deviceId: 'device-1',
+      syncEngine: SyncEngine(db: db, transport: FakeSyncTransport(), deviceId: 'device-1'),
+      attachmentUploadService: AttachmentUploadService(db: db, transport: FakeAttachmentTransport()),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDependenciesProvider.overrideWithValue(dependencies)],
+        child: testApp(const HomeScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 visita para revisar'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('home_review_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Para revisar'), findsOneWidget);
+    expect(find.text('Motivo: Plantilla desconocida.'), findsOneWidget);
+  });
 }
 
 TokenPair _tokenPair() => TokenPair(
