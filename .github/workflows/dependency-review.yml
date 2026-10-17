@@ -27,6 +27,16 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: moderate
-          deny-licenses: >-
-            GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later,
-            AGPL-3.0-only, AGPL-3.0-or-later, SSPL-1.0
+          # Las licencias de pub llegan en minúsculas y la acción no las
+          # reconoce como SPDX (ni casaría un GPL en minúsculas con la lista
+          # de prohibidas): la política de licencias la aplica el paso
+          # siguiente, sin distinguir mayúsculas.
+          license-check: false
+
+      - name: licencias de las dependencias nuevas
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 tool/check_new_licenses.py "$REPO" "$BASE_SHA" "$HEAD_SHA"
