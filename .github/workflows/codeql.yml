@@ -1,14 +1,11 @@
 name: CodeQL
 
-# SAST semántico (flujo de datos de fuente a sumidero) sobre el backend y los
-# propios workflows. Complementa a Bandit, que es por patrones: CodeQL sigue
-# un valor de la request hasta un `cursor.execute`, un `open()` o una
-# redirección, que es como se encuentran inyecciones (OWASP A05:2025),
-# path traversal y SSRF (A01) reales. Los resultados van a Security → Code
-# scanning. ISO 27001 A.8.28, A.8.29.
+# SAST semántico sobre los workflows de GitHub Actions (inyección de
+# expresiones, permisos, artefactos no confiables). Los resultados van a
+# Security → Code scanning. ISO 27001 A.8.28, A.8.29.
 #
-# Dart no está soportado por CodeQL; la app la cubren `dart analyze`, el
-# lint RD-01 y los tests.
+# Dart no está soportado por CodeQL; el código de la app lo cubren
+# `dart analyze` (estricto), los lints de tool/ y los tests.
 
 on:
   push:
@@ -35,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [python, actions]
+        language: [actions]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

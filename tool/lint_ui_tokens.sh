@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
-# Gate del sistema de diseño de la app (mobile.yml, ci_local.sh).
+# Gate del sistema de diseño de la app (mobile.yml).
 #
 # Las pantallas no escriben estilos ni textos sueltos: colores, tipografía,
-# espaciados y textos salen del tema (`app/lib/ui/theme/`) y de los .arb
-# (`app/lib/l10n/`). Sin este gate, el sistema de diseño se erosiona pantalla
+# espaciados y textos salen del tema (`lib/ui/theme/`) y de los .arb
+# (`lib/l10n/`). Sin este gate, el sistema de diseño se erosiona pantalla
 # a pantalla hasta que cambiar un color o un texto exige buscarlo por todo el
 # código. Mismo enfoque que el lint RD-01 (`lint_no_tls_bypass.sh`).
 #
 # Reglas:
 #   1. Colores literales (`Color(0x…)`, `Colors.…`) solo en
-#      app/lib/ui/theme/app_colors.dart.
-#   2. En app/lib/features/ (pantallas):
+#      lib/ui/theme/app_colors.dart.
+#   2. En lib/features/ (pantallas):
 #      - sin `TextStyle(` ni `fontSize:` → `Theme.of(context).textTheme`;
 #      - sin números en `EdgeInsets…(…)` ni en `SizedBox(height|width: …)`
 #        → `AppSpacing` / `AppGap` / `AppSizes`;
 #      - sin textos literales en `Text('…')`, `labelText:`, `hintText:`,
-#        `tooltip:` → `context.l10n.…` (app/lib/l10n/app_es.arb).
+#        `tooltip:` → `context.l10n.…` (lib/l10n/app_es.arb).
 #
-# Uso: bash infra/scripts/lint_ui_tokens.sh   (sale con 1 si hay violaciones)
+# Uso: bash tool/lint_ui_tokens.sh   (sale con 1 si hay violaciones)
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
-LIB=app/lib
-FEATURES=app/lib/features
-COLORS_FILE=app/lib/ui/theme/app_colors.dart
+LIB=lib
+FEATURES=lib/features
+COLORS_FILE=lib/ui/theme/app_colors.dart
 
 violations=0
 
@@ -55,7 +55,7 @@ report "Estilo de texto suelto en una pantalla (usa Theme.of(context).textTheme)
 report "Medida numérica en una pantalla (usa AppSpacing / AppGap / AppSizes)" \
 	"$(scan 'EdgeInsets\.[a-zA-Z]+\([^)]*[0-9]|SizedBox(\.square)?\((height|width|dimension): *[0-9]' "$FEATURES")"
 
-report "Texto literal en una pantalla (añádelo a app/lib/l10n/app_es.arb y usa context.l10n)" \
+report "Texto literal en una pantalla (añádelo a lib/l10n/app_es.arb y usa context.l10n)" \
 	"$(scan "Text\(\s*['\"]|(labelText|hintText|helperText|tooltip): *['\"]" "$FEATURES")"
 
 dart_files="$(find "$LIB" -name '*.dart' | wc -l)"

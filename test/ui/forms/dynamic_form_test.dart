@@ -15,7 +15,7 @@ import '../../support/test_app.dart';
 /// La plantilla `catalogo_completo` del fixture compartido con el servidor.
 FormDefinition catalogo() {
   final fixture =
-      jsonDecode(File('../server/openapi/fixtures/forms_parity.json').readAsStringSync()) as Map<String, dynamic>;
+      jsonDecode(File('contract/fixtures/forms_parity.json').readAsStringSync()) as Map<String, dynamic>;
   final raw = (fixture['valid_definitions'] as List).cast<Map<String, dynamic>>().firstWhere(
     (t) => t['name'] == 'catalogo_completo',
   );

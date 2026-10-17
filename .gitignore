@@ -1,85 +1,67 @@
-# === VisitaCampo — .gitignore raíz del monorepo ===
-# Cubre app/ (Flutter), server/ (Django), infra/ (Docker) y artefactos comunes.
-# Decisión (Paso 0): los archivos generados por build_runner (*.g.dart, *.freezed.dart, etc.)
-# NO se versionan por defecto — se regeneran con `flutter pub run build_runner build`.
-# Si algún paso posterior necesita versionar un .g.dart puntual, se debe excepcionar
-# explícitamente aquí con `!ruta/al/archivo.g.dart` y documentar el motivo.
-
-# --- Flutter / Dart (app/) ---
-app/build/
-app/.dart_tool/
-app/.flutter-plugins
-app/.flutter-plugins-dependencies
-app/.packages
-app/.pub-cache/
-app/.pub/
-app/*.iml
+# === SUNO_client — .gitignore ===
+# Decisión (Paso 0): el código que genera build_runner (*.g.dart, *.freezed.dart)
+# y gen-l10n (lib/l10n/app_localizations*.dart) NO se versiona: se regenera con
+# `dart run build_runner build` y `flutter gen-l10n` (también en CI). Si alguna
+# vez hace falta versionar uno, se excepciona aquí con `!ruta` y su motivo.
 **/*.g.dart
 **/*.freezed.dart
 **/*.mocks.dart
-app/android/local.properties
-app/android/**/gradle-wrapper.jar
-app/android/.gradle/
-app/ios/Pods/
-app/ios/.symlinks/
-app/ios/Flutter/Flutter.framework
-app/ios/Flutter/Flutter.podspec
+lib/l10n/app_localizations*.dart
 
-# --- Python / Django (server/) ---
-server/**/__pycache__/
-**/__pycache__/
-*.pyc
-*.pyo
-.venv/
-venv/
-server/staticfiles/
-server/media/
-# Raíz del adaptador `LocalFsBlobStore` (ADR-007, Paso 17): adjuntos de
-# desarrollo depositados en el filesystem. Nunca se versionan.
-server/.blobstore/
-*.sqlite3
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-*.egg-info/
+# --- Flutter / Dart / Pub ---
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+/coverage/
+app.*.symbols
+app.*.map.json
 
-# --- Secretos ---
+# --- Android ---
+/android/app/debug
+/android/app/profile
+/android/app/release
+android/local.properties
+android/**/gradle-wrapper.jar
+android/.gradle/
+
+# --- iOS ---
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# --- Secretos: la llave de subida de Android nunca entra al repo ---
+android/key.properties
+*.jks
+*.keystore
 .env
 .env.*
-!.env.example
 *.pem
 *.key
-*.crt
 secrets/
 
-# --- Docker / infra ---
-infra/**/volumes/
-infra/**/data/
-*.log
+# --- Herramientas de CI en local ---
+.venv/
+venv/
+__pycache__/
+*.pyc
 
 # --- Editores / SO ---
-.vscode/
+*.class
+*.log
+*.swp
+*.iml
+*.ipr
+*.iws
 .idea/
+.vscode/
+.history
 .DS_Store
 Thumbs.db
-
-# --- Artefactos de calidad / DAST (CI y local) ---
-.coverage
-coverage*.xml
-app/coverage/
-.schemathesis/
-reports/
-zap/
-
-# Simulacro de backup en CI (.github/workflows/backup.yml)
-.ci-backups/
-age-identity.txt
-wrong-identity.txt
-# CI del monitoreo (.github/workflows/monitoring.yml)
-.ci-ca-bundle.crt
-rendered/
-
-# Textos generados por flutter gen-l10n desde app/lib/l10n/*.arb (se regeneran
-# en cada `flutter pub get`, igual que los *.g.dart con build_runner).
-app/lib/l10n/app_localizations*.dart
-.deploy-state
+migrate_working_dir/

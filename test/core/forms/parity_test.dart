@@ -1,6 +1,7 @@
 // Paridad cliente ↔ servidor del DSL de formularios (Paso 21): los mismos
-// casos que `server/visitacampo/forms/tests/test_parity.py`, leídos del mismo
-// archivo (`server/openapi/fixtures/forms_parity.json`).
+// casos que `server/visitacampo/forms/tests/test_parity.py` de SUNO_server,
+// leídos de la copia fijada del contrato (`contract/fixtures/forms_parity.json`,
+// ver `contract/README.md`).
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,7 +10,7 @@ import 'package:visitacampo/core/forms/answers.dart';
 import 'package:visitacampo/core/forms/form_definition.dart';
 
 Map<String, dynamic> _fixture() {
-  final file = File('../server/openapi/fixtures/forms_parity.json');
+  final file = File('contract/fixtures/forms_parity.json');
   return jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
 }
 

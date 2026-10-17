@@ -57,15 +57,11 @@
       "extra-files": [
         {
           "type": "generic",
-          "path": "app/pubspec.yaml"
+          "path": "pubspec.yaml"
         },
         {
           "type": "generic",
-          "path": "app/lib/core/constants.dart"
-        },
-        {
-          "type": "generic",
-          "path": "server/pyproject.toml"
+          "path": "lib/core/constants.dart"
         }
       ],
       "changelog-path": "CHANGELOG.md"

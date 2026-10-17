@@ -4,7 +4,7 @@ Excluye el código generado (`*.g.dart`, `*.freezed.dart` de build_runner y
 `app_localizations*.dart` de gen-l10n): no lo escribe nadie a mano y contaría a
 favor o en contra sin significar nada.
 
-Uso: python infra/scripts/check_lcov.py app/coverage/lcov.info --min 80
+Uso: python tool/check_lcov.py coverage/lcov.info --min 75
 """
 
 from __future__ import annotations

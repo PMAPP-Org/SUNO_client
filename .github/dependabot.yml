@@ -10,26 +10,10 @@
 # además las de versión, agrupadas para que el ruido sea un PR por
 # ecosistema y semana, no uno por paquete.
 #
-# server/: Dependabot sube la versión en requirements*.txt pero NO regenera
-# requirements*.lock (uv). Quien revise el PR regenera el lock con el comando
-# de su cabecera; `infra/scripts/check_lockfiles.py` deja el PR en rojo
-# mientras tanto.
 version: 2
 updates:
-  - package-ecosystem: pip
-    directory: /server
-    schedule:
-      interval: weekly
-      day: monday
-    cooldown:
-      default-days: 7
-    groups:
-      python:
-        patterns: ["*"]
-    open-pull-requests-limit: 5
-
   - package-ecosystem: pub
-    directory: /app
+    directory: /
     schedule:
       interval: weekly
       day: monday
@@ -40,28 +24,11 @@ updates:
         patterns: ["*"]
     open-pull-requests-limit: 5
 
-  # Digest de la imagen base de server/Dockerfile.
-  - package-ecosystem: docker
-    directory: /server
-    schedule:
-      interval: weekly
-      day: monday
-    cooldown:
-      default-days: 7
-
-  # Digest de la imagen base del servicio backup (infra/backup/Dockerfile);
-  # debe seguir al de `db` (misma versión mayor de PostgreSQL).
-  - package-ecosystem: docker
-    directory: /infra/backup
-    schedule:
-      interval: weekly
-      day: monday
-    cooldown:
-      default-days: 7
-
-  # Imágenes de infra/docker-compose*.yml (postgres, caddy, monitoreo).
-  - package-ecosystem: docker-compose
-    directory: /infra
+  # Semgrep (tool/requirements-sast.txt). Dependabot sube la versión en el
+  # .txt pero NO regenera el .lock: quien revise el PR lo regenera con el
+  # comando de su cabecera (el job de Semgrep falla hasta entonces).
+  - package-ecosystem: pip
+    directory: /tool
     schedule:
       interval: weekly
       day: monday

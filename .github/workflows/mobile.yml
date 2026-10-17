@@ -1,6 +1,6 @@
 name: Mobile CI
 
-# Gate de CI de app/ (Paso 3 del plan) y del lint anti-TLS-bypass RD-01
+# Gate de CI de la app (Paso 3 del plan) y del lint anti-TLS-bypass RD-01
 # (ADR-009), que aplica a cualquier archivo .dart del repo. Endurecido en la
 # línea base de seguridad ISO 27001 (A.8.9, A.8.25, A.8.29) con las mismas
 # reglas que backend.yml: sin filtro de `paths`, sin pasos "si no existe,
@@ -23,9 +23,6 @@ jobs:
   analyze-and-test:
     name: build_runner + dart analyze + flutter test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,13 +58,13 @@ jobs:
       # cuando suba la cobertura; bajarlo es una decisión explícita en un PR.
       - name: Gate de cobertura
         # Medida: 76,4 % con el sistema de diseño (2026-10-17).
-        run: python3 ../infra/scripts/check_lcov.py coverage/lcov.info --min 75
+        run: python3 tool/check_lcov.py coverage/lcov.info --min 75
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: coverage-app
-          path: app/coverage/lcov.info
+          path: coverage/lcov.info
           retention-days: 30
 
   sbom-app:
@@ -93,7 +90,7 @@ jobs:
 
       - name: Generar SBOM (CycloneDX + SPDX)
         run: |
-          ./syft scan dir:app -q \
+          ./syft scan dir:. -q \
             -o cyclonedx-json=sbom-app.cdx.json \
             -o spdx-json=sbom-app.spdx.json
           python3 -c "import json; n = len(json.load(open('sbom-app.cdx.json'))['components']); print(f'{n} componentes'); assert n > 100, 'SBOM sospechosamente vacío'"
@@ -114,9 +111,6 @@ jobs:
     # que un APK publicable tiene que cumplir: firmado con esa llave y no
     # con la de debug, y con el permiso INTERNET (que faltaba en el manifest
     # principal). La llave real nunca pasa por CI.
-    defaults:
-      run:
-        working-directory: app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -174,21 +168,21 @@ jobs:
     name: "RD-01: lint anti-TLS-bypass (ADR-009)"
     runs-on: ubuntu-latest
     # Solo necesita bash/grep: corre siempre, sin depender de Flutter. Regla
-    # completa y justificación en infra/scripts/lint_no_tls_bypass.sh.
+    # completa y justificación en tool/lint_no_tls_bypass.sh.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: bash infra/scripts/lint_no_tls_bypass.sh
-        run: bash infra/scripts/lint_no_tls_bypass.sh
+      - name: bash tool/lint_no_tls_bypass.sh
+        run: bash tool/lint_no_tls_bypass.sh
 
       # Sistema de diseño: sin colores, estilos, medidas ni textos sueltos en
-      # las pantallas (ver app/lib/ui/ y app/lib/l10n/).
-      - name: bash infra/scripts/lint_ui_tokens.sh
-        run: bash infra/scripts/lint_ui_tokens.sh
+      # las pantallas (ver lib/ui/ y lib/l10n/).
+      - name: bash tool/lint_ui_tokens.sh
+        run: bash tool/lint_ui_tokens.sh
 
       # RD-06 / ADR-012: el renderer de formularios interpreta datos; nada en
       # la app puede ejecutar código elegido en tiempo de ejecución.
-      - name: bash infra/scripts/lint_no_dynamic_code.sh
-        run: bash infra/scripts/lint_no_dynamic_code.sh
+      - name: bash tool/lint_no_dynamic_code.sh
+        run: bash tool/lint_no_dynamic_code.sh

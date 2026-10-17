@@ -1,0 +1,74 @@
+name: Contract
+
+# Contrato con el servidor (RD-03, ADR-012; ISO 27001 A.8.25, A.8.32). Ver
+# contract/README.md.
+#
+# - Integridad (bloqueante): contract/ es idéntico al servidor en el commit
+#   fijado en contract/SOURCE. Nadie edita el contrato a mano en este repo.
+# - Desfase (aviso): el contrato de `master` del servidor ya es otro. Se
+#   anota en el resumen para actualizar la copia y ejecutar la paridad.
+#
+# SUNO_server es público: se lee por HTTPS sin token.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: "23 6 * * 1" # lunes 06:23 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: contrato fijado = SUNO_server@SOURCE
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Leer contract/SOURCE
+        id: source
+        run: |
+          repo="$(sed -n 's/^repo=//p' contract/SOURCE)"
+          ref="$(sed -n 's/^ref=//p' contract/SOURCE)"
+          [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "repo inválido: $repo"; exit 1; }
+          [[ "$ref" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "ref inválido: $ref"; exit 1; }
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Integridad contra el commit fijado
+        env:
+          REPO: ${{ steps.source.outputs.repo }}
+          REF: ${{ steps.source.outputs.ref }}
+        run: |
+          for f in v1.yaml fixtures/forms_parity.json; do
+            curl -fsSL --retry 3 -o upstream "https://raw.githubusercontent.com/${REPO}/${REF}/server/openapi/${f}"
+            if ! cmp -s upstream "contract/${f}"; then
+              echo "::error file=contract/${f}::contract/${f} no coincide con ${REPO}@${REF}. El contrato se cambia en el servidor; aquí solo se copia (contract/README.md)."
+              diff -u upstream "contract/${f}" | head -40 || true
+              exit 1
+            fi
+          done
+          echo "Contrato idéntico a ${REPO}@${REF}." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Desfase respecto a master del servidor (aviso)
+        env:
+          REPO: ${{ steps.source.outputs.repo }}
+        run: |
+          behind=""
+          for f in v1.yaml fixtures/forms_parity.json; do
+            curl -fsSL --retry 3 -o latest "https://raw.githubusercontent.com/${REPO}/master/server/openapi/${f}"
+            cmp -s latest "contract/${f}" || behind="${behind} ${f}"
+          done
+          if [ -n "$behind" ]; then
+            echo "::warning::El contrato de ${REPO}@master cambió:${behind}. Actualiza contract/ (contract/README.md)."
+            echo "**Contrato desfasado** respecto a \`${REPO}@master\`:${behind}." >> "$GITHUB_STEP_SUMMARY"
+          fi
