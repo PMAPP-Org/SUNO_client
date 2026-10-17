@@ -6,3 +6,7 @@
 Dockerfile  text eol=lf
 Caddyfile   text eol=lf
 *.lock      text eol=lf
+
+# Copia fijada del contrato del servidor: byte a byte igual que en SUNO_server
+# (contract.yml lo compara), así que nunca se convierten los finales de línea.
+contract/** text eol=lf
