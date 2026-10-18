@@ -9,9 +9,8 @@ const String kAppVersion = '0.3.0'; // x-release-please-version
 
 /// URL base de la API, configurable en tiempo de build/ejecución con
 /// `flutter run --dart-define=VISITACAMPO_API_BASE_URL=https://tu-dominio`.
-/// Por defecto apunta al Caddy local de `infra/docker-compose.override.dev.yml`
-/// (HTTPS con certificado autofirmado — ver `infra/Caddyfile`).
+/// Las compilaciones sin override apuntan a la instancia de producción.
 const String kApiBaseUrl = String.fromEnvironment(
   'VISITACAMPO_API_BASE_URL',
-  defaultValue: 'https://localhost',
+  defaultValue: 'https://pmapp.online',
 );
