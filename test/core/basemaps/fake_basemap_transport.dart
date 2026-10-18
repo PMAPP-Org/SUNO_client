@@ -8,6 +8,7 @@ class FakeBasemapTransport implements BasemapTransport {
   List<BasemapInfo>? offered = [];
   final Map<String, List<int>> contents = {};
   bool failFetch = false;
+  int fetches = 0;
 
   @override
   Future<List<BasemapInfo>?> list() async => offered;
@@ -17,6 +18,7 @@ class FakeBasemapTransport implements BasemapTransport {
 
   @override
   Future<void> fetch(String url, String path, {void Function(int received, int total)? onProgress}) async {
+    fetches++;
     if (failFetch) throw const SocketException('sin red');
     final bytes = contents[url.split('/').last]!;
     await File(path).writeAsBytes(bytes);

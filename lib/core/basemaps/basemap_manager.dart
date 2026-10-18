@@ -14,6 +14,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
@@ -122,6 +123,15 @@ final class BasemapNoSpace extends BasemapDownloadResult {
   const BasemapNoSpace();
 }
 
+/// Descarga automática en curso: qué paquete y cuánto lleva (0–1; `null`
+/// mientras no se sabe el total).
+@immutable
+class BasemapProgress {
+  const BasemapProgress({required this.name, this.fraction});
+  final String name;
+  final double? fraction;
+}
+
 class BasemapManager {
   BasemapManager({required this.transport, required this.directory});
 
@@ -129,6 +139,53 @@ class BasemapManager {
 
   /// Carpeta propia de la app donde viven los paquetes y el índice.
   final Directory directory;
+
+  /// La descarga automática en curso, para el aviso de la pantalla de inicio;
+  /// `null` si no hay ninguna.
+  final ValueNotifier<BasemapProgress?> progress = ValueNotifier(null);
+
+  Future<void>? _autoSync;
+
+  /// Paquetes (por `sha256`) que esta sesión ya no reintenta: llegaron
+  /// corruptos o no cupieron. Volver a bajarlos cada pocos minutos gastaría
+  /// el plan de datos del agente en bucle; se reintenta al reabrir la app.
+  final Set<String> _gaveUp = {};
+
+  /// Fase B: deja el teléfono con **todos** los mapas que ofrece la
+  /// organización, sin que el agente tenga que pedirlos. Se llama tras cada
+  /// sincronización; si ya hay una en curso, devuelve esa (un paquete grande
+  /// no se baja dos veces a la vez). Con cualquier conexión: decisión de
+  /// producto, el mapa debe llegar cuanto antes.
+  Future<void> syncAll() => _autoSync ??= _syncAll().whenComplete(() => _autoSync = null);
+
+  Future<void> _syncAll() async {
+    final result = await refresh();
+    if (!result.online) return;
+    for (final entry in result.entries) {
+      if (entry.downloaded || _gaveUp.contains(entry.info.sha256)) continue;
+      final info = entry.info;
+      progress.value = BasemapProgress(name: info.name);
+      try {
+        final outcome = await download(
+          info,
+          onProgress: (received, total) {
+            if (total > 0) progress.value = BasemapProgress(name: info.name, fraction: received / total);
+          },
+        );
+        switch (outcome) {
+          case BasemapCorrupted() || BasemapNoSpace():
+            _gaveUp.add(info.sha256);
+          case BasemapUnavailable():
+            // Sin red a mitad: el siguiente ciclo lo reintenta.
+            return;
+          case BasemapDownloaded():
+            break;
+        }
+      } finally {
+        progress.value = null;
+      }
+    }
+  }
 
   File get _index => File(p.join(directory.path, 'index.json'));
 
