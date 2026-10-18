@@ -4,6 +4,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.6.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.5.0...v0.6.0) (2026-10-18)
+
+
+### Agregado
+
+* **assignments:** assignments from the server, start a visit from one (Fase B) ([#21](https://github.com/PMAPP-Org/SUNO_client/issues/21)) ([af17d00](https://github.com/PMAPP-Org/SUNO_client/commit/af17d003baa30282d7658ff71b0a69e44554eb78))
+* **basemaps:** download offline basemaps and draw them on the map (Fase B) ([#24](https://github.com/PMAPP-Org/SUNO_client/issues/24)) ([fb8e535](https://github.com/PMAPP-Org/SUNO_client/commit/fb8e535ae282963f2ef55b50e766d773b0ada163))
+* **map:** map of visits, assignments and live position (Fase B) ([#22](https://github.com/PMAPP-Org/SUNO_client/issues/22)) ([71e095d](https://github.com/PMAPP-Org/SUNO_client/commit/71e095de7a05f20af688c9d56b36040e61c24f95))
+
 ## [0.5.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.4.0...v0.5.0) (2026-10-18)
 
 
