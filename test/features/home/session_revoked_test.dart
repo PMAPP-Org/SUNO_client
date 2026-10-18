@@ -97,9 +97,11 @@ void main() {
       addTearDown(db.close);
       final transport = FakeAuthTransport()
         ..refreshResponses.add(const AuthResult.err(AuthError.unauthorized()));
+      final tokenStore = FakeTokenStore();
+      await tokenStore.saveRefreshToken('device-1', 'r');
       final controller = AuthController(
         transport: transport,
-        tokenStore: FakeTokenStore()..saveRefreshToken('device-1', 'r'),
+        tokenStore: tokenStore,
         deviceId: 'device-1',
       );
       // Arranque con sesión restaurada cuyo refresh en segundo plano termina
