@@ -7,14 +7,14 @@ import 'package:flutter/material.dart';
 /// (primario, contenedores, superficies) para tema claro y oscuro, con
 /// contrastes ya calculados para texto (WCAG AA).
 abstract final class AppPalette {
-  static const Color brandSeed = Color(0xFFE84546);
-  static const Color action = Color(0xFFA5282C);
-  static const Color cream = Color(0xFFFFFDF4);
-  static const Color paper = Color(0xFFF6F3EB);
-  static const Color ink = Color(0xFF161715);
-  static const Color muted = Color(0xFF62655F);
-  static const Color line = Color(0xFFE5E1DA);
-  static const Color border = Color(0xFF8B8D83);
+  static const Color brandSeed = Color(0xFFED4248);
+  static const Color action = Color(0xFFA42730);
+  static const Color cream = Color(0xFFFAF9F2);
+  static const Color paper = Color(0xFFF2F0E9);
+  static const Color ink = Color(0xFF171717);
+  static const Color muted = Color(0xFF666760);
+  static const Color line = Color(0xFFDEDCD3);
+  static const Color border = Color(0xFF85867F);
   static const Color pink = Color(0xFFD57C87);
   static const Color rose = Color(0xFFF8E8E4);
   static const Color green = Color(0xFF6B7F6B);

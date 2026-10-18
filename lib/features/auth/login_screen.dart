@@ -17,6 +17,7 @@ import '../../core/security/trust_store.dart';
 import '../../core/session/device_handover.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_icons.dart';
+import '../../ui/theme/app_tokens.dart';
 import '../../ui/widgets/app_brand.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
@@ -34,6 +35,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isSubmitting = false;
+  bool _showPassword = false;
 
   @override
   void dispose() {
@@ -79,11 +81,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             } on Object {
               // Sin red no se revoca en el servidor; el token local ya no está.
             }
-            messenger.showSnackBar(SnackBar(content: Text(l10n.loginHandoverBlocked(handover.visits))));
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(l10n.loginHandoverBlocked(handover.visits)),
+              ),
+            );
             return;
           }
           if (handover case HandoverReady(wiped: true)) {
-            messenger.showSnackBar(SnackBar(content: Text(l10n.loginHandoverWiped)));
+            messenger.showSnackBar(
+              SnackBar(content: Text(l10n.loginHandoverWiped)),
+            );
           }
         }
         if (!mounted) return;
@@ -147,17 +155,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: AppPageBody(
           centerVertically: true,
           children: [
-            const AppBrand(large: true),
-            const AppGap.sm(),
+            const Align(alignment: Alignment.centerLeft, child: AppBrand()),
+            const AppGap.lg(),
             Text(
               l10n.brandDescriptor,
               style: Theme.of(context).textTheme.labelSmall,
-              textAlign: TextAlign.center,
             ),
-            const AppGap.lg(),
+            const AppGap.sm(),
             Text(
               l10n.loginWelcome,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
             const AppGap.sm(),
             Text(
@@ -165,39 +172,77 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const AppGap.lg(),
-            TextField(
-              key: const Key('login_username_field'),
-              controller: _usernameController,
-              decoration: InputDecoration(
-                labelText: l10n.loginUsernameLabel,
-                prefixIcon: const Icon(AppIcons.user),
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                border: Border(
+                  top: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 3,
+                  ),
+                  left: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                  right: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                  bottom: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
               ),
-              autofillHints: const [AutofillHints.username],
-              textInputAction: TextInputAction.next,
-              autocorrect: false,
-            ),
-            const AppGap.sm(),
-            TextField(
-              key: const Key('login_password_field'),
-              controller: _passwordController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: l10n.loginPasswordLabel,
-                prefixIcon: const Icon(AppIcons.password),
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const Key('login_username_field'),
+                    controller: _usernameController,
+                    decoration: InputDecoration(
+                      labelText: l10n.loginUsernameLabel,
+                      prefixIcon: const Icon(AppIcons.user),
+                    ),
+                    autofillHints: const [AutofillHints.username],
+                    textInputAction: TextInputAction.next,
+                    autocorrect: false,
+                  ),
+                  const AppGap.sm(),
+                  TextField(
+                    key: const Key('login_password_field'),
+                    controller: _passwordController,
+                    obscureText: !_showPassword,
+                    decoration: InputDecoration(
+                      labelText: l10n.loginPasswordLabel,
+                      prefixIcon: const Icon(AppIcons.password),
+                      suffixIcon: IconButton(
+                        onPressed: () =>
+                            setState(() => _showPassword = !_showPassword),
+                        tooltip: _showPassword
+                            ? l10n.loginHidePassword
+                            : l10n.loginShowPassword,
+                        icon: Icon(
+                          _showPassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
+                      ),
+                    ),
+                    autofillHints: const [AutofillHints.password],
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) {
+                      if (!_isSubmitting) _submit();
+                    },
+                  ),
+                  const AppGap.lg(),
+                  AppButton(
+                    key: const Key('login_submit_button'),
+                    label: l10n.loginSubmit,
+                    loadingLabel: l10n.loginSubmitting,
+                    isLoading: _isSubmitting,
+                    onPressed: _submit,
+                  ),
+                ],
               ),
-              autofillHints: const [AutofillHints.password],
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                if (!_isSubmitting) _submit();
-              },
-            ),
-            const AppGap.lg(),
-            AppButton(
-              key: const Key('login_submit_button'),
-              label: l10n.loginSubmit,
-              loadingLabel: l10n.loginSubmitting,
-              isLoading: _isSubmitting,
-              onPressed: _submit,
             ),
             const AppGap.lg(),
             Text(
