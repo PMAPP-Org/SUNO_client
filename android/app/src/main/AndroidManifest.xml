@@ -13,7 +13,7 @@
          prohibido explícitamente (RD-01): ya es el valor por defecto desde
          targetSdk 28, y así no depende de ello. ISO 27001 A.8.12. -->
     <application
-        android:label="visitacampo"
+        android:label="SUNO"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"

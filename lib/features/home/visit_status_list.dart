@@ -7,9 +7,16 @@ import 'package:flutter/material.dart';
 import '../../data/local/visit_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_theme.dart';
+import '../../ui/theme/app_icons.dart';
+import '../../ui/theme/app_tokens.dart';
 
 class VisitStatusList extends StatelessWidget {
-  const VisitStatusList({super.key, required this.visits, this.onOpen, this.emptyText});
+  const VisitStatusList({
+    super.key,
+    required this.visits,
+    this.onOpen,
+    this.emptyText,
+  });
 
   final List<VisitSummary> visits;
 
@@ -22,7 +29,26 @@ class VisitStatusList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    if (visits.isEmpty) return Text(emptyText ?? l10n.homeNoVisits, key: const Key('home_no_visits'));
+    if (visits.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Row(
+          children: [
+            Icon(
+              AppIcons.records,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                emptyText ?? l10n.homeNoVisits,
+                key: const Key('home_no_visits'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final localizations = MaterialLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -32,15 +58,24 @@ class VisitStatusList extends StatelessWidget {
             key: ValueKey('visit-${visit.id}'),
             contentPadding: EdgeInsets.zero,
             title: Text(visit.templateName ?? l10n.homeVisitUntitled),
-            subtitle: Text(
-              [
-                _when(localizations, visit.capturedAt.toLocal()),
-                if (visit.attachments > 0) l10n.homeVisitAttachments(visit.attachments),
-                if (visit.pendingUploads > 0) l10n.homeVisitPendingUploads(visit.pendingUploads),
-                if (visit.failedUploads > 0) l10n.homeVisitFailedUploads(visit.failedUploads),
-              ].join(' · '),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  [
+                    _when(localizations, visit.capturedAt.toLocal()),
+                    if (visit.attachments > 0)
+                      l10n.homeVisitAttachments(visit.attachments),
+                    if (visit.pendingUploads > 0)
+                      l10n.homeVisitPendingUploads(visit.pendingUploads),
+                    if (visit.failedUploads > 0)
+                      l10n.homeVisitFailedUploads(visit.failedUploads),
+                  ].join(' · '),
+                ),
+                VisitStatusChip(status: visit.status),
+              ],
             ),
-            trailing: VisitStatusChip(status: visit.status),
+            leading: const Icon(AppIcons.records),
             onTap: onOpen == null ? null : () => onOpen!(visit),
           ),
       ],
@@ -62,12 +97,29 @@ class VisitStatusChip extends StatelessWidget {
     final colors = context.statusColors;
     final scheme = Theme.of(context).colorScheme;
     final (label, background, foreground) = switch (status) {
-      VisitSyncStatus.pending => (l10n.visitStatusPending, colors.warning, colors.onWarning),
-      VisitSyncStatus.synced => (l10n.visitStatusSynced, colors.success, colors.onSuccess),
-      VisitSyncStatus.rejected => (l10n.visitStatusRejected, scheme.error, scheme.onError),
+      VisitSyncStatus.pending => (
+        l10n.visitStatusPending,
+        colors.warning,
+        colors.onWarning,
+      ),
+      VisitSyncStatus.synced => (
+        l10n.visitStatusSynced,
+        colors.success,
+        colors.onSuccess,
+      ),
+      VisitSyncStatus.rejected => (
+        l10n.visitStatusRejected,
+        scheme.error,
+        scheme.onError,
+      ),
     };
     return Chip(
-      label: Text(label, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: foreground)),
+      label: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(color: foreground),
+      ),
       backgroundColor: background,
       side: BorderSide.none,
     );

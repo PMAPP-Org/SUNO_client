@@ -1,9 +1,16 @@
 {
   "@@locale": "es",
 
-  "appTitle": "VisitaCampo",
+  "appTitle": "SUNO",
   "@appTitle": { "description": "Nombre de la app en la barra superior y en el sistema." },
 
+  "brandDescriptor": "GESTI?N DE CAMPO",
+  "loginWelcome": "El territorio, en contexto.",
+  "loginIntro": "Accede con la cuenta de tu organizaci?n.",
+  "loginFieldNote": "Prepara tus plantillas con conexi?n. Registra tus visitas donde est?s.",
+  "homeHeading": "Tu jornada en campo",
+  "homeIntro": "Registra cada visita y mant?n al d?a la informaci?n de tu equipo.",
+  "homeOfflineNote": "Guarda en el dispositivo. Sincroniza cuando tengas conexi?n.",
   "loginTitle": "Iniciar sesión",
   "loginUsernameLabel": "Usuario",
   "loginPasswordLabel": "Contraseña",

@@ -30,38 +30,86 @@ void main() {
         expect(theme.extension<AppStatusColors>(), isNotNull);
       });
 
-      test('tema $name: los colores de estado se leen (contraste ≥ 4.5:1, WCAG AA)', () {
-        final status = theme.extension<AppStatusColors>()!;
-        expect(_contrast(status.success, status.onSuccess), greaterThanOrEqualTo(4.5));
-        expect(_contrast(status.warning, status.onWarning), greaterThanOrEqualTo(4.5));
-      });
+      test(
+        'tema $name: los colores de estado se leen (contraste ≥ 4.5:1, WCAG AA)',
+        () {
+          final status = theme.extension<AppStatusColors>()!;
+          expect(
+            _contrast(status.success, status.onSuccess),
+            greaterThanOrEqualTo(4.5),
+          );
+          expect(
+            _contrast(status.warning, status.onWarning),
+            greaterThanOrEqualTo(4.5),
+          );
+        },
+      );
 
-      test('tema $name: los botones nunca miden menos que el objetivo táctil', () {
-        final size = theme.elevatedButtonTheme.style!.minimumSize!.resolve(<WidgetState>{})!;
-        expect(size.height, AppSizes.minTouchTarget);
+      test(
+        'tema $name: los botones nunca miden menos que el objetivo táctil',
+        () {
+          final size = theme.elevatedButtonTheme.style!.minimumSize!.resolve(
+            <WidgetState>{},
+          )!;
+          expect(size.height, AppSizes.minTouchTarget);
+        },
+      );
+
+      test('tema $name: texto y acciones mantienen contraste AA', () {
+        final colors = theme.colorScheme;
+        for (final pair in [
+          (colors.primary, colors.onPrimary),
+          (colors.surface, colors.onSurface),
+          (colors.surface, colors.onSurfaceVariant),
+          (colors.primaryContainer, colors.onPrimaryContainer),
+        ]) {
+          expect(_contrast(pair.$1, pair.$2), greaterThanOrEqualTo(4.5));
+        }
       });
     }
 
     test('AppStatusColors interpola entre temas sin perder campos', () {
       final mid = AppStatusColors.light.lerp(AppStatusColors.dark, 0.5);
-      expect(mid.success, Color.lerp(AppStatusColors.light.success, AppStatusColors.dark.success, 0.5));
+      expect(
+        mid.success,
+        Color.lerp(
+          AppStatusColors.light.success,
+          AppStatusColors.dark.success,
+          0.5,
+        ),
+      );
       expect(AppStatusColors.light.copyWith(), isA<AppStatusColors>());
-      expect(AppStatusColors.light.lerp(null, 0.5), same(AppStatusColors.light));
+      expect(
+        AppStatusColors.light.lerp(null, 0.5),
+        same(AppStatusColors.light),
+      );
     });
   });
 
   group('AppButton', () {
-    Widget host(Widget child) => MaterialApp(theme: AppTheme.light, home: Scaffold(body: child));
+    Widget host(Widget child) => MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(body: child),
+    );
 
-    testWidgets('normal: muestra la etiqueta y responde al toque', (tester) async {
+    testWidgets('normal: muestra la etiqueta y responde al toque', (
+      tester,
+    ) async {
       var taps = 0;
-      await tester.pumpWidget(host(AppButton(label: 'Guardar', onPressed: () => taps++)));
+      await tester.pumpWidget(
+        host(AppButton(label: 'Guardar', onPressed: () => taps++)),
+      );
       await tester.tap(find.text('Guardar'));
       expect(taps, 1);
-      expect(tester.getSize(find.byType(ElevatedButton)).height, greaterThanOrEqualTo(AppSizes.minTouchTarget));
+      expect(
+        tester.getSize(find.byType(ElevatedButton)).height,
+        greaterThanOrEqualTo(AppSizes.minTouchTarget),
+      );
     });
 
-    testWidgets('cargando: deshabilitado, con progreso y etiqueta accesible', (tester) async {
+    testWidgets('cargando: deshabilitado, con progreso y etiqueta accesible', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
       var taps = 0;
       await tester.pumpWidget(
@@ -76,7 +124,10 @@ void main() {
       );
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Guardar'), findsNothing);
-      expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed, isNull);
+      expect(
+        tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
+        isNull,
+      );
       expect(find.bySemanticsLabel('Guardando…'), findsOneWidget);
       await tester.tap(find.byType(ElevatedButton));
       expect(taps, 0);
@@ -84,17 +135,24 @@ void main() {
     });
   });
 
-  testWidgets('AppPageBody limita el ancho del contenido en pantallas anchas', (tester) async {
+  testWidgets('AppPageBody limita el ancho del contenido en pantallas anchas', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(2000, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: AppPageBody(children: [Container(key: const Key('content'), height: 10)]),
+          body: AppPageBody(
+            children: [Container(key: const Key('content'), height: 10)],
+          ),
         ),
       ),
     );
-    expect(tester.getSize(find.byKey(const Key('content'))).width, AppSizes.maxContentWidth);
+    expect(
+      tester.getSize(find.byKey(const Key('content'))).width,
+      AppSizes.maxContentWidth,
+    );
   });
 }

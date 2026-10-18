@@ -7,7 +7,23 @@ import 'package:flutter/material.dart';
 /// (primario, contenedores, superficies) para tema claro y oscuro, con
 /// contrastes ya calculados para texto (WCAG AA).
 abstract final class AppPalette {
-  static const Color brandSeed = Color(0xFF2E7D32);
+  static const Color brandSeed = Color(0xFFE84546);
+  static const Color action = Color(0xFFA5282C);
+  static const Color cream = Color(0xFFFFFDF4);
+  static const Color paper = Color(0xFFF6F3EB);
+  static const Color ink = Color(0xFF161715);
+  static const Color muted = Color(0xFF62655F);
+  static const Color line = Color(0xFFE5E1DA);
+  static const Color border = Color(0xFF8B8D83);
+  static const Color pink = Color(0xFFD57C87);
+  static const Color rose = Color(0xFFF8E8E4);
+  static const Color green = Color(0xFF6B7F6B);
+  static const Color forest = Color(0xFF465E48);
+  static const Color darkSurface = Color(0xFF222420);
+  static const Color darkLine = Color(0xFF41443C);
+  static const Color darkMuted = Color(0xFFC1C2B9);
+  static const Color darkAction = Color(0xFFF0A0A5);
+  static const Color darkRose = Color(0xFF3B2728);
 
   /// Firma: tinta y papel fijos, **no** del tema. La firma se exporta como
   /// PNG y se ve después en el back-office y en informes; con el tema oscuro
@@ -36,21 +52,26 @@ class AppStatusColors extends ThemeExtension<AppStatusColors> {
   final Color onWarning;
 
   static const light = AppStatusColors(
-    success: Color(0xFF1B5E20),
+    success: Color(0xFF465E48),
     onSuccess: Color(0xFFFFFFFF),
     warning: Color(0xFF8A5100),
     onWarning: Color(0xFFFFFFFF),
   );
 
   static const dark = AppStatusColors(
-    success: Color(0xFF81C784),
-    onSuccess: Color(0xFF003909),
+    success: Color(0xFFB3C9AF),
+    onSuccess: Color(0xFF192C1B),
     warning: Color(0xFFFFB74D),
     onWarning: Color(0xFF462A00),
   );
 
   @override
-  AppStatusColors copyWith({Color? success, Color? onSuccess, Color? warning, Color? onWarning}) {
+  AppStatusColors copyWith({
+    Color? success,
+    Color? onSuccess,
+    Color? warning,
+    Color? onWarning,
+  }) {
     return AppStatusColors(
       success: success ?? this.success,
       onSuccess: onSuccess ?? this.onSuccess,
