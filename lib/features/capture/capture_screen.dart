@@ -26,6 +26,7 @@ import '../../ui/forms/form_controller.dart';
 import '../../ui/forms/template_status.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
+import 'location_capture_sheet.dart';
 import 'signature_screen.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
@@ -42,7 +43,6 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   FormController? _form;
 
   LocationFix? _fix;
-  bool _locating = false;
   bool _saving = false;
 
   /// Adjuntos de los campos foto/firma, por `id` (lo que guarda `answers`).
@@ -128,8 +128,19 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
 
   @override
   Future<Map<String, double>?> captureLocation(String fieldKey) async {
-    final fix = await ref.read(appDependenciesProvider).locationSource.getCurrentFix();
+    final fix = await _sampleLocation();
     return fix == null ? null : {'lat': fix.lat, 'lon': fix.lon};
+  }
+
+  /// Misma hoja para la ubicación de la visita y para los campos de
+  /// ubicación del formulario (Fase A: precisión, promedio, tiempo máximo).
+  Future<LocationFix?> _sampleLocation() {
+    final dependencies = ref.read(appDependenciesProvider);
+    return showLocationCaptureSheet(
+      context,
+      source: dependencies.locationSource,
+      policy: dependencies.gpsPolicy,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -155,14 +166,12 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   }
 
   Future<void> _getLocation() async {
-    setState(() => _locating = true);
-    final fix = await ref.read(appDependenciesProvider).locationSource.getCurrentFix();
+    // Sin estado "cargando": la hoja modal ya muestra el progreso.
+    final fix = await _sampleLocation();
     if (!mounted) return;
-    setState(() {
-      _fix = fix;
-      _locating = false;
-    });
-    if (fix == null) {
+    // Cancelar no borra una ubicación ya tomada.
+    setState(() => _fix = fix ?? _fix);
+    if (_fix == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.captureLocationUnavailable)));
     }
   }
@@ -243,11 +252,19 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
               DynamicForm(controller: form, mediaDelegate: this),
               const AppGap.sm(),
               Text(l10n.captureVisitLocation, style: Theme.of(context).textTheme.titleSmall),
-              if (fix != null) Text(l10n.captureLocationWithAccuracy('${fix.lat}', '${fix.lon}', fix.accuracyM.round())),
+              if (fix != null)
+                Text(
+                  l10n.captureLocationWithAccuracy(
+                    fix.lat.toStringAsFixed(6),
+                    fix.lon.toStringAsFixed(6),
+                    fix.accuracyM.round(),
+                  ),
+                ),
+              if (fix != null && fix.accuracyM > ref.read(appDependenciesProvider).gpsPolicy.targetAccuracyM)
+                Text(l10n.captureLocationLowAccuracy, key: const Key('capture_location_low_accuracy')),
               AppButton(
                 key: const Key('capture_get_location_button'),
                 label: fix == null ? l10n.captureGetLocation : l10n.formUpdateLocation,
-                isLoading: _locating,
                 onPressed: _getLocation,
               ),
               const AppGap.lg(),
