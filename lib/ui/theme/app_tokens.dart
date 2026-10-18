@@ -47,4 +47,7 @@ abstract final class AppSizes {
 
   /// Miniatura de una foto o firma en el detalle de una visita.
   static const double thumbnail = 120;
+
+  /// Icono de un punto en el mapa (dentro de su área táctil de 48).
+  static const double mapPin = 36;
 }
