@@ -41,4 +41,7 @@ abstract final class AppSizes {
   /// Lienzo de firma: alto en pantalla y grosor del trazo.
   static const double signatureHeight = 240;
   static const double signatureStroke = 3;
+
+  /// Miniatura de una foto o firma en el detalle de una visita.
+  static const double thumbnail = 120;
 }

@@ -9,14 +9,20 @@ import '../../l10n/l10n.dart';
 import '../../ui/theme/app_theme.dart';
 
 class VisitStatusList extends StatelessWidget {
-  const VisitStatusList({super.key, required this.visits});
+  const VisitStatusList({super.key, required this.visits, this.onOpen, this.emptyText});
 
   final List<VisitSummary> visits;
+
+  /// Abre el detalle de la visita (Fase A).
+  final void Function(VisitSummary visit)? onOpen;
+
+  /// Texto sin visitas; por defecto, "todavía no hay visitas".
+  final String? emptyText;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    if (visits.isEmpty) return Text(l10n.homeNoVisits, key: const Key('home_no_visits'));
+    if (visits.isEmpty) return Text(emptyText ?? l10n.homeNoVisits, key: const Key('home_no_visits'));
     final localizations = MaterialLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -34,7 +40,8 @@ class VisitStatusList extends StatelessWidget {
                 if (visit.failedUploads > 0) l10n.homeVisitFailedUploads(visit.failedUploads),
               ].join(' · '),
             ),
-            trailing: _StatusChip(status: visit.status),
+            trailing: VisitStatusChip(status: visit.status),
+            onTap: onOpen == null ? null : () => onOpen!(visit),
           ),
       ],
     );
@@ -44,8 +51,8 @@ class VisitStatusList extends StatelessWidget {
 String _when(MaterialLocalizations localizations, DateTime local) =>
     '${localizations.formatShortDate(local)} ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
+class VisitStatusChip extends StatelessWidget {
+  const VisitStatusChip({super.key, required this.status});
 
   final VisitSyncStatus status;
 
