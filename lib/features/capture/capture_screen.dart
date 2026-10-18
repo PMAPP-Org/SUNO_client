@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_state.dart';
 import '../../core/capture/visit_capture.dart';
+import '../../core/location/coordinate_system.dart';
 import '../../core/location/geo.dart';
 import '../../core/location/location_source.dart';
 import '../../core/providers.dart';
@@ -60,6 +61,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   bool _saving = false;
 
   bool get _editing => widget.editVisitId != null;
+
+  /// Sistema en que se muestran las coordenadas (Fase C).
+  CoordinateSystem get _crs => ref.read(appDependenciesProvider).coordinates.current.value;
 
   /// La asignación que esta visita cumple (Fase B), ya cargada.
   AssignmentItem? _assignment;
@@ -214,6 +218,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       context,
       source: dependencies.locationSource,
       policy: dependencies.gpsPolicy,
+      coordinateSystem: dependencies.coordinates.current.value,
     );
   }
 
@@ -354,10 +359,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
               if (assignment.hasPoint)
                 Text(
                   fix == null
-                      ? l10n.captureAssignmentPoint(
-                          assignment.lat!.toStringAsFixed(6),
-                          assignment.lon!.toStringAsFixed(6),
-                        )
+                      ? l10n.captureAssignmentPointIn(_crs.format(assignment.lat!, assignment.lon!))
                       : l10n.captureAssignmentDistance(
                           distanceM(fix.lat, fix.lon, assignment.lat!, assignment.lon!).round(),
                         ),
@@ -366,16 +368,12 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
             ],
             if (form != null) ...[
               const AppGap.lg(),
-              DynamicForm(controller: form, mediaDelegate: this),
+              DynamicForm(controller: form, mediaDelegate: this, formatLocation: _crs.format),
               const AppGap.sm(),
               Text(l10n.captureVisitLocation, style: Theme.of(context).textTheme.titleSmall),
               if (fix != null)
                 Text(
-                  l10n.captureLocationWithAccuracy(
-                    fix.lat.toStringAsFixed(6),
-                    fix.lon.toStringAsFixed(6),
-                    fix.accuracyM.round(),
-                  ),
+                  l10n.coordinatesWithAccuracy(_crs.format(fix.lat, fix.lon), fix.accuracyM.round()),
                 ),
               if (fix != null && fix.accuracyM > ref.read(appDependenciesProvider).gpsPolicy.targetAccuracyM)
                 Text(l10n.captureLocationLowAccuracy, key: const Key('capture_location_low_accuracy')),

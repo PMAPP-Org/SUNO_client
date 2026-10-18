@@ -13,6 +13,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/location/coordinate_system.dart';
 import '../../core/location/gps_sampler.dart';
 import '../../core/location/location_source.dart';
 import '../../l10n/l10n.dart';
@@ -24,11 +25,12 @@ Future<LocationFix?> showLocationCaptureSheet(
   BuildContext context, {
   required LocationSource source,
   required GpsPolicy policy,
+  CoordinateSystem coordinateSystem = CoordinateSystem.wgs84,
 }) => showModalBottomSheet<LocationFix>(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
-  builder: (_) => LocationCaptureSheet(source: source, policy: policy),
+  builder: (_) => LocationCaptureSheet(source: source, policy: policy, coordinateSystem: coordinateSystem),
 );
 
 class LocationCaptureSheet extends StatefulWidget {
@@ -36,10 +38,14 @@ class LocationCaptureSheet extends StatefulWidget {
     super.key,
     required this.source,
     required this.policy,
+    this.coordinateSystem = CoordinateSystem.wgs84,
   });
 
   final LocationSource source;
   final GpsPolicy policy;
+
+  /// En qué sistema se muestran las coordenadas (Fase C).
+  final CoordinateSystem coordinateSystem;
 
   @override
   State<LocationCaptureSheet> createState() => _LocationCaptureSheetState();
@@ -165,12 +171,7 @@ class _LocationCaptureSheetState extends State<LocationCaptureSheet> {
           key: const Key('gps_accuracy'),
           style: Theme.of(context).textTheme.headlineSmall,
         ),
-        Text(
-          l10n.captureLocation(
-            fix.lat.toStringAsFixed(6),
-            fix.lon.toStringAsFixed(6),
-          ),
-        ),
+        Text(widget.coordinateSystem.format(fix.lat, fix.lon), key: const Key('gps_coordinates')),
       ],
       const AppGap.sm(),
       LinearProgressIndicator(

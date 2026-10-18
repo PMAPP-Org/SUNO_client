@@ -27,6 +27,7 @@ import 'capture/visit_capture.dart';
 import 'constants.dart';
 import 'device/device_id_store.dart';
 import 'location/gps_sampler.dart';
+import 'location/coordinate_settings.dart';
 import 'location/gps_settings.dart';
 import 'location/location_source.dart';
 import 'privacy/consent.dart';
@@ -64,12 +65,14 @@ class AppDependencies {
     AttachmentUploadService? attachmentUploadService,
     SignatureStore? signatureStore,
     GpsSettings? gpsSettings,
+    CoordinateSettings? coordinates,
     BasemapManager? basemaps,
     Directory? basemapsDirectory,
     VisitCapture? visitCapture,
     TrustStore? trustStore,
     ConsentService? consent,
   }) : gpsSettings = gpsSettings ?? GpsSettings(HardenedSecureStorage()),
+       coordinates = coordinates ?? CoordinateSettings(HardenedSecureStorage()),
        basemaps =
            basemaps ??
            BasemapManager(
@@ -134,6 +137,9 @@ class AppDependencies {
   /// Mapas base offline (Fase B).
   final BasemapManager basemaps;
   GpsPolicy get gpsPolicy => gpsSettings.policy;
+
+  /// Sistema en que se muestran las coordenadas (Fase C); se guardan en 4326.
+  final CoordinateSettings coordinates;
 
   /// Cambio de usuario en un teléfono compartido (Fase A).
   DeviceHandover get handover => DeviceHandover(database);
@@ -209,6 +215,8 @@ class AppDependencies {
     dio.interceptors.add(AuthInterceptor(dio: dio, controller: authController));
     final gpsSettings = GpsSettings(secureStorage);
     await gpsSettings.load();
+    final coordinates = CoordinateSettings(secureStorage);
+    await coordinates.load();
 
     return AppDependencies(
       database: database,
@@ -217,6 +225,7 @@ class AppDependencies {
       deviceId: deviceId,
       trustStore: trustStore,
       gpsSettings: gpsSettings,
+      coordinates: coordinates,
       basemapsDirectory: Directory(p.join(documentsDir.path, 'basemaps')),
     );
   }

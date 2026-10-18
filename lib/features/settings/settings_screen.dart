@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/constants.dart';
 import '../../core/location/gps_sampler.dart';
+import '../../core/location/coordinate_system.dart';
 import '../../core/location/gps_settings.dart';
 import '../../core/providers.dart';
 import '../../l10n/l10n.dart';
@@ -32,11 +33,13 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late GpsPolicy _policy;
+  late CoordinateSystem _crs;
 
   @override
   void initState() {
     super.initState();
     _policy = ref.read(appDependenciesProvider).gpsSettings.policy;
+    _crs = ref.read(appDependenciesProvider).coordinates.current.value;
   }
 
   Future<void> _updateGps(GpsPolicy policy) async {
@@ -102,6 +105,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ListTile(title: Text(l10n.settingsDevice), subtitle: SelectableText(dependencies.deviceId)),
           ListTile(title: Text(l10n.settingsServer), subtitle: SelectableText(kApiBaseUrl)),
           ListTile(title: Text(l10n.settingsAppVersion), subtitle: const Text(kAppVersion)),
+          const AppGap.lg(),
+          Text(l10n.settingsCoordinates, style: theme.textTheme.titleSmall),
+          Text(l10n.settingsCoordinatesHelp, style: theme.textTheme.bodySmall),
+          _Choice<CoordinateSystem>(
+            key: const Key('settings_coordinates'),
+            label: l10n.settingsCoordinates,
+            value: _crs,
+            options: CoordinateSystem.all,
+            format: (crs) => '${crs.code} · ${crs.name}',
+            onChanged: (crs) {
+              setState(() => _crs = crs);
+              unawaited(ref.read(appDependenciesProvider).coordinates.update(crs));
+            },
+          ),
           const AppGap.lg(),
           Text(l10n.settingsGps, style: theme.textTheme.titleSmall),
           Text(l10n.settingsGpsHelp, style: theme.textTheme.bodySmall),
@@ -181,8 +198,14 @@ class _Choice<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DropdownButtonFormField<T>(
     initialValue: value,
+    // Opciones largas (nombres de sistemas de coordenadas) en pantallas
+    // estrechas: ocupan el ancho y se recortan, no desbordan.
+    isExpanded: true,
     decoration: InputDecoration(labelText: label),
-    items: [for (final option in options) DropdownMenuItem(value: option, child: Text(format(option)))],
+    items: [
+      for (final option in options)
+        DropdownMenuItem(value: option, child: Text(format(option), overflow: TextOverflow.ellipsis)),
+    ],
     onChanged: (v) {
       if (v != null) onChanged(v);
     },

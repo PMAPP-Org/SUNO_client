@@ -194,7 +194,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('capture_get_location_button')));
     await tester.pumpAndSettle();
-    expect(find.text('lat: 4.600000, lon: -74.080000 (±4 m)'), findsOneWidget);
+    expect(find.text('lat 4.600000, lon -74.080000 (±4 m)'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('capture_add_photo_button')));
     await tester.pumpAndSettle();
