@@ -5,7 +5,7 @@
   "@appTitle": { "description": "Nombre de la app en la barra superior y en el sistema." },
 
   "brandDescriptor": "GESTIÓN DE CAMPO",
-  "loginWelcome": "El territorio, en contexto.",
+  "loginWelcome": "Continúa tu trabajo.",
   "loginIntro": "Accede con la cuenta de tu organización.",
   "loginFieldNote": "Prepara tus plantillas con conexión. Registra tus visitas donde estés.",
   "homeHeading": "Tu jornada en campo",
@@ -14,6 +14,8 @@
   "loginTitle": "Iniciar sesión",
   "loginUsernameLabel": "Usuario",
   "loginPasswordLabel": "Contraseña",
+  "loginShowPassword": "Mostrar contraseña",
+  "loginHidePassword": "Ocultar contraseña",
   "loginSubmit": "Entrar",
   "loginSubmitting": "Iniciando sesión…",
   "@loginSubmitting": { "description": "Lector de pantalla mientras se envía el login." },
