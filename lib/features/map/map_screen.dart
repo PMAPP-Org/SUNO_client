@@ -22,6 +22,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/basemaps/basemap_manager.dart';
 import '../../core/forms/geometry.dart';
+import '../../core/layers/layer_manager.dart';
 import '../../core/location/location_source.dart';
 import '../../core/providers.dart';
 import '../../data/local/assignment_repository.dart';
@@ -53,6 +54,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   /// Mapas base descargados (B3), con su lector de teselas abierto.
   List<({BasemapInfo info, MbtilesTileProvider tiles})> _basemaps = const [];
+
+  /// Entidades de las capas de referencia descargadas (Fase C).
+  List<LayerFeature> _features = const [];
+  final _layerHits = LayerHitNotifier<LayerFeature>(null);
   StreamSubscription<LocationFix>? _position;
 
   @override
@@ -66,6 +71,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   void dispose() {
     unawaited(_position?.cancel());
     _controller.dispose();
+    _layerHits.dispose();
     super.dispose();
   }
 
@@ -92,6 +98,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         return;
       }
       _basemaps = opened;
+    }
+    if (_features.isEmpty) {
+      final features = <LayerFeature>[];
+      for (final entry in await dependencies.layers.downloaded()) {
+        features.addAll(await dependencies.layers.features(entry));
+      }
+      _features = features;
     }
     if (!mounted) return;
     setState(() {
@@ -142,6 +155,37 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       action: item.done ? l10n.mapOpenVisit : l10n.mapStartVisit,
       onAction: () => _openAssignment(item),
     );
+  }
+
+  Future<void> _showFeature(LayerFeature feature) {
+    final properties = feature.properties.entries.where((e) => e.value != null).take(30).toList();
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(left: AppSpacing.page, right: AppSpacing.page, bottom: AppSpacing.page),
+          child: Column(
+            key: const Key('map_feature_sheet'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(feature.title, style: Theme.of(sheetContext).textTheme.titleMedium),
+              Text(feature.layerName, style: Theme.of(sheetContext).textTheme.bodySmall),
+              const AppGap.sm(),
+              for (final p in properties)
+                ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(p.key), subtitle: Text(p.value.toString())),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _onLayerTap() {
+    final hit = _layerHits.value;
+    if (hit != null && hit.hitValues.isNotEmpty) unawaited(_showFeature(hit.hitValues.first));
   }
 
   Future<void> _sheet({
@@ -255,6 +299,60 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     LatLng(basemap.info.north, basemap.info.east),
                   ),
                 ),
+              // Capas de referencia (Fase C), sobre el mapa base y debajo de
+              // las visitas; tocar una entidad muestra sus atributos.
+              GestureDetector(
+                onTap: _onLayerTap,
+                child: PolygonLayer<LayerFeature>(
+                  hitNotifier: _layerHits,
+                  polygons: [
+                    for (final f in _features)
+                      for (final ring in f.polygons)
+                        if (ring.length >= 3)
+                          Polygon<LayerFeature>(
+                            points: [for (final v in ring) LatLng(v.lat, v.lon)],
+                            color: scheme.secondary.withValues(alpha: 0.12),
+                            borderColor: scheme.secondary,
+                            borderStrokeWidth: AppSizes.buttonProgressStroke,
+                            hitValue: f,
+                          ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: _onLayerTap,
+                child: PolylineLayer<LayerFeature>(
+                  hitNotifier: _layerHits,
+                  polylines: [
+                    for (final f in _features)
+                      for (final line in f.lines)
+                        if (line.length >= 2)
+                          Polyline<LayerFeature>(
+                            points: [for (final v in line) LatLng(v.lat, v.lon)],
+                            color: scheme.secondary,
+                            strokeWidth: AppSizes.buttonProgressStroke,
+                            hitValue: f,
+                          ),
+                  ],
+                ),
+              ),
+              MarkerLayer(
+                markers: [
+                  for (final f in _features)
+                    for (final v in f.points)
+                      Marker(
+                        point: LatLng(v.lat, v.lon),
+                        width: AppSizes.minTouchTarget,
+                        height: AppSizes.minTouchTarget,
+                        child: _Pin(
+                          icon: Icons.place_outlined,
+                          color: scheme.secondary,
+                          label: f.title,
+                          onTap: () => _showFeature(f),
+                        ),
+                      ),
+                ],
+              ),
               // Líneas y polígonos de las visitas (Fase C), con el color de
               // su sincronización, debajo de los puntos.
               PolygonLayer(
