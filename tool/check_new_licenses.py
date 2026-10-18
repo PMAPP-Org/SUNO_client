@@ -46,6 +46,17 @@ DENY = {
 REVIEWED = {
     "frontend_server_client": "bsd-3-clause",  # dart-lang; build_runner
     "package_info_plus": "bsd-3-clause",  # fluttercommunity; vía dependencias
+    # Fase B (mapa): flutter_map y su árbol. Comprobadas en el LICENSE de cada
+    # paquete publicado (pub-cache) el 2026-10-18.
+    "latlong2": "apache-2.0",
+    "dart_earcut": "mit",
+    "dart_polylabel2": "bsd-3-clause",
+    "mgrs_dart": "mit",
+    "posix": "mit",
+    "proj4dart": "mit",
+    "simple_sparse_list": "bsd-3-clause",
+    "unicode": "bsd-3-clause",
+    "wkt_parser": "mit",
 }
 
 _OR = re.compile(r"\s+or\s+", re.IGNORECASE)
