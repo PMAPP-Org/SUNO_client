@@ -4,6 +4,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.7.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.6.0...v0.7.0) (2026-10-18)
+
+
+### Agregado
+
+* **basemaps:** download the organization's basemaps automatically (Fase B) ([#26](https://github.com/PMAPP-Org/SUNO_client/issues/26)) ([e631f0e](https://github.com/PMAPP-Org/SUNO_client/commit/e631f0e7c79953aea581c706290f4d2b9cf0ecc8))
+* **basemaps:** resume interrupted basemap downloads (Range) ([#27](https://github.com/PMAPP-Org/SUNO_client/issues/27)) ([bb9df2d](https://github.com/PMAPP-Org/SUNO_client/commit/bb9df2dc6d414e26414e56c077507d0287156d99))
+* **visits:** supervisors can edit and delete visits in the app too ([#29](https://github.com/PMAPP-Org/SUNO_client/issues/29)) ([12d7d96](https://github.com/PMAPP-Org/SUNO_client/commit/12d7d96db8a60efa08942ac1af180bbb21cdfa27))
+
 ## [0.6.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.5.0...v0.6.0) (2026-10-18)
 
 
