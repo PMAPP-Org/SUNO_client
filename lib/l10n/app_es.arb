@@ -78,6 +78,35 @@
   "visitAttachmentFailed": "Error al subir",
   "visitAttachmentRemote": "En el servidor",
   "mapTitle": "Mapa",
+  "mapBasemaps": "Mapa base: {names}",
+  "@mapBasemaps": {
+    "placeholders": { "names": { "type": "String" } }
+  },
+  "basemapsTitle": "Mapas offline",
+  "basemapsHelp": "Descarga el mapa de tu zona para verlo sin red.",
+  "basemapsEmpty": "Tu organización todavía no ha publicado mapas offline.",
+  "basemapsOffline": "Sin conexión: solo se ven los mapas ya descargados.",
+  "basemapDetails": "{megabytes} MB · zoom {minZoom}–{maxZoom}",
+  "@basemapDetails": {
+    "placeholders": { "megabytes": { "type": "int" }, "minZoom": { "type": "int" }, "maxZoom": { "type": "int" } }
+  },
+  "basemapDownload": "Descargar",
+  "basemapRemove": "Borrar del teléfono",
+  "basemapDownloadTitle": "¿Descargar «{name}»?",
+  "@basemapDownloadTitle": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "basemapDownloadBody": "Ocupa {megabytes} MB. Mejor con wifi: con datos móviles puede tardar y consumir tu plan.",
+  "@basemapDownloadBody": {
+    "placeholders": { "megabytes": { "type": "int" } }
+  },
+  "basemapDownloaded": "«{name}» descargado: ya se ve en el mapa sin red.",
+  "@basemapDownloaded": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "basemapCorrupted": "La descarga llegó incompleta o alterada y se descartó. Inténtalo de nuevo.",
+  "basemapNoSpace": "No hay espacio suficiente en el teléfono para este mapa.",
+  "basemapUnavailable": "No se pudo descargar. Revisa la conexión e inténtalo de nuevo.",
   "mapNoBasemap": "Sin mapa base descargado: se ven tus visitas, asignaciones y tu posición.",
   "mapEmpty": "Todavía no hay visitas ni asignaciones con ubicación.",
   "mapCenterOnMe": "Centrar en mi posición",

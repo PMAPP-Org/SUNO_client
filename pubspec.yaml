@@ -50,6 +50,9 @@ dependencies:
   crypto: ^3.0.6
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
+  # Ya en el árbol (Drift + SQLCipher); directa porque el mapa offline lee los
+  # MBTiles con ella (`data/map/mbtiles_tile_provider.dart`).
+  sqlite3: ^3.5.0
 
 dev_dependencies:
   flutter_test:
@@ -68,7 +71,6 @@ dev_dependencies:
   freezed: ^3.2.6-dev.1
   json_serializable: ^6.14.1
   drift_dev: ^2.34.0
-  sqlite3: ^3.5.0
   test: ^1.31.0
 
 # For information on the generic Dart part of this file, see the

@@ -21,6 +21,7 @@ import '../../core/providers.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../auth/login_screen.dart';
+import '../basemaps/basemaps_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -137,6 +138,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 timeout: Duration(seconds: v),
               ),
             ),
+          ),
+          const AppGap.lg(),
+          ListTile(
+            key: const Key('settings_basemaps'),
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.layers_outlined),
+            title: Text(l10n.basemapsTitle),
+            subtitle: Text(l10n.basemapsHelp),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BasemapsScreen())),
           ),
           const AppGap.lg(),
           OutlinedButton.icon(

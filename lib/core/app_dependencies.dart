@@ -17,6 +17,7 @@ import 'package:path_provider/path_provider.dart';
 import 'attachments/attachment_upload_scheduler.dart';
 import 'attachments/attachment_upload_service.dart';
 import 'auth/auth_controller.dart';
+import 'basemaps/basemap_manager.dart';
 import 'auth/auth_state.dart';
 import 'auth/session_store.dart';
 import 'auth/token_store.dart';
@@ -41,6 +42,7 @@ import '../data/capture/image_picker_photo_capture.dart';
 import '../data/http/api_client.dart';
 import '../data/http/attachment_api_client.dart';
 import '../data/http/auth_interceptor.dart';
+import '../data/http/basemap_api_client.dart';
 import '../data/http/consent_api_client.dart';
 import '../data/http/sync_api_client.dart';
 import '../data/local/assignment_repository.dart';
@@ -62,10 +64,23 @@ class AppDependencies {
     AttachmentUploadService? attachmentUploadService,
     SignatureStore? signatureStore,
     GpsSettings? gpsSettings,
+    BasemapManager? basemaps,
+    Directory? basemapsDirectory,
     VisitCapture? visitCapture,
     TrustStore? trustStore,
     ConsentService? consent,
   }) : gpsSettings = gpsSettings ?? GpsSettings(HardenedSecureStorage()),
+       basemaps =
+           basemaps ??
+           BasemapManager(
+             transport: BasemapApiClient(
+               dio: dio,
+               accessTokenProvider: () => authController.accessToken ?? '',
+               // Como las subidas: sin bearer, con la misma política TLS.
+               downloadDio: Dio()..httpClientAdapter = dio.httpClientAdapter,
+             ),
+             directory: basemapsDirectory ?? Directory(p.join(Directory.systemTemp.path, 'visitacampo-basemaps')),
+           ),
        trustStore = trustStore ?? TrustStore(pinStore: PinStore(HardenedSecureStorage())),
        consent =
            consent ??
@@ -115,6 +130,9 @@ class AppDependencies {
 
   /// Cuándo una posición GPS es buena (Fase A), ajustable en Ajustes.
   final GpsSettings gpsSettings;
+
+  /// Mapas base offline (Fase B).
+  final BasemapManager basemaps;
   GpsPolicy get gpsPolicy => gpsSettings.policy;
 
   /// Cambio de usuario en un teléfono compartido (Fase A).
@@ -199,6 +217,7 @@ class AppDependencies {
       deviceId: deviceId,
       trustStore: trustStore,
       gpsSettings: gpsSettings,
+      basemapsDirectory: Directory(p.join(documentsDir.path, 'basemaps')),
     );
   }
 }

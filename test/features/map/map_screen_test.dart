@@ -1,6 +1,7 @@
 // Mapa (Fase B): visitas y asignaciones como puntos, y tocar uno lleva a la
 // visita o a iniciar la asignación. Sin red ni teselas.
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show Value;
@@ -8,10 +9,12 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:visitacampo/core/app_dependencies.dart';
 import 'package:visitacampo/core/auth/auth_controller.dart';
 import 'package:visitacampo/core/auth/auth_models.dart';
 import 'package:visitacampo/core/auth/auth_result.dart';
+import 'package:visitacampo/core/basemaps/basemap_manager.dart';
 import 'package:visitacampo/core/capture/visit_capture.dart';
 import 'package:visitacampo/core/forms/form_definition.dart';
 import 'package:visitacampo/core/location/location_source.dart';
@@ -23,6 +26,7 @@ import 'package:visitacampo/features/visits/visit_detail_screen.dart';
 
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
+import '../../core/basemaps/fake_basemap_transport.dart';
 import '../../support/test_app.dart';
 
 class _Gps implements LocationSource {
@@ -52,7 +56,10 @@ void main() {
     await gps.close();
   });
 
-  Future<(AppDependencies, String)> scenario({LocationStatus gpsStatus = LocationStatus.serviceDisabled}) async {
+  Future<(AppDependencies, String)> scenario({
+    LocationStatus gpsStatus = LocationStatus.serviceDisabled,
+    BasemapManager? basemaps,
+  }) async {
     gps = _Gps(gpsStatus);
     final auth = AuthController(
       transport: FakeAuthTransport()
@@ -107,6 +114,7 @@ void main() {
       authController: auth,
       deviceId: 'device-1',
       locationSource: gps,
+      basemaps: basemaps,
     );
     return (dependencies, visitId);
   }
@@ -158,5 +166,38 @@ void main() {
     expect(find.byKey(const ValueKey('map-me')), findsOneWidget);
     await tester.tap(find.byKey(const Key('map_center_me')));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('con un mapa base descargado, se dibuja como capa y lo nombra el aviso', (tester) async {
+    final dir = Directory.systemTemp.createTempSync('map-basemap');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final transport = FakeBasemapTransport();
+    final manager = BasemapManager(transport: transport, directory: dir);
+    // Un MBTiles mínimo, descargado y verificado como en la app.
+    final source = '${dir.path}/src.mbtiles';
+    sqlite3.open(source)
+      ..execute('CREATE TABLE metadata (name TEXT, value TEXT)')
+      ..execute('CREATE TABLE tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB)')
+      ..close();
+    final bytes = File(source).readAsBytesSync();
+    final roble = info('roble', bytes);
+    transport
+      ..offered = [roble]
+      ..contents['roble'] = bytes;
+    await tester.runAsync(() => manager.download(roble));
+
+    final (dependencies, _) = await scenario(basemaps: manager);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDependenciesProvider.overrideWithValue(dependencies)],
+        child: testApp(const MapScreen()),
+      ),
+    );
+    for (var i = 0; i < 50 && find.byKey(const ValueKey('map-basemap-roble')).evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+    }
+    expect(find.byKey(const ValueKey('map-basemap-roble')), findsOneWidget);
+    expect(find.text('Mapa base: Mapa roble'), findsOneWidget);
   });
 }
