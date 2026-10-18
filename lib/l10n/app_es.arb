@@ -27,6 +27,11 @@
   "homeNewVisit": "Nueva visita",
   "homeSync": "Sincronizar",
   "homeSyncing": "Sincronizando…",
+  "homeLastSync": "Última sincronización completa: {time}",
+  "@homeLastSync": {
+    "placeholders": { "time": { "type": "DateTime", "format": "Hm" } }
+  },
+  "homeSyncPending": "Hay datos sin sincronizar; se reintentará automáticamente.",
   "homeRecentVisits": "Visitas recientes",
   "homeNoVisits": "Todavía no hay visitas en este dispositivo.",
   "homeVisitUntitled": "Visita",

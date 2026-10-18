@@ -31,6 +31,7 @@ import 'security/pin_store.dart';
 import 'security/secure_storage.dart';
 import 'security/trust_store.dart';
 import 'sync/quarantine_service.dart';
+import 'sync/sync_coordinator.dart';
 import 'sync/sync_engine.dart';
 import '../data/capture/file_signature_store.dart';
 import '../data/capture/image_picker_photo_capture.dart';
@@ -114,6 +115,16 @@ class AppDependencies {
   /// protege si todos los disparos pasan por el mismo objeto.
   late final AttachmentUploadScheduler uploadScheduler = AttachmentUploadScheduler(
     service: attachmentUploadService,
+    isAuthenticated: () => authController.state is Authenticated,
+  );
+
+  /// Fase A: el ciclo completo (outbox → adjuntos → pull) sin esperar al
+  /// botón. Una sola instancia, por el mismo motivo que el planificador.
+  late final SyncCoordinator syncCoordinator = SyncCoordinator(
+    drainOutbox: syncEngine.drainOutbox,
+    uploadAttachments: ({required force}) => uploadScheduler.nudge(force: force),
+    outstandingAttachments: attachmentUploadService.outstanding,
+    pull: syncEngine.pull,
     isAuthenticated: () => authController.state is Authenticated,
   );
 
