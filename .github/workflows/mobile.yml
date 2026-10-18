@@ -159,7 +159,9 @@ jobs:
             "$STOREPASS" "$STOREPASS" > android/key.properties
 
       - name: flutter build apk --release
-        run: flutter build apk --release
+        run: >-
+          flutter build apk --release
+          --dart-define=VISITACAMPO_API_BASE_URL=https://pmapp.online
 
       - name: Verificar firma y permisos del APK
         run: |

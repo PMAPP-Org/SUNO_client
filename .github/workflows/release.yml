@@ -147,7 +147,9 @@ jobs:
             > android/key.properties
           flutter pub get --enforce-lockfile
           dart run build_runner build --delete-conflicting-outputs
-          flutter build apk --release --build-name="$VERSION" --build-number="$GITHUB_RUN_NUMBER"
+          flutter build apk --release \
+            --dart-define=VISITACAMPO_API_BASE_URL=https://pmapp.online \
+            --build-name="$VERSION" --build-number="$GITHUB_RUN_NUMBER"
           rm android/key.properties android/app/upload.jks
           cp build/app/outputs/flutter-apk/app-release.apk "visitacampo-${VERSION}.apk"
 
