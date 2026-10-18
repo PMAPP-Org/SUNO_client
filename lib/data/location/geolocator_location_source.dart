@@ -3,7 +3,7 @@
 // no probable con `flutter test` sin un dispositivo/emulador real) — mismo
 // criterio que `SecureTokenStore` (`core/auth/token_store.dart`), que
 // tampoco tiene test propio y se prueba a través de un fake en el dominio
-// que sí lo consume (aquí, `CaptureScreen`).
+// que sí lo consume (aquí, `CaptureScreen` y `GpsSampler`).
 import 'package:geolocator/geolocator.dart';
 
 import '../../core/location/location_source.dart';
@@ -12,27 +12,41 @@ class GeolocatorLocationSource implements LocationSource {
   const GeolocatorLocationSource();
 
   @override
-  Future<LocationFix?> getCurrentFix() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return null;
+  Future<LocationStatus> ensureReady() async {
+    if (!await Geolocator.isLocationServiceEnabled()) return LocationStatus.serviceDisabled;
 
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      return null;
-    }
+    return switch (permission) {
+      LocationPermission.denied => LocationStatus.permissionDenied,
+      LocationPermission.deniedForever => LocationStatus.permissionDeniedForever,
+      _ => LocationStatus.ready,
+    };
+  }
 
-    final position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
-    return LocationFix(
+  @override
+  Stream<LocationFix> watch() => Geolocator.getPositionStream(
+    // Precisión máxima y sin filtro de distancia: para promediar hacen falta
+    // todas las lecturas, también las del agente quieto en el punto.
+    locationSettings: const LocationSettings(accuracy: LocationAccuracy.best),
+  ).map(
+    (position) => LocationFix(
       lat: position.latitude,
       lon: position.longitude,
       accuracyM: position.accuracy,
       altitudeM: position.altitude,
-    );
+      isMocked: position.isMocked,
+    ),
+  );
+
+  @override
+  Future<void> openSettings(LocationStatus status) async {
+    if (status == LocationStatus.serviceDisabled) {
+      await Geolocator.openLocationSettings();
+    } else {
+      await Geolocator.openAppSettings();
+    }
   }
 }

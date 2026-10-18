@@ -15,6 +15,7 @@ import 'package:visitacampo/core/auth/auth_controller.dart';
 import 'package:visitacampo/core/auth/auth_models.dart';
 import 'package:visitacampo/core/auth/auth_result.dart';
 import 'package:visitacampo/core/capture/photo_capture.dart';
+import 'package:visitacampo/core/location/gps_sampler.dart';
 import 'package:visitacampo/core/location/location_source.dart';
 import 'package:visitacampo/core/providers.dart';
 import 'package:visitacampo/data/local/database.dart';
@@ -24,12 +25,20 @@ import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
 import '../../support/test_app.dart';
 
+/// Sin [fix], el GPS del teléfono está apagado. Con él, entrega las lecturas
+/// buenas que pide la política por defecto: la hoja se cierra sola.
 class MockGnss implements LocationSource {
   const MockGnss(this.fix);
   final LocationFix? fix;
 
   @override
-  Future<LocationFix?> getCurrentFix() async => fix;
+  Future<LocationStatus> ensureReady() async => fix == null ? LocationStatus.serviceDisabled : LocationStatus.ready;
+
+  @override
+  Stream<LocationFix> watch() => Stream.fromIterable(List.filled(const GpsPolicy().samples, fix!));
+
+  @override
+  Future<void> openSettings(LocationStatus status) async {}
 }
 
 class FakeCamera implements PhotoCapture {
@@ -150,7 +159,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('capture_get_location_button')));
     await tester.pumpAndSettle();
-    expect(find.text('lat: 4.6, lon: -74.08 (±4 m)'), findsOneWidget);
+    expect(find.text('lat: 4.600000, lon: -74.080000 (±4 m)'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('capture_add_photo_button')));
     await tester.pumpAndSettle();
@@ -205,6 +214,9 @@ void main() {
     await pumpCapture(tester, dependencies);
 
     await tester.tap(find.byKey(const Key('capture_get_location_button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('gps_not_ready')), findsOneWidget, reason: 'dice que el GPS está apagado');
+    await tester.tap(find.byKey(const Key('gps_cancel')));
     await tester.pumpAndSettle();
     expect(find.textContaining('No se pudo obtener la ubicación'), findsOneWidget);
 

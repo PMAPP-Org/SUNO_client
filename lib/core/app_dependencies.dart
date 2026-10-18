@@ -25,6 +25,7 @@ import 'capture/signature_store.dart';
 import 'capture/visit_capture.dart';
 import 'constants.dart';
 import 'device/device_id_store.dart';
+import 'location/gps_sampler.dart';
 import 'location/location_source.dart';
 import 'privacy/consent.dart';
 import 'security/pin_store.dart';
@@ -57,6 +58,7 @@ class AppDependencies {
     SyncEngine? syncEngine,
     AttachmentUploadService? attachmentUploadService,
     SignatureStore? signatureStore,
+    this.gpsPolicy = const GpsPolicy(),
     VisitCapture? visitCapture,
     TrustStore? trustStore,
     ConsentService? consent,
@@ -106,6 +108,9 @@ class AppDependencies {
   final AuthController authController;
   final String deviceId;
   final LocationSource locationSource;
+
+  /// Cuándo una posición GPS es buena (Fase A).
+  final GpsPolicy gpsPolicy;
   final PhotoCapture photoCapture;
   final SyncEngine syncEngine;
   final AttachmentUploadService attachmentUploadService;

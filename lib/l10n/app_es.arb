@@ -137,6 +137,31 @@
     }
   },
   "captureLocationUnavailable": "No se pudo obtener la ubicación. Puedes guardar la visita sin ella.",
+  "captureLocationLowAccuracy": "Precisión baja: revisa la ubicación antes de guardar.",
+  "gpsTitle": "Ubicación GPS",
+  "gpsSearching": "Buscando señal GPS… Al aire libre y con el teléfono quieto se consigue antes.",
+  "gpsAccuracy": "±{meters} m",
+  "@gpsAccuracy": {
+    "placeholders": { "meters": { "type": "int" } }
+  },
+  "gpsSamples": "{good} de {total} lecturas con precisión de {target} m o mejor",
+  "@gpsSamples": {
+    "placeholders": { "good": { "type": "int" }, "total": { "type": "int" }, "target": { "type": "int" } }
+  },
+  "gpsLowAccuracy": "Precisión todavía baja. Espera o úsala si no se puede mejorar.",
+  "gpsTimedOut": "No se llegó a {target} m. Puedes usar la mejor lectura o reintentar.",
+  "@gpsTimedOut": {
+    "placeholders": { "target": { "type": "int" } }
+  },
+  "gpsMocked": "Ubicación simulada detectada. Desactiva las ubicaciones de prueba: una posición falsa no sirve como evidencia.",
+  "gpsNoSignal": "Sin señal GPS. Puedes reintentar o guardar la visita sin ubicación.",
+  "gpsServiceDisabled": "El GPS del teléfono está apagado.",
+  "gpsPermissionDenied": "La app necesita permiso de ubicación para registrar dónde se hizo la visita.",
+  "gpsPermissionDeniedForever": "El permiso de ubicación está bloqueado. Actívalo en los ajustes de la app.",
+  "gpsOpenSettings": "Abrir ajustes",
+  "gpsRetry": "Reintentar",
+  "gpsUse": "Usar esta ubicación",
+  "gpsCancel": "Cancelar",
   "captureExtraPhotos": "{count, plural, =0{Sin fotos adicionales} =1{1 foto adicional} other{{count} fotos adicionales}}",
   "@captureExtraPhotos": {
     "placeholders": { "count": { "type": "int" } }
