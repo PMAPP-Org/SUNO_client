@@ -43,12 +43,11 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
+    // Dos pulls: el ciclo automático al abrir la pantalla (Fase A) y el del
+    // botón.
+    const page = PullResponse(rows: [], tombstones: [], nextCursor: 'c1:00000000000000000001', hasMore: false);
     final syncTransport = FakeSyncTransport()
-      ..pullResponses.add(
-        Result.ok(
-          const PullResponse(rows: [], tombstones: [], nextCursor: 'c1:00000000000000000001', hasMore: false),
-        ),
-      );
+      ..pullResponses.addAll([Result.ok(page), Result.ok(page)]);
     final syncEngine = SyncEngine(db: db, transport: syncTransport, deviceId: 'device-1');
 
     final attachmentTransport = FakeAttachmentTransport();
@@ -57,10 +56,17 @@ void main() {
       transport: attachmentTransport,
     );
 
+    // La pantalla de inicio solo existe con sesión: sin ella no se sincroniza.
     final authController = AuthController(
-      transport: FakeAuthTransport(),
+      transport: FakeAuthTransport()
+        ..loginResponses.add(AuthResult.ok(LoginResponse(tokens: _tokenPair(), user: _user))),
       tokenStore: FakeTokenStore(),
       deviceId: 'device-1',
+    );
+    await authController.login(
+      username: 'agente1',
+      password: 'secret',
+      deviceInfo: const DeviceInfo(deviceId: 'device-1', platform: 'android', appVersion: '1.0.0'),
     );
 
     final dependencies = AppDependencies(
@@ -82,8 +88,50 @@ void main() {
     await tester.tap(find.byKey(const Key('home_sync_button')));
     await tester.pumpAndSettle();
 
-    expect(syncTransport.pullCalls, hasLength(1));
+    expect(syncTransport.pullCalls, hasLength(2));
     expect(find.textContaining('Sincronización completa'), findsOneWidget);
+    expect(find.byKey(const Key('home_last_sync')), findsOneWidget);
+  });
+
+  testWidgets('al abrir la pantalla sincroniza sola, sin pulsar el botón', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final syncTransport = FakeSyncTransport()
+      ..pullResponses.add(
+        Result.err(const SyncError.network('sin cobertura')),
+      );
+    final authController = AuthController(
+      transport: FakeAuthTransport()
+        ..loginResponses.add(AuthResult.ok(LoginResponse(tokens: _tokenPair(), user: _user))),
+      tokenStore: FakeTokenStore(),
+      deviceId: 'device-1',
+    );
+    await authController.login(
+      username: 'agente1',
+      password: 'secret',
+      deviceInfo: const DeviceInfo(deviceId: 'device-1', platform: 'android', appVersion: '1.0.0'),
+    );
+    final dependencies = AppDependencies(
+      database: db,
+      dio: Dio(),
+      authController: authController,
+      deviceId: 'device-1',
+      syncEngine: SyncEngine(db: db, transport: syncTransport, deviceId: 'device-1'),
+      attachmentUploadService: AttachmentUploadService(db: db, transport: FakeAttachmentTransport()),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDependenciesProvider.overrideWithValue(dependencies)],
+        child: testApp(const HomeScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(syncTransport.pullCalls, hasLength(1));
+    // Sin red: se avisa que queda pendiente, sin bloquear nada.
+    expect(find.byKey(const Key('home_sync_pending')), findsOneWidget);
+    expect(find.byKey(const Key('home_last_sync')), findsNothing);
   });
 
   testWidgets(

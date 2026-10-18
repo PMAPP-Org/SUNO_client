@@ -198,9 +198,10 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-    // Las fotos empiezan a subir ya, sin esperar al siguiente ciclo (Paso 18).
-    // Sin `await`: la subida no retiene la pantalla ni el guardado.
-    unawaited(dependencies.uploadScheduler.nudge());
+    // La visita y sus fotos salen ya si hay red, sin esperar al siguiente
+    // ciclo (Paso 18, Fase A). Sin `await`: no retiene la pantalla ni el
+    // guardado; sin red queda en la outbox para el próximo disparo.
+    unawaited(dependencies.syncCoordinator.syncNow());
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.captureSaved)));
     Navigator.of(context).pop();

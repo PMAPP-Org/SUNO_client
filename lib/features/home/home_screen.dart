@@ -1,11 +1,12 @@
 // Pantalla posterior al login: "Nueva visita", "Sincronizar" y las visitas
 // recientes con su estado.
 //
-// - "Sincronizar" hace, en orden, `drainOutbox()` (push de datos), un
-//   drenaje de la cola de adjuntos y `pull()`.
+// - La sincronización es automática (Fase A, `SyncCoordinator`): arranca con
+//   esta pantalla, al volver a primer plano, cada 5 minutos y tras guardar
+//   una visita. "Sincronizar" fuerza un ciclo ya y muestra su resultado.
 // - Los adjuntos además se suben solos (Paso 18): el planificador arranca con
-//   esta pantalla (la sesión ya existe), vuelve a drenar cuando la app pasa a
-//   primer plano y cada minuto, y la lista se refresca tras cada drenaje.
+//   esta pantalla, vuelve a drenar cuando la app pasa a primer plano y cada
+//   minuto. La lista se refresca tras cada drenaje y cada ciclo.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -14,7 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/attachments/attachment_upload_scheduler.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/providers.dart';
-import '../../core/sync/result.dart';
+import '../../core/sync/sync_coordinator.dart';
 import '../../data/local/visit_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/widgets/app_button.dart';
@@ -45,16 +46,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// sin esta referencia el temporizador periódico sobreviviría a la pantalla
   /// (y a cerrar sesión).
   late final AttachmentUploadScheduler _scheduler;
+  late final SyncCoordinator _coordinator;
+  StreamSubscription<SyncCycleReport>? _cycles;
 
   @override
   void initState() {
     super.initState();
     _loadVisits();
-    _scheduler = ref.read(appDependenciesProvider).uploadScheduler;
+    final dependencies = ref.read(appDependenciesProvider);
+    _scheduler = dependencies.uploadScheduler;
+    _coordinator = dependencies.syncCoordinator;
     _drained = _scheduler.drained.listen((_) => _loadVisits());
-    // Al volver de segundo plano: puede haber red de nuevo.
-    _lifecycle = AppLifecycleListener(onResume: () => unawaited(_scheduler.nudge()));
+    _cycles = _coordinator.completed.listen((_) => _loadVisits());
+    // Al volver de segundo plano: puede haber red de nuevo. El ciclo incluye
+    // los adjuntos (mismo planificador, sin drenajes en paralelo).
+    _lifecycle = AppLifecycleListener(onResume: () => unawaited(_coordinator.syncNow()));
     unawaited(_scheduler.start());
+    unawaited(_coordinator.start());
     // Reintento de la prueba de autorización (Ley 1581) si quedó pendiente.
     unawaited(ref.read(appDependenciesProvider).consent.syncPending());
     // Paso 16, tarea 7: sesión revocada en el servidor (p. ej. reuso del
@@ -88,7 +96,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _lifecycle.dispose();
     unawaited(_session?.cancel());
     unawaited(_drained?.cancel());
+    unawaited(_cycles?.cancel());
     _scheduler.stop();
+    _coordinator.stop();
     super.dispose();
   }
 
@@ -125,43 +135,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() => _isSyncing = true);
 
     try {
-      final drainReport = await dependencies.syncEngine.drainOutbox();
-      // Por el planificador, no directo al servicio: si ya hay un drenaje en
-      // curso (periódico, tras capturar) se espera a él en vez de correr dos.
-      // `force`: el agente lo pidió, se intenta ya aunque haya backoff.
-      final attachmentReport = await dependencies.uploadScheduler.nudge(force: true);
-      // Lo que queda sin subir tras el intento, no solo lo que falló en esta
-      // pasada: una foto en espera de reintento también es "no subida aún".
-      final notUploaded = await dependencies.attachmentUploadService.outstanding();
-      final pullResult = await dependencies.syncEngine.pull();
+      // Por el coordinador, no directo al motor: si ya hay un ciclo en curso
+      // (automático, tras capturar) se encadena uno más en vez de correr dos.
+      // `force`: el agente lo pidió, los adjuntos se intentan ya aunque haya
+      // backoff.
+      final report = await dependencies.syncCoordinator.syncNow(force: true);
 
-      if (!mounted) return;
+      if (!mounted || report == null) return;
 
-      // Hallazgo Crítico/Importante de la revisión final: antes de este fix
-      // el SnackBar siempre decía "completa" pase lo que pase -- descartaba
-      // `quarantined`/`deferred` de `drainReport`, `failed` de
-      // `attachmentReport` y el `Result` de `pull()`. Un operador del demo no
-      // tenía forma de distinguir "todo sincronizó" de "el servidor rechazó
-      // la visita" o "no se pudo subir la foto" con solo mirar la pantalla.
-      final hasIssues =
-          drainReport.quarantined > 0 ||
-          drainReport.deferred > 0 ||
-          notUploaded > 0 ||
-          !pullResult.isOk;
-
+      // Hallazgo Crítico/Importante de la revisión final: el SnackBar no puede
+      // decir "completa" si hubo rechazos, reintentos, adjuntos sin subir o
+      // el pull falló (`SyncCycleReport.hasIssues`).
+      final drainReport = report.drain;
       final l10n = context.l10n;
-      final message = hasIssues
+      final message = report.hasIssues
           ? [
               l10n.syncIncomplete(
                 drainReport.applied,
                 drainReport.quarantined,
                 drainReport.deferred,
-                attachmentReport.uploaded,
-                notUploaded,
+                report.attachments.uploaded,
+                report.notUploaded,
               ),
-              if (!pullResult.isOk) l10n.syncPullFailed,
+              if (!report.pullOk) l10n.syncPullFailed,
             ].join(' ')
-          : l10n.syncComplete(drainReport.applied, attachmentReport.uploaded);
+          : l10n.syncComplete(drainReport.applied, report.attachments.uploaded);
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
@@ -170,6 +168,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (mounted) setState(() => _isSyncing = false);
       await _loadVisits();
     }
+  }
+
+  /// Estado de la sincronización automática: que el agente sepa, sin pulsar
+  /// nada, si lo capturado ya salió del teléfono.
+  List<Widget> _syncStatus(AppLocalizations l10n) {
+    final last = _coordinator.lastReport;
+    final cleanAt = _coordinator.lastCleanSyncAt;
+    return [
+      if (last != null && last.hasIssues) ...[
+        const AppGap.sm(),
+        Text(
+          l10n.homeSyncPending,
+          key: const Key('home_sync_pending'),
+          textAlign: TextAlign.center,
+        ),
+      ],
+      if (cleanAt != null) ...[
+        const AppGap.sm(),
+        Text(
+          l10n.homeLastSync(cleanAt.toLocal()),
+          key: const Key('home_last_sync'),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    ];
   }
 
   @override
@@ -201,6 +224,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             isLoading: _isSyncing,
             onPressed: _sync,
           ),
+          ..._syncStatus(l10n),
           if (_toReview > 0) ...[
             const AppGap.sm(),
             // Badge de cuarentena (Paso 23): que el agente no las pierda de vista.
