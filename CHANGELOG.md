@@ -4,6 +4,30 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.4.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.3.0...v0.4.0) (2026-10-18)
+
+
+### Agregado
+
+* **auth:** resume the session offline after a restart (Fase A) ([#14](https://github.com/PMAPP-Org/SUNO_client/issues/14)) ([d5e6746](https://github.com/PMAPP-Org/SUNO_client/commit/d5e674614def8e4169c3700c1871dde679e214a9))
+* **location:** accurate GPS capture with live accuracy and averaging (Fase A) ([#17](https://github.com/PMAPP-Org/SUNO_client/issues/17)) ([9acefeb](https://github.com/PMAPP-Org/SUNO_client/commit/9acefeb844f4a129a2b83672966b0327f6412ff8))
+* **privacy:** privacy notice and express consent before login (Ley 1581) ([#13](https://github.com/PMAPP-Org/SUNO_client/issues/13)) ([674dee3](https://github.com/PMAPP-Org/SUNO_client/commit/674dee3ce1416bef0c37b2179eba7160043ae139))
+* **security:** TrustStore with SPKI pinning and TOFU, hardened secure storage (Paso 16) ([#8](https://github.com/PMAPP-Org/SUNO_client/issues/8)) ([2ed57bf](https://github.com/PMAPP-Org/SUNO_client/commit/2ed57bfd3ee5fb43a824703859cb43607f577220))
+* **settings:** settings screen, logout and safe device handover (Fase A) ([#20](https://github.com/PMAPP-Org/SUNO_client/issues/20)) ([86fdf2a](https://github.com/PMAPP-Org/SUNO_client/commit/86fdf2a3ee38d5ce1612b3e4ce96d2507e8a1b35))
+* **sync:** automatic sync while the app is open (Fase A) ([#15](https://github.com/PMAPP-Org/SUNO_client/issues/15)) ([f682585](https://github.com/PMAPP-Org/SUNO_client/commit/f682585b00527a73bca9d26c97113864c42b675a))
+* **visits:** edit and delete visits offline, with ordered sync (Fase A) ([#19](https://github.com/PMAPP-Org/SUNO_client/issues/19)) ([172d328](https://github.com/PMAPP-Org/SUNO_client/commit/172d32803608ea5c685a21655b54cffbd625f990))
+* **visits:** visit detail, search and paging (Fase A) ([#18](https://github.com/PMAPP-Org/SUNO_client/issues/18)) ([d0d7fca](https://github.com/PMAPP-Org/SUNO_client/commit/d0d7fca511497830d2c11d410cafc262c1923d3b))
+
+
+### Corregido
+
+* **deploy:** point mobile builds to the configured VPS domain ([#11](https://github.com/PMAPP-Org/SUNO_client/issues/11)) ([99e90fd](https://github.com/PMAPP-Org/SUNO_client/commit/99e90fd5bfe3a4ddc86c7fc51a4a32d805f45c1c))
+
+
+### Dependencias y build
+
+* **deps:** Dart minor/patch upgrades; drop unused cupertino_icons ([#5](https://github.com/PMAPP-Org/SUNO_client/issues/5)) ([054a555](https://github.com/PMAPP-Org/SUNO_client/commit/054a5554eb9b81828666621005cd63fcdb9e0bfc))
+
 ## [0.3.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.2.0...v0.3.0) (2026-10-17)
 
 
