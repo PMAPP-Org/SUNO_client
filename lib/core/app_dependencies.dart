@@ -18,6 +18,7 @@ import 'attachments/attachment_upload_scheduler.dart';
 import 'attachments/attachment_upload_service.dart';
 import 'auth/auth_controller.dart';
 import 'auth/auth_state.dart';
+import 'auth/session_store.dart';
 import 'auth/token_store.dart';
 import 'capture/photo_capture.dart';
 import 'capture/signature_store.dart';
@@ -157,6 +158,8 @@ class AppDependencies {
       transport: AuthApiClient(dio),
       tokenStore: tokenStore,
       deviceId: deviceId,
+      // Fase A: volver a entrar sin red (perfil + caducidad del refresh).
+      sessionStore: SecureSessionStore(secureStorage),
     );
     dio.interceptors.add(AuthInterceptor(dio: dio, controller: authController));
 

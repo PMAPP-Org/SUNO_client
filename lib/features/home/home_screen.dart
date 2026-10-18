@@ -60,9 +60,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Paso 16, tarea 7: sesión revocada en el servidor (p. ej. reuso del
     // refresh detectado) → login limpio. La outbox no se toca: lo capturado
     // se envía tras volver a entrar.
-    _session = ref.read(appDependenciesProvider).authController.changes.listen((state) {
+    final auth = ref.read(appDependenciesProvider).authController;
+    _session = auth.changes.listen((state) {
       if (state is Disconnected) unawaited(_backToLogin());
     });
+    // La sesión restaurada sin red se valida en segundo plano al arrancar: si
+    // el servidor ya la revocó antes de abrir esta pantalla, el aviso no llegó
+    // por `changes`.
+    if (auth.state is Disconnected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_backToLogin()));
+    }
   }
 
   Future<void> _backToLogin() async {
