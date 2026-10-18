@@ -16,13 +16,29 @@ class FakeBasemapTransport implements BasemapTransport {
   @override
   Future<String?> downloadUrl(String id) async => contents.containsKey(id) ? 'https://store.example/$id' : null;
 
+  /// Bytes que se entregan antes de "cortarse" la red; `null` = sin corte.
+  int? cutAfter;
+
+  /// El `from` de cada llamada, para comprobar que se reanuda.
+  final List<int> froms = [];
+
   @override
-  Future<void> fetch(String url, String path, {void Function(int received, int total)? onProgress}) async {
+  Future<void> fetch(
+    String url,
+    String path, {
+    int from = 0,
+    void Function(int received, int total)? onProgress,
+  }) async {
     fetches++;
+    froms.add(from);
     if (failFetch) throw const SocketException('sin red');
     final bytes = contents[url.split('/').last]!;
-    await File(path).writeAsBytes(bytes);
-    onProgress?.call(bytes.length, bytes.length);
+    final rest = bytes.sublist(from);
+    final limit = cutAfter;
+    final sent = limit == null ? rest : rest.sublist(0, limit.clamp(0, rest.length));
+    await File(path).writeAsBytes(sent, mode: from > 0 ? FileMode.append : FileMode.write);
+    onProgress?.call(from + sent.length, bytes.length);
+    if (limit != null && sent.length < rest.length) throw const SocketException('se cortó');
   }
 }
 

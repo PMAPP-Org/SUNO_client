@@ -96,8 +96,16 @@ abstract class BasemapTransport {
   /// URL prefirmada de descarga; `null` si no se pudo obtener.
   Future<String?> downloadUrl(String id);
 
-  /// Descarga [url] a [path]. Lanza si falla.
-  Future<void> fetch(String url, String path, {void Function(int received, int total)? onProgress});
+  /// Descarga [url] a [path], **continuando** desde el byte [from] si ya hay
+  /// una parte (`Range: bytes=from-`). Si el almacenamiento no admite
+  /// rangos, reescribe el archivo desde el principio. Lanza si falla; lo ya
+  /// escrito se conserva para el siguiente intento.
+  Future<void> fetch(
+    String url,
+    String path, {
+    int from = 0,
+    void Function(int received, int total)? onProgress,
+  });
 }
 
 sealed class BasemapDownloadResult {
@@ -231,15 +239,26 @@ class BasemapManager {
     final url = await transport.downloadUrl(info.id);
     if (url == null) return const BasemapUnavailable();
     await directory.create(recursive: true);
+    // Descarga **reanudable**: lo ya bajado de un intento cortado (mala
+    // cobertura en campo) se conserva en `.part` y se pide solo lo que falta.
+    // El nombre sale del sha256: una parte nunca se mezcla con otro paquete.
     final partial = File('${_pathFor(info)}.part');
-    try {
-      await transport.fetch(url, partial.path, onProgress: onProgress);
-    } on FileSystemException {
+    var have = partial.existsSync() ? partial.lengthSync() : 0;
+    if (have > info.size) {
       await _deleteFile(partial.path);
-      return const BasemapNoSpace();
-    } on Object {
-      await _deleteFile(partial.path);
-      return const BasemapUnavailable();
+      have = 0;
+    }
+    if (have < info.size) {
+      try {
+        await transport.fetch(url, partial.path, from: have, onProgress: onProgress);
+      } on FileSystemException {
+        // Sin espacio: la parte se libera, no tiene sentido guardarla.
+        await _deleteFile(partial.path);
+        return const BasemapNoSpace();
+      } on Object {
+        // Corte de red: la parte se queda para continuar en el próximo ciclo.
+        return const BasemapUnavailable();
+      }
     }
     if (!partial.existsSync() || await partial.length() != info.size || await _sha256(partial) != info.sha256) {
       await _deleteFile(partial.path);
