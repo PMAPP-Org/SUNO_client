@@ -71,7 +71,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // Fase B: con red, el mapa base de la organización llega solo (también
       // tras el primer login). Aparte del ciclo: un paquete de cientos de MB
       // no retrasa el envío de las visitas.
-      if (report.pullOk) unawaited(dependencies.basemaps.syncAll());
+      if (report.pullOk) {
+        unawaited(dependencies.basemaps.syncAll());
+        // Fase C: las capas de referencia llegan igual, solas.
+        unawaited(dependencies.layers.syncAll());
+      }
     });
     // Al volver de segundo plano: puede haber red de nuevo. El ciclo incluye
     // los adjuntos (mismo planificador, sin drenajes en paralelo).

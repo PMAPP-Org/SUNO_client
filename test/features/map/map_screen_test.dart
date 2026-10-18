@@ -15,6 +15,7 @@ import 'package:visitacampo/core/auth/auth_controller.dart';
 import 'package:visitacampo/core/auth/auth_models.dart';
 import 'package:visitacampo/core/auth/auth_result.dart';
 import 'package:visitacampo/core/basemaps/basemap_manager.dart';
+import 'package:visitacampo/core/layers/layer_manager.dart';
 import 'package:visitacampo/core/capture/visit_capture.dart';
 import 'package:visitacampo/core/forms/form_definition.dart';
 import 'package:visitacampo/core/location/location_source.dart';
@@ -27,6 +28,7 @@ import 'package:visitacampo/features/visits/visit_detail_screen.dart';
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
 import '../../core/basemaps/fake_basemap_transport.dart';
+import '../../core/layers/fake_layer_transport.dart';
 import '../../support/test_app.dart';
 
 class _Gps implements LocationSource {
@@ -59,6 +61,7 @@ void main() {
   Future<(AppDependencies, String)> scenario({
     LocationStatus gpsStatus = LocationStatus.serviceDisabled,
     BasemapManager? basemaps,
+    LayerManager? layers,
   }) async {
     gps = _Gps(gpsStatus);
     final auth = AuthController(
@@ -115,6 +118,7 @@ void main() {
       deviceId: 'device-1',
       locationSource: gps,
       basemaps: basemaps,
+      layers: layers,
     );
     return (dependencies, visitId);
   }
@@ -199,5 +203,38 @@ void main() {
     }
     expect(find.byKey(const ValueKey('map-basemap-roble')), findsOneWidget);
     expect(find.text('Mapa base: Mapa roble'), findsOneWidget);
+  });
+
+  testWidgets('las capas de referencia se dibujan y tocar un punto muestra sus atributos (Fase C)', (tester) async {
+    final dir = Directory.systemTemp.createTempSync('map-layers');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final transport = FakeLayerTransport();
+    final bytes = geoJsonBytes();
+    transport
+      ..offered = [layerInfo('predios', bytes)]
+      ..contents['predios'] = bytes;
+    final manager = LayerManager(transport: transport, directory: dir);
+    await tester.runAsync(manager.syncAll);
+
+    final (dependencies, _) = await scenario(layers: manager);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDependenciesProvider.overrideWithValue(dependencies)],
+        child: testApp(const MapScreen()),
+      ),
+    );
+    // La capa se lee en otro isolate: se deja correr de verdad.
+    final pin = find.bySemanticsLabel('Capa predios');
+    for (var i = 0; i < 100 && pin.evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+    }
+    expect(pin, findsOneWidget, reason: 'el punto de la capa');
+
+    // El punto de prueba cae bajo el marcador de una visita (las visitas van
+    // encima a propósito): se toca el marcador de la capa directamente.
+    tester.widget<InkResponse>(find.descendant(of: pin, matching: find.byType(InkResponse))).onTap!();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('map_feature_sheet')), findsOneWidget);
   });
 }

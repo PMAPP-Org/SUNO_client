@@ -18,6 +18,7 @@ import 'attachments/attachment_upload_scheduler.dart';
 import 'attachments/attachment_upload_service.dart';
 import 'auth/auth_controller.dart';
 import 'basemaps/basemap_manager.dart';
+import 'layers/layer_manager.dart';
 import 'auth/auth_state.dart';
 import 'auth/session_store.dart';
 import 'auth/token_store.dart';
@@ -44,6 +45,7 @@ import '../data/http/api_client.dart';
 import '../data/http/attachment_api_client.dart';
 import '../data/http/auth_interceptor.dart';
 import '../data/http/basemap_api_client.dart';
+import '../data/http/layer_api_client.dart';
 import '../data/http/consent_api_client.dart';
 import '../data/http/sync_api_client.dart';
 import '../data/local/assignment_repository.dart';
@@ -68,11 +70,23 @@ class AppDependencies {
     CoordinateSettings? coordinates,
     BasemapManager? basemaps,
     Directory? basemapsDirectory,
+    LayerManager? layers,
+    Directory? layersDirectory,
     VisitCapture? visitCapture,
     TrustStore? trustStore,
     ConsentService? consent,
   }) : gpsSettings = gpsSettings ?? GpsSettings(HardenedSecureStorage()),
        coordinates = coordinates ?? CoordinateSettings(HardenedSecureStorage()),
+       layers =
+           layers ??
+           LayerManager(
+             transport: LayerApiClient(
+               dio: dio,
+               accessTokenProvider: () => authController.accessToken ?? '',
+               downloadDio: Dio()..httpClientAdapter = dio.httpClientAdapter,
+             ),
+             directory: layersDirectory ?? Directory(p.join(Directory.systemTemp.path, 'visitacampo-layers')),
+           ),
        basemaps =
            basemaps ??
            BasemapManager(
@@ -136,6 +150,9 @@ class AppDependencies {
 
   /// Mapas base offline (Fase B).
   final BasemapManager basemaps;
+
+  /// Capas de referencia GeoJSON (Fase C).
+  final LayerManager layers;
   GpsPolicy get gpsPolicy => gpsSettings.policy;
 
   /// Sistema en que se muestran las coordenadas (Fase C); se guardan en 4326.
@@ -227,6 +244,7 @@ class AppDependencies {
       gpsSettings: gpsSettings,
       coordinates: coordinates,
       basemapsDirectory: Directory(p.join(documentsDir.path, 'basemaps')),
+      layersDirectory: Directory(p.join(documentsDir.path, 'layers')),
     );
   }
 }

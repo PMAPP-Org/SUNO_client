@@ -26,6 +26,7 @@ import 'package:visitacampo/core/auth/auth_controller.dart';
 import 'package:visitacampo/core/auth/auth_models.dart';
 import 'package:visitacampo/core/auth/auth_result.dart';
 import 'package:visitacampo/core/basemaps/basemap_manager.dart';
+import 'package:visitacampo/core/layers/layer_manager.dart';
 import 'package:visitacampo/core/providers.dart';
 import 'package:visitacampo/core/sync/result.dart';
 import 'package:visitacampo/core/sync/sync_engine.dart';
@@ -38,6 +39,7 @@ import '../../core/attachments/fake_file_source.dart';
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
 import '../../core/basemaps/fake_basemap_transport.dart';
+import '../../core/layers/fake_layer_transport.dart';
 import '../../core/sync/fake_sync_transport.dart';
 
 import '../../support/test_app.dart';
@@ -168,6 +170,8 @@ void main() {
       syncEngine: SyncEngine(db: db, transport: syncTransport, deviceId: 'device-1'),
       attachmentUploadService: AttachmentUploadService(db: db, transport: FakeAttachmentTransport()),
       basemaps: BasemapManager(transport: basemaps, directory: dir),
+      // Sin capas ofrecidas (sin red para capas): esta prueba es del mapa base.
+      layers: LayerManager(transport: FakeLayerTransport()..offered = null, directory: dir),
     );
 
     await tester.pumpWidget(

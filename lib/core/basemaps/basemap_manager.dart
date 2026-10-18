@@ -13,10 +13,11 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
+
+import '../offline/verified_download.dart';
 
 @immutable
 class BasemapInfo {
@@ -108,28 +109,18 @@ abstract class BasemapTransport {
   });
 }
 
-sealed class BasemapDownloadResult {
-  const BasemapDownloadResult();
-}
-
-final class BasemapDownloaded extends BasemapDownloadResult {
-  const BasemapDownloaded();
-}
+/// Resultado de una descarga (`core/offline/verified_download.dart`).
+typedef BasemapDownloadResult = OfflineDownloadResult;
+typedef BasemapDownloaded = OfflineDownloaded;
 
 /// Sin red o el servidor no dio la URL.
-final class BasemapUnavailable extends BasemapDownloadResult {
-  const BasemapUnavailable();
-}
+typedef BasemapUnavailable = OfflineUnavailable;
 
 /// Lo descargado no coincide con el `sha256`/tamaño anunciado: se descartó.
-final class BasemapCorrupted extends BasemapDownloadResult {
-  const BasemapCorrupted();
-}
+typedef BasemapCorrupted = OfflineCorrupted;
 
 /// No cupo o no se pudo escribir en el teléfono.
-final class BasemapNoSpace extends BasemapDownloadResult {
-  const BasemapNoSpace();
-}
+typedef BasemapNoSpace = OfflineNoSpace;
 
 /// Descarga automática en curso: qué paquete y cuánto lleva (0–1; `null`
 /// mientras no se sabe el total).
@@ -236,35 +227,15 @@ class BasemapManager {
     BasemapInfo info, {
     void Function(int received, int total)? onProgress,
   }) async {
-    final url = await transport.downloadUrl(info.id);
-    if (url == null) return const BasemapUnavailable();
-    await directory.create(recursive: true);
-    // Descarga **reanudable**: lo ya bajado de un intento cortado (mala
-    // cobertura en campo) se conserva en `.part` y se pide solo lo que falta.
-    // El nombre sale del sha256: una parte nunca se mezcla con otro paquete.
-    final partial = File('${_pathFor(info)}.part');
-    var have = partial.existsSync() ? partial.lengthSync() : 0;
-    if (have > info.size) {
-      await _deleteFile(partial.path);
-      have = 0;
-    }
-    if (have < info.size) {
-      try {
-        await transport.fetch(url, partial.path, from: have, onProgress: onProgress);
-      } on FileSystemException {
-        // Sin espacio: la parte se libera, no tiene sentido guardarla.
-        await _deleteFile(partial.path);
-        return const BasemapNoSpace();
-      } on Object {
-        // Corte de red: la parte se queda para continuar en el próximo ciclo.
-        return const BasemapUnavailable();
-      }
-    }
-    if (!partial.existsSync() || await partial.length() != info.size || await _sha256(partial) != info.sha256) {
-      await _deleteFile(partial.path);
-      return const BasemapCorrupted();
-    }
-    await partial.rename(_pathFor(info));
+    final result = await downloadVerified(
+      url: await transport.downloadUrl(info.id),
+      target: File(_pathFor(info)),
+      size: info.size,
+      sha256: info.sha256,
+      fetch: transport.fetch,
+      onProgress: onProgress,
+    );
+    if (result is! OfflineDownloaded) return result;
     final index = [for (final i in await _readIndex()) if (i.id != info.id) i, info];
     await _writeIndex(index);
     return const BasemapDownloaded();
@@ -277,12 +248,7 @@ class BasemapManager {
 
   /// El nombre lo deriva el cliente del `sha256` validado, nunca del servidor:
   /// no hay ruta que inyectar.
-  String _pathFor(BasemapInfo info) {
-    if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(info.sha256)) {
-      throw ArgumentError.value(info.sha256, 'sha256');
-    }
-    return p.join(directory.path, '${info.sha256}.mbtiles');
-  }
+  String _pathFor(BasemapInfo info) => p.join(directory.path, '${checkedSha256(info.sha256)}.mbtiles');
 
   Future<List<BasemapInfo>> _readIndex() async {
     // Lectura síncrona a propósito: el índice son unos pocos cientos de bytes,
@@ -302,14 +268,6 @@ class BasemapManager {
     await _index.writeAsString(jsonEncode([for (final i in infos) i.toJson()]));
   }
 
-  static Future<String> _sha256(File file) async => (await sha256.bind(file.openRead()).first).toString();
+  static Future<void> _deleteFile(String path) => deleteQuietly(path);
 
-  static Future<void> _deleteFile(String path) async {
-    try {
-      final file = File(path);
-      if (file.existsSync()) await file.delete();
-    } on FileSystemException {
-      // Ya no está o no se puede borrar: no impide seguir.
-    }
-  }
 }
