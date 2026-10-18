@@ -20,9 +20,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/auth/auth_state.dart';
+import '../../core/basemaps/basemap_manager.dart';
 import '../../core/location/location_source.dart';
 import '../../core/providers.dart';
 import '../../data/local/assignment_repository.dart';
+import '../../data/map/mbtiles_tile_provider.dart';
 import '../../data/local/visit_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_theme.dart';
@@ -46,6 +48,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   List<({VisitSummary summary, double lat, double lon})>? _visits;
   List<AssignmentItem> _assignments = const [];
   LocationFix? _me;
+
+  /// Mapas base descargados (B3), con su lector de teselas abierto.
+  List<({BasemapInfo info, MbtilesTileProvider tiles})> _basemaps = const [];
   StreamSubscription<LocationFix>? _position;
 
   @override
@@ -68,6 +73,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (auth is! Authenticated) return;
     final visits = await dependencies.visitStatus.mapVisits(orgId: auth.user.orgId);
     final assignments = await dependencies.assignments.forUser(orgId: auth.user.orgId, userId: auth.user.id);
+    if (_basemaps.isEmpty) {
+      final downloaded = await dependencies.basemaps.downloaded();
+      final opened = <({BasemapInfo info, MbtilesTileProvider tiles})>[];
+      for (final entry in downloaded) {
+        try {
+          opened.add((info: entry.info, tiles: MbtilesTileProvider(entry.localPath!)));
+        } on Object {
+          // Un archivo que no abre no tumba el mapa: se omite esa capa.
+        }
+      }
+      if (!mounted) {
+        for (final b in opened) {
+          unawaited(b.tiles.dispose());
+        }
+        return;
+      }
+      _basemaps = opened;
+    }
     if (!mounted) return;
     setState(() {
       _visits = visits;
@@ -211,6 +234,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
             ),
             children: [
+              // Mapas base offline (B3), debajo de los puntos. Una tesela que
+              // un paquete no tiene es transparente: los paquetes se apilan.
+              for (final basemap in _basemaps)
+                TileLayer(
+                  key: ValueKey('map-basemap-${basemap.info.id}'),
+                  tileProvider: basemap.tiles,
+                  minNativeZoom: basemap.info.minZoom,
+                  maxNativeZoom: basemap.info.maxZoom,
+                  tileBounds: LatLngBounds(
+                    LatLng(basemap.info.south, basemap.info.west),
+                    LatLng(basemap.info.north, basemap.info.east),
+                  ),
+                ),
               MarkerLayer(
                 markers: [
                   for (final v in visits)
@@ -265,7 +301,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 child: Text(
-                  points.isEmpty ? l10n.mapEmpty : l10n.mapNoBasemap,
+                  points.isEmpty
+                      ? l10n.mapEmpty
+                      : _basemaps.isEmpty
+                      ? l10n.mapNoBasemap
+                      : l10n.mapBasemaps(_basemaps.map((b) => b.info.name).join(', ')),
                   key: const Key('map_hint'),
                   textAlign: TextAlign.center,
                 ),
