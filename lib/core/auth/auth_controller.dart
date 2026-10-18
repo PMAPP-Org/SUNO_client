@@ -187,13 +187,20 @@ class AuthController {
   Future<void> logout() async {
     final refreshToken = await _tokenStore.readRefreshToken(deviceId);
     final token = _accessToken;
-    if (refreshToken != null && token != null) {
-      await _transport.logout(accessToken: token, refreshToken: refreshToken);
+    try {
+      if (refreshToken != null && token != null) {
+        await _transport.logout(accessToken: token, refreshToken: refreshToken);
+      }
+    } finally {
+      // Fase A: aunque la revocación en el servidor falle (sin red, error
+      // inesperado), en el teléfono la sesión se cierra siempre. Si no, el
+      // agente pulsaba "Cerrar sesión" y el siguiente seguía entrando con su
+      // token. El refresh no revocado caduca solo.
+      _accessToken = null;
+      await _tokenStore.clearRefreshToken(deviceId);
+      await _sessionStore?.clear(deviceId);
+      _state = const AuthState.unauthenticated();
     }
-    _accessToken = null;
-    await _tokenStore.clearRefreshToken(deviceId);
-    await _sessionStore?.clear(deviceId);
-    _state = const AuthState.unauthenticated();
   }
 
   /// Tarea 5: negocia `schema_version`/`server_time` contra

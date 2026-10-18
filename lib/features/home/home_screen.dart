@@ -23,6 +23,7 @@ import '../../ui/widgets/app_page_body.dart';
 import '../auth/login_screen.dart';
 import '../capture/capture_screen.dart';
 import '../review/review_screen.dart';
+import '../settings/settings_screen.dart';
 import '../visits/visit_detail_screen.dart';
 import 'visit_status_list.dart';
 
@@ -227,7 +228,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final dependencies = ref.watch(appDependenciesProvider);
     final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.appTitle)),
+      appBar: AppBar(
+        title: Text(l10n.appTitle),
+        actions: [
+          IconButton(
+            key: const Key('home_settings'),
+            tooltip: l10n.settingsTitle,
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+          ),
+        ],
+      ),
       body: AppPageBody(
         children: [
           Text(l10n.homeSessionStarted(dependencies.deviceId), textAlign: TextAlign.center),

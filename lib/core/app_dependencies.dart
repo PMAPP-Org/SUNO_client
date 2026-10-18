@@ -26,9 +26,11 @@ import 'capture/visit_capture.dart';
 import 'constants.dart';
 import 'device/device_id_store.dart';
 import 'location/gps_sampler.dart';
+import 'location/gps_settings.dart';
 import 'location/location_source.dart';
 import 'privacy/consent.dart';
 import 'security/pin_store.dart';
+import 'session/device_handover.dart';
 import 'security/secure_storage.dart';
 import 'security/trust_store.dart';
 import 'sync/quarantine_service.dart';
@@ -58,11 +60,12 @@ class AppDependencies {
     SyncEngine? syncEngine,
     AttachmentUploadService? attachmentUploadService,
     SignatureStore? signatureStore,
-    this.gpsPolicy = const GpsPolicy(),
+    GpsSettings? gpsSettings,
     VisitCapture? visitCapture,
     TrustStore? trustStore,
     ConsentService? consent,
-  }) : trustStore = trustStore ?? TrustStore(pinStore: PinStore(HardenedSecureStorage())),
+  }) : gpsSettings = gpsSettings ?? GpsSettings(HardenedSecureStorage()),
+       trustStore = trustStore ?? TrustStore(pinStore: PinStore(HardenedSecureStorage())),
        consent =
            consent ??
            ConsentService(
@@ -109,8 +112,12 @@ class AppDependencies {
   final String deviceId;
   final LocationSource locationSource;
 
-  /// Cuándo una posición GPS es buena (Fase A).
-  final GpsPolicy gpsPolicy;
+  /// Cuándo una posición GPS es buena (Fase A), ajustable en Ajustes.
+  final GpsSettings gpsSettings;
+  GpsPolicy get gpsPolicy => gpsSettings.policy;
+
+  /// Cambio de usuario en un teléfono compartido (Fase A).
+  DeviceHandover get handover => DeviceHandover(database);
   final PhotoCapture photoCapture;
   final SyncEngine syncEngine;
   final AttachmentUploadService attachmentUploadService;
@@ -178,6 +185,8 @@ class AppDependencies {
       sessionStore: SecureSessionStore(secureStorage),
     );
     dio.interceptors.add(AuthInterceptor(dio: dio, controller: authController));
+    final gpsSettings = GpsSettings(secureStorage);
+    await gpsSettings.load();
 
     return AppDependencies(
       database: database,
@@ -185,6 +194,7 @@ class AppDependencies {
       authController: authController,
       deviceId: deviceId,
       trustStore: trustStore,
+      gpsSettings: gpsSettings,
     );
   }
 }
