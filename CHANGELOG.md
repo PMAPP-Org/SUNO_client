@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.5.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.4.0...v0.5.0) (2026-10-18)
+
+
+### Agregado
+
+* **ui:** apply SUNO visual identity to the mobile app ([#12](https://github.com/PMAPP-Org/SUNO_client/issues/12)) ([ba19e94](https://github.com/PMAPP-Org/SUNO_client/commit/ba19e946e2a7636b52cbfd61cc32e3166f3cdc8a))
+
 ## [0.4.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.3.0...v0.4.0) (2026-10-18)
 
 
