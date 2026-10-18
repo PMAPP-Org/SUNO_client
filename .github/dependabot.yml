@@ -33,8 +33,9 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "freezed_annotation"
         update-types: ["version-update:semver-major"]
-      # Almacenamiento cifrado de la sesión: sus opciones (Keychain/Keystore)
-      # se revisan en el Paso 16 (TrustStore y almacenamiento seguro).
+      # Almacenamiento cifrado de la sesión: sus opciones (Keychain/Keystore,
+      # core/security/secure_storage.dart, Paso 16) y la migración de las
+      # entradas existentes se revisan con cada versión mayor.
       - dependency-name: "flutter_secure_storage"
         update-types: ["version-update:semver-major"]
 

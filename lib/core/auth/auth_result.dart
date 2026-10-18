@@ -8,6 +8,8 @@
 // de HTTP, este archivo no conoce nada de outbox/cursor.
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../security/trust_store.dart';
+
 part 'auth_result.freezed.dart';
 
 @freezed
@@ -42,6 +44,13 @@ sealed class AuthError with _$AuthError {
 
   /// El cuerpo de la respuesta no tiene la forma que el contrato promete.
   const factory AuthError.malformedResponse(String details) = AuthMalformedResponse;
+
+  /// `TrustStore` cortó la conexión por el certificado (Paso 16). Si
+  /// `rejection.approvable`, la UI ofrece el diálogo de confianza (TOFU).
+  const factory AuthError.certificate(CertificateRejection rejection) = AuthCertificateError;
+
+  /// La URL del servidor no es `https://`: el cliente no habla en claro.
+  const factory AuthError.cleartext() = AuthCleartextError;
 }
 
 /// Envuelve cualquier `fromJson` generado para que un payload malformado

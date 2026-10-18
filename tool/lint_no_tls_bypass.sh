@@ -61,8 +61,11 @@ else
 	SEARCH_DIRS=("$REPO_ROOT")
 fi
 
-# Patrones prohibidos (RD-01/ADR-009), insensible a mayúsculas.
-FORBIDDEN_PATTERN='badCertificateCallback|allowBadCertificates|ignoreSslErrors|ignoreCertificateErrors'
+# Patrones prohibidos (RD-01/ADR-009). `onBadCertificate` es el mismo hook
+# en `SecureSocket` (Paso 16: `TrustStore` abre los sockets TLS él mismo para
+# verificar el certificado antes de enviar nada); `connectionFactory` permite
+# sustituir esos sockets, así que también queda solo para `TrustStore`.
+FORBIDDEN_PATTERN='badCertificateCallback|onBadCertificate|connectionFactory|allowBadCertificates|ignoreSslErrors|ignoreCertificateErrors'
 
 # Ruta permitida: módulo TrustStore auditado (Paso 16), anclada al prefijo
 # canónico exacto lib/core/security/trust_store — NO un nombre de

@@ -4,13 +4,11 @@
 // persistido — es lo que la tarea 3 exige y lo que hace que un volcado del
 // dispositivo no entregue una sesión activa (ADR-008, RD-09).
 //
-// **Deuda técnica intencional de esta implementación** (documentada, Paso 13
-// tarea 3): `SecureTokenStore` usa `flutter_secure_storage` con sus flags de
-// accesibilidad por defecto, sin todavía `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`
-// en iOS ni la integración con `TrustStore` (que no existe hasta el Paso
-// 16). El **Paso 16** cierra esta deuda explícitamente (ver
-// `visitacampo-construccion.md`, Paso 16). Que esto sea una interfaz desde
-// ya es justo lo que permite ese reemplazo sin tocar `AuthController`.
+// La deuda que el Paso 13 dejó aquí (flags de accesibilidad por defecto) la
+// cerró el Paso 16: la app construye `SecureTokenStore` sobre
+// `HardenedSecureStorage` (`core/security/secure_storage.dart`): Keychain
+// `first_unlock_this_device` en iOS, Keystore en Android. Este archivo no
+// cambió: la interfaz permitió el reemplazo sin tocar `AuthController`.
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 abstract class TokenStore {

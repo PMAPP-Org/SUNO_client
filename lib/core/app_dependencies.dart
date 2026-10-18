@@ -11,7 +11,6 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -26,6 +25,9 @@ import 'capture/visit_capture.dart';
 import 'constants.dart';
 import 'device/device_id_store.dart';
 import 'location/location_source.dart';
+import 'security/pin_store.dart';
+import 'security/secure_storage.dart';
+import 'security/trust_store.dart';
 import 'sync/quarantine_service.dart';
 import 'sync/sync_engine.dart';
 import '../data/capture/file_signature_store.dart';
@@ -52,7 +54,9 @@ class AppDependencies {
     AttachmentUploadService? attachmentUploadService,
     SignatureStore? signatureStore,
     VisitCapture? visitCapture,
-  }) : locationSource = locationSource ?? const GeolocatorLocationSource(),
+    TrustStore? trustStore,
+  }) : trustStore = trustStore ?? TrustStore(pinStore: PinStore(HardenedSecureStorage())),
+       locationSource = locationSource ?? const GeolocatorLocationSource(),
        photoCapture = photoCapture ?? ImagePickerPhotoCapture(),
        signatureStore = signatureStore ?? const FileSignatureStore(),
        visitCapture = visitCapture ?? VisitCapture(db: database),
@@ -70,11 +74,18 @@ class AppDependencies {
              transport: AttachmentApiClient(
                dio: dio,
                accessTokenProvider: () => authController.accessToken ?? '',
+               // Las URL prefirmadas pasan por la misma política TLS
+               // (Paso 16): en un servidor autohospedado van al mismo host.
+               uploadDio: Dio()..httpClientAdapter = dio.httpClientAdapter,
              ),
            );
 
   final AppDatabase database;
   final Dio dio;
+
+  /// Paso 16: confianza TLS (pinning SPKI / TOFU). Ya cargado y conectado al
+  /// `dio`; el login lo usa para guardar un certificado aprobado.
+  final TrustStore trustStore;
   final AuthController authController;
   final String deviceId;
   final LocationSource locationSource;
@@ -105,7 +116,9 @@ class AppDependencies {
   FormTemplateRepository get formTemplates => syncEngine.templates;
 
   static Future<AppDependencies> bootstrap() async {
-    const secureStorage = FlutterSecureStorage();
+    // Paso 16: Keychain "after first unlock, this device only" (migra los
+    // secretos escritos antes) y Keystore en Android.
+    final secureStorage = HardenedSecureStorage();
 
     final deviceIdStore = DeviceIdStore(read: secureStorage.read, write: secureStorage.write);
     final deviceId = await deviceIdStore.getOrCreateId();
@@ -118,7 +131,12 @@ class AppDependencies {
       createEncryptedExecutor(file: dbFile, encryptionKey: encryptionKey),
     );
 
-    final dio = Dio(BaseOptions(baseUrl: kApiBaseUrl));
+    final trustStore = TrustStore(
+      pinStore: PinStore(secureStorage),
+      officialPins: SpkiPinPolicy.fromEnvironment(kApiBaseUrl),
+    );
+    await trustStore.load();
+    final dio = Dio(BaseOptions(baseUrl: kApiBaseUrl))..httpClientAdapter = trustStore.adapter();
     final tokenStore = SecureTokenStore(secureStorage);
     final authController = AuthController(
       transport: AuthApiClient(dio),
@@ -132,6 +150,7 @@ class AppDependencies {
       dio: dio,
       authController: authController,
       deviceId: deviceId,
+      trustStore: trustStore,
     );
   }
 }

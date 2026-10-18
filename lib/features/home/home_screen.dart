@@ -19,6 +19,7 @@ import '../../data/local/visit_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
+import '../auth/login_screen.dart';
 import '../capture/capture_screen.dart';
 import '../review/review_screen.dart';
 import 'visit_status_list.dart';
@@ -38,6 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<void>? _drained;
+  StreamSubscription<AuthState>? _session;
 
   /// Se guarda aquí porque `ref` ya no se puede usar dentro de `dispose()`:
   /// sin esta referencia el temporizador periódico sobreviviría a la pantalla
@@ -53,11 +55,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Al volver de segundo plano: puede haber red de nuevo.
     _lifecycle = AppLifecycleListener(onResume: () => unawaited(_scheduler.nudge()));
     unawaited(_scheduler.start());
+    // Paso 16, tarea 7: sesión revocada en el servidor (p. ej. reuso del
+    // refresh detectado) → login limpio. La outbox no se toca: lo capturado
+    // se envía tras volver a entrar.
+    _session = ref.read(appDependenciesProvider).authController.changes.listen((state) {
+      if (state is Disconnected) unawaited(_backToLogin());
+    });
+  }
+
+  Future<void> _backToLogin() async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.sessionEnded)),
+    );
+    await Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
   }
 
   @override
   void dispose() {
     _lifecycle.dispose();
+    unawaited(_session?.cancel());
     unawaited(_drained?.cancel());
     _scheduler.stop();
     super.dispose();

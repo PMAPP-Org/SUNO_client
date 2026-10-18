@@ -108,6 +108,43 @@ void main() {
       expect(controller.state, isA<Disconnected>());
     });
 
+    test('Paso 16: familia revocada (401) → borra el refresh token y avisa del cambio', () async {
+      final transport = FakeAuthTransport()
+        ..loginResponses.add(AuthResult.ok(LoginResponse(tokens: _tokenPair(), user: _user)))
+        ..refreshResponses.add(const AuthResult.err(AuthError.unauthorized()));
+      final tokenStore = FakeTokenStore();
+      final controller = AuthController(transport: transport, tokenStore: tokenStore, deviceId: 'device-1');
+      await controller.login(username: 'agente1', password: 'secret', deviceInfo: _deviceInfo);
+      final changes = <Object>[];
+      controller.changes.listen(changes.add);
+
+      await controller.refreshOnce();
+
+      expect(await tokenStore.readRefreshToken('device-1'), isNull, reason: 'un token revocado no se reutiliza');
+      expect(changes, [isA<Disconnected>()]);
+    });
+
+    test('Paso 16: un fallo de red no termina la sesión ni borra el refresh token', () async {
+      final transport = FakeAuthTransport()
+        ..loginResponses.add(AuthResult.ok(LoginResponse(tokens: _tokenPair(), user: _user)))
+        ..refreshResponses.add(const AuthResult.err(AuthError.network('sin cobertura')))
+        ..refreshResponses.add(AuthResult.ok(_tokenPair(access: 'access-2', refresh: 'refresh-2')));
+      final tokenStore = FakeTokenStore();
+      final controller = AuthController(transport: transport, tokenStore: tokenStore, deviceId: 'device-1');
+      await controller.login(username: 'agente1', password: 'secret', deviceInfo: _deviceInfo);
+      final changes = <Object>[];
+      controller.changes.listen(changes.add);
+
+      expect(await controller.refreshOnce(), isFalse);
+      expect(controller.state, isA<Authenticated>());
+      expect(await tokenStore.readRefreshToken('device-1'), 'refresh-1');
+      expect(changes, isEmpty);
+
+      // Con cobertura de nuevo, el mismo refresh token sigue sirviendo.
+      expect(await controller.refreshOnce(), isTrue);
+      expect(controller.accessToken, 'access-2');
+    });
+
     test('sin refresh token guardado: Disconnected sin llamar al transporte', () async {
       final transport = FakeAuthTransport();
       final tokenStore = FakeTokenStore();
