@@ -4,6 +4,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.8.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.7.0...v0.8.0) (2026-10-18)
+
+
+### Agregado
+
+* **forms:** draw lines and polygons on the map (Fase C) ([#31](https://github.com/PMAPP-Org/SUNO_client/issues/31)) ([ebf50d5](https://github.com/PMAPP-Org/SUNO_client/commit/ebf50d580ea4dc83619280c6997a70d40a1ae01f))
+* **location:** choose the coordinate system coordinates are shown in (Fase C) ([#30](https://github.com/PMAPP-Org/SUNO_client/issues/30)) ([bcb5f57](https://github.com/PMAPP-Org/SUNO_client/commit/bcb5f573ed958a36f964579ad7785e626c18907d))
+* **mobile:** align login with SUNO visual system ([#33](https://github.com/PMAPP-Org/SUNO_client/issues/33)) ([59f23fe](https://github.com/PMAPP-Org/SUNO_client/commit/59f23fe3954735e586151ca8be1a4dd653b8fecc))
+
 ## [0.7.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.6.0...v0.7.0) (2026-10-18)
 
 
