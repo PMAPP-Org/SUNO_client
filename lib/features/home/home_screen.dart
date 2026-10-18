@@ -16,6 +16,7 @@ import '../../core/attachments/attachment_upload_scheduler.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/providers.dart';
 import '../../core/sync/sync_coordinator.dart';
+import '../../data/local/assignment_repository.dart';
 import '../../data/local/visit_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_icons.dart';
@@ -24,6 +25,7 @@ import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../auth/login_screen.dart';
 import '../capture/capture_screen.dart';
+import '../assignments/assignments_screen.dart';
 import '../review/review_screen.dart';
 import '../settings/settings_screen.dart';
 import '../visits/visit_detail_screen.dart';
@@ -113,6 +115,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Visitas en cuarentena (Paso 23): el aviso "N para revisar".
   int _toReview = 0;
 
+  /// Asignaciones del agente (Fase B): `null` si no tiene ninguna; si no,
+  /// cuántas quedan pendientes.
+  int? _pendingAssignments;
+
   /// Búsqueda y paginado de la lista (Fase A): de [_pageSize] en
   /// [_pageSize], con "Ver más".
   static const _pageSize = 50;
@@ -134,13 +140,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final toReview = orgId == null
         ? 0
         : await dependencies.quarantine.count(orgId: orgId);
+    final assignments = authState is Authenticated
+        ? await dependencies.assignments.forUser(
+            orgId: authState.user.orgId,
+            userId: authState.user.id,
+          )
+        : const <AssignmentItem>[];
     // Una búsqueda más nueva ya está en camino: este resultado está viejo.
     if (mounted && query == _query) {
       setState(() {
         _visits = visits;
         _toReview = toReview;
+        _pendingAssignments = assignments.isEmpty ? null : assignments.where((a) => !a.done).length;
       });
     }
+  }
+
+  Future<void> _openAssignments() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AssignmentsScreen()));
+    await _loadVisits();
   }
 
   void _search(String query) {
@@ -295,6 +313,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: _sync,
           ),
           ..._syncStatus(l10n),
+          if (_pendingAssignments case final pending?) ...[
+            const AppGap.sm(),
+            OutlinedButton.icon(
+              key: const Key('home_assignments_button'),
+              icon: const Icon(Icons.assignment_outlined),
+              label: Text(l10n.homeAssignments(pending)),
+              onPressed: _openAssignments,
+            ),
+          ],
           if (_toReview > 0) ...[
             const AppGap.sm(),
             // Badge de cuarentena (Paso 23): que el agente no las pierda de vista.

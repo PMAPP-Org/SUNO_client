@@ -6,10 +6,8 @@
 import 'package:drift/drift.dart';
 
 /// Espejo local de `Visit` (contrato `server/openapi/v1.yaml`,
-/// `server/visitacampo/core/models/visit.py`). No incluye `assignmentId`
-/// todavía — `Assignment` llega al cliente en un paso posterior del track
-/// móvil; añadirlo es una migración propia con su test N-1→N, no algo que
-/// se cuele aquí por adelantado.
+/// `server/visitacampo/core/models/visit.py`). `assignmentId` llegó con la
+/// versión 8 del esquema (Fase B, asignaciones).
 class Visits extends Table {
   TextColumn get id => text()();
   TextColumn get orgId => text()();
@@ -38,6 +36,9 @@ class Visits extends Table {
   /// solo actualiza esta copia, sin pisar lo que el agente editó; si el agente
   /// descarta un cambio rechazado, la visita vuelve a esta versión.
   TextColumn get serverDataJson => text().nullable()();
+
+  /// Fase B: la asignación que originó la visita, si la hubo.
+  TextColumn get assignmentId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -216,6 +217,26 @@ class VisitAttachments extends Table {
   /// `null` hasta que el servidor la confirma.
   IntColumn get version => integer().nullable()();
   IntColumn get changeSeq => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Espejo local de `Assignment` (Fase B): trabajo planificado que origina
+/// visitas. Llega por el pull y el cliente no la modifica. Añadida en
+/// `schemaVersion` 8. Todas las de la organización: la pantalla filtra las del
+/// agente.
+class Assignments extends Table {
+  TextColumn get id => text()();
+  TextColumn get orgId => text()();
+  IntColumn get version => integer()();
+  IntColumn get changeSeq => integer().nullable()();
+  TextColumn get templateVersionId => text()();
+  TextColumn get assignedTo => text()();
+  TextColumn get title => text().nullable()();
+  DateTimeColumn get scheduledFor => dateTime().nullable()();
+  RealColumn get lat => real().nullable()();
+  RealColumn get lon => real().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

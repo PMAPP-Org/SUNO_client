@@ -17,8 +17,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_state.dart';
 import '../../core/capture/visit_capture.dart';
+import '../../core/location/geo.dart';
 import '../../core/location/location_source.dart';
 import '../../core/providers.dart';
+import '../../data/local/assignment_repository.dart';
 import '../../data/local/form_template_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/forms/dynamic_form.dart';
@@ -30,11 +32,16 @@ import 'location_capture_sheet.dart';
 import 'signature_screen.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
-  const CaptureScreen({super.key, this.editVisitId});
+  const CaptureScreen({super.key, this.editVisitId, this.assignmentId})
+    : assert(editVisitId == null || assignmentId == null);
 
   /// Fase A: editar esta visita en vez de crear una. Se abre con su misma
   /// versión de plantilla y sus respuestas; solo viaja lo que cambie.
   final String? editVisitId;
+
+  /// Fase B: la visita nueva cumple esta asignación. Se abre con la versión
+  /// de plantilla de la asignación y muestra su punto y la distancia a él.
+  final String? assignmentId;
 
   @override
   ConsumerState<CaptureScreen> createState() => _CaptureScreenState();
@@ -54,6 +61,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
 
   bool get _editing => widget.editVisitId != null;
 
+  /// La asignación que esta visita cumple (Fase B), ya cargada.
+  AssignmentItem? _assignment;
+
   /// Adjuntos de los campos foto/firma, por `id` (lo que guarda `answers`).
   final Map<String, PendingAttachment> _captured = {};
   final List<PendingAttachment> _extraPhotos = [];
@@ -63,9 +73,35 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     super.initState();
     if (_editing) {
       _loadForEdit(widget.editVisitId!);
+    } else if (widget.assignmentId != null) {
+      _loadForAssignment(widget.assignmentId!);
     } else {
       _loadTemplates();
     }
+  }
+
+  Future<void> _loadForAssignment(String assignmentId) async {
+    final orgId = _orgId;
+    if (orgId == null) return;
+    final dependencies = ref.read(appDependenciesProvider);
+    final assignment = await dependencies.assignments.byId(orgId: orgId, id: assignmentId);
+    if (assignment == null) {
+      if (mounted) setState(() => _templates = const []);
+      return;
+    }
+    // La versión exacta de la asignación: es contra la que el servidor
+    // validará las respuestas.
+    final lookup = await dependencies.formTemplates.forVisit(
+      orgId: orgId,
+      templateVersionId: assignment.templateVersionId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _assignment = assignment;
+      _lookup = lookup;
+      _templates = lookup is TemplateReady ? [lookup.info] : const [];
+      _form = lookup is TemplateReady ? FormController(lookup.definition) : null;
+    });
   }
 
   Future<void> _loadForEdit(String visitId) async {
@@ -254,6 +290,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           captured: Map.of(_captured),
           extraPhotos: List.of(_extraPhotos),
           fix: _fix,
+          assignmentId: _assignment?.id,
         );
         change = VisitChange.saved;
       }
@@ -306,6 +343,25 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
             if (lookup != null && templateLookupMessage(l10n, lookup) != null) ...[
               const AppGap.sm(),
               Text(templateLookupMessage(l10n, lookup)!, key: const Key('capture_template_problem')),
+            ],
+            if (_assignment case final assignment?) ...[
+              Text(
+                l10n.captureForAssignment(assignment.title ?? assignment.templateName ?? l10n.homeVisitUntitled),
+                key: const Key('capture_assignment'),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              if (assignment.hasPoint)
+                Text(
+                  fix == null
+                      ? l10n.captureAssignmentPoint(
+                          assignment.lat!.toStringAsFixed(6),
+                          assignment.lon!.toStringAsFixed(6),
+                        )
+                      : l10n.captureAssignmentDistance(
+                          distanceM(fix.lat, fix.lon, assignment.lat!, assignment.lon!).round(),
+                        ),
+                  key: const Key('capture_assignment_point'),
+                ),
             ],
             if (form != null) ...[
               const AppGap.lg(),

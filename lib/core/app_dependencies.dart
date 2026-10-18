@@ -43,6 +43,7 @@ import '../data/http/attachment_api_client.dart';
 import '../data/http/auth_interceptor.dart';
 import '../data/http/consent_api_client.dart';
 import '../data/http/sync_api_client.dart';
+import '../data/local/assignment_repository.dart';
 import '../data/local/database.dart';
 import '../data/local/encryption_key_store.dart';
 import '../data/local/form_template_repository.dart';
@@ -146,6 +147,9 @@ class AppDependencies {
 
   /// Estado de sincronización de las visitas, para la pantalla de inicio.
   VisitStatusRepository get visitStatus => VisitStatusRepository(database);
+
+  /// Asignaciones del agente (Fase B).
+  AssignmentRepository get assignments => AssignmentRepository(database);
 
   /// Revisión de la cuarentena (Paso 23), sobre el mismo `SyncEngine`.
   QuarantineService get quarantine => QuarantineService(db: database, engine: syncEngine);

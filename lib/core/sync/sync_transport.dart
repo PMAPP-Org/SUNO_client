@@ -148,6 +148,7 @@ abstract class BootstrapResponse with _$BootstrapResponse {
     required List<Map<String, dynamic>> visits,
     @Default(<Map<String, dynamic>>[]) List<Map<String, dynamic>> formTemplateVersions,
     @Default(<Map<String, dynamic>>[]) List<Map<String, dynamic>> visitAttachments,
+    @Default(<Map<String, dynamic>>[]) List<Map<String, dynamic>> assignments,
   }) = _BootstrapResponse;
 
   factory BootstrapResponse.fromJson(Map<String, dynamic> json) => _$BootstrapResponseFromJson(json);
