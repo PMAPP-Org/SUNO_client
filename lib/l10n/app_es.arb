@@ -70,6 +70,34 @@
   "visitAttachmentPending": "Por subir",
   "visitAttachmentFailed": "Error al subir",
   "visitAttachmentRemote": "En el servidor",
+  "settingsTitle": "Ajustes",
+  "settingsAccount": "Cuenta y dispositivo",
+  "settingsUser": "Usuario",
+  "settingsOrganization": "Organización",
+  "settingsDevice": "Dispositivo",
+  "settingsServer": "Servidor",
+  "settingsAppVersion": "Versión de la app",
+  "settingsGps": "GPS",
+  "settingsGpsHelp": "Bajo árboles o entre edificios, una precisión muy exigente puede no alcanzarse: ajústala al terreno del proyecto.",
+  "settingsGpsAccuracy": "Precisión objetivo",
+  "settingsGpsSamples": "Lecturas a promediar",
+  "settingsGpsTimeout": "Tiempo máximo buscando señal",
+  "settingsSeconds": "{seconds} s",
+  "@settingsSeconds": {
+    "placeholders": { "seconds": { "type": "int" } }
+  },
+  "settingsLogout": "Cerrar sesión",
+  "settingsLogoutTitle": "¿Cerrar sesión?",
+  "settingsLogoutBody": "Para volver a entrar necesitarás tu usuario y contraseña, y conexión.",
+  "settingsLogoutUnsent": "{count, plural, =1{Tienes 1 visita sin enviar.} other{Tienes {count} visitas sin enviar.}} Se quedan en el teléfono y se enviarán cuando vuelvas a entrar; mientras tanto, nadie más podrá entrar en este teléfono.",
+  "@settingsLogoutUnsent": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "loginHandoverBlocked": "{count, plural, =1{Este teléfono tiene 1 visita sin enviar de otro usuario.} other{Este teléfono tiene {count} visitas sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlocked": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "loginHandoverWiped": "Se borraron del teléfono los datos de la organización anterior.",
   "visitEdit": "Editar",
   "visitDelete": "Eliminar",
   "visitDeleteTitle": "¿Eliminar esta visita?",

@@ -179,6 +179,17 @@ void main() {
     expect(await controller().restoreSession(), isFalse);
   });
 
+  test('si revocar en el servidor falla, la sesión del teléfono se cierra igual', () async {
+    transport.loginResponses.add(AuthResult.ok(LoginResponse(tokens: _pair(), user: _user)));
+    final current = controller();
+    await current.login(username: 'agente1', password: 'x', deviceInfo: _device);
+    // Sin respuesta programada: el transporte lanza, como un fallo inesperado.
+    await expectLater(current.logout(), throwsStateError);
+    expect(current.state, isA<Unauthenticated>());
+    expect(tokens.isEmpty, isTrue);
+    expect(await controller().restoreSession(), isFalse);
+  });
+
   group('SecureSessionStore', () {
     setUp(() => FlutterSecureStorage.setMockInitialValues({}));
 

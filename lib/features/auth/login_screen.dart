@@ -9,10 +9,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_models.dart';
+import '../../core/auth/auth_state.dart';
 import '../../core/auth/auth_result.dart';
 import '../../core/constants.dart';
 import '../../core/providers.dart';
 import '../../core/security/trust_store.dart';
+import '../../core/session/device_handover.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
@@ -58,6 +60,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     await result.when(
       ok: (_) async {
+        // Teléfono compartido (Fase A): lo que quede sin enviar de otro
+        // usuario no puede salir con esta sesión, y los datos de otra
+        // organización se borran antes de entrar (`DeviceHandover`).
+        final auth = dependencies.authController.state;
+        if (auth is Authenticated) {
+          final handover = await dependencies.handover.prepare(auth.user);
+          if (!mounted) return;
+          final messenger = ScaffoldMessenger.of(context);
+          final l10n = context.l10n;
+          if (handover is HandoverBlocked) {
+            try {
+              await dependencies.authController.logout();
+            } on Object {
+              // Sin red no se revoca en el servidor; el token local ya no está.
+            }
+            messenger.showSnackBar(SnackBar(content: Text(l10n.loginHandoverBlocked(handover.visits))));
+            return;
+          }
+          if (handover case HandoverReady(wiped: true)) {
+            messenger.showSnackBar(SnackBar(content: Text(l10n.loginHandoverWiped)));
+          }
+        }
+        if (!mounted) return;
         // Ley 1581: con sesión ya se puede enviar la prueba de la autorización
         // que el agente dio en el aviso. Si falla, se reintenta en el inicio.
         unawaited(dependencies.consent.syncPending());
