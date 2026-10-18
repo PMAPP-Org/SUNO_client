@@ -6,6 +6,8 @@
 // igual que `SyncEngine` (Paso 12) habla con `SyncTransport` — el mecanismo
 // real de red (`AuthApiClient` + `AuthInterceptor`, `data/http/`) es
 // intercambiable sin tocar esta clase.
+import 'dart:async';
+
 import 'auth_models.dart';
 import 'auth_result.dart';
 import 'auth_state.dart';
@@ -28,12 +30,23 @@ class AuthController {
   final String deviceId;
   final DateTime Function() _now;
 
-  AuthState _state = const AuthState.unauthenticated();
-  AuthState get state => _state;
+  AuthState _stateValue = const AuthState.unauthenticated();
+  AuthState get state => _stateValue;
 
-  /// Access token JWT en memoria — tarea 3 del Paso 13: **nunca** persistido
-  /// (deuda técnica intencional de almacenamiento completa en Paso 16, ver
-  /// `token_store.dart`).
+  AuthState get _state => _stateValue;
+  set _state(AuthState next) {
+    if (next == _stateValue) return;
+    _stateValue = next;
+    _changes.add(next);
+  }
+
+  final _changes = StreamController<AuthState>.broadcast(sync: true);
+
+  /// Cambios de estado (Paso 16, tarea 7): la UI vuelve al login cuando la
+  /// sesión pasa a `Disconnected` (familia de refresh revocada en el servidor).
+  Stream<AuthState> get changes => _changes.stream;
+
+  /// Access token JWT en memoria — tarea 3 del Paso 13: **nunca** persistido.
   String? _accessToken;
   String? get accessToken => _accessToken;
 
@@ -110,9 +123,20 @@ class AuthController {
       // borrar la outbox local": este módulo no tiene ninguna referencia a
       // la outbox (`AppDatabase`/`OutboxOps`), así que no puede borrarla ni
       // por accidente — la garantía es de diseño, no de disciplina.
+      //
+      // Paso 16, tarea 7: solo un `401` termina la sesión. Es la respuesta
+      // del servidor a un refresh caducado, revocado o **reutilizado** (Paso
+      // 15 revoca la familia entera al detectar reuso): ese token ya no
+      // sirve, se borra y se pide un login limpio. Un fallo de red, un 5xx o
+      // un certificado rechazado no dicen nada de la sesión: se conserva el
+      // refresh token y se reintenta en la próxima petición, para que un
+      // agente sin cobertura no tenga que volver a iniciar sesión.
       err: (error) async {
         _accessToken = null;
-        _state = const AuthState.disconnected();
+        if (error is UnauthorizedAuthError) {
+          await _tokenStore.clearRefreshToken(deviceId);
+          _state = const AuthState.disconnected();
+        }
         return false;
       },
     );

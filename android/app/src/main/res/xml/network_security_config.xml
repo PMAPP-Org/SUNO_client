@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Paso 16, tarea 4 (ADR-009, RD-01): sin tráfico en claro y sin CAs
+     instaladas por el usuario, para todos los dominios.
+
+     Alcance: esta política la aplica la pila de red de Android (plugins
+     nativos, WebViews, DownloadManager). Las peticiones de la app a la API van
+     por la pila de Dart (dart:io + BoringSSL), que no lee este archivo: su
+     política es `lib/core/security/trust_store.dart` (solo HTTPS, pinning SPKI
+     / TOFU, CAs del sistema). Las dos dicen lo mismo. Lo comprueba
+     test/platform/platform_tls_config_test.dart. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

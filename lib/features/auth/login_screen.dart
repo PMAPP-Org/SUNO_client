@@ -2,6 +2,8 @@
 // UI directamente con `AuthController.login()` (Paso 13, ya construido) —
 // esta pantalla no valida ni decide nada, solo traduce el formulario a los
 // parámetros del contrato y el `AuthResult` a un mensaje o una navegación.
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,10 +12,12 @@ import '../../core/auth/auth_models.dart';
 import '../../core/auth/auth_result.dart';
 import '../../core/constants.dart';
 import '../../core/providers.dart';
+import '../../core/security/trust_store.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../home/home_screen.dart';
+import 'trust_certificate_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -52,18 +56,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
-    result.when(
-      ok: (_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+    await result.when(
+      ok: (_) async {
+        unawaited(
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+          ),
         );
       },
-      err: (error) {
+      err: (error) async {
+        if (error case AuthCertificateError(:final rejection) when rejection.approvable) {
+          await _offerTrust(rejection);
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(_messageFor(error))),
         );
       },
     );
+  }
+
+  /// Paso 16 (TOFU): servidor autohospedado con un certificado que no firma
+  /// una CA reconocida. Si el usuario confía tras comparar la huella, se
+  /// guarda el pin para ese host y se reintenta el login.
+  Future<void> _offerTrust(CertificateRejection rejection) async {
+    final trusted = await TrustCertificateScreen.show(context, rejection);
+    if (!trusted || !mounted) return;
+    await ref.read(appDependenciesProvider).trustStore.approve(
+      rejection.host,
+      rejection.port,
+      rejection.certificate!,
+    );
+    if (mounted) await _submit();
   }
 
   String _messageFor(AuthError error) {
@@ -74,6 +98,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       unauthorized: () => l10n.authErrorUnauthorized,
       unexpectedStatus: (statusCode, body) => l10n.authErrorUnexpectedStatus(statusCode),
       malformedResponse: (details) => l10n.authErrorMalformedResponse,
+      certificate: (rejection) => rejection is PinMismatch
+          ? l10n.authErrorPinMismatch
+          : l10n.authErrorUntrustedCertificate,
+      cleartext: () => l10n.authErrorCleartext,
     );
   }
 

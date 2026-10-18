@@ -171,5 +171,33 @@
   "formErrorInvalid": "Valor no válido.",
   "formTemplateMissing": "Esta plantilla todavía no está en el dispositivo. Sincroniza e inténtalo de nuevo.",
   "formTemplateUnsupported": "Esta plantilla necesita una versión más reciente de la app.",
-  "formTemplateCorrupt": "La plantilla guardada estaba dañada y se volverá a descargar. Sincroniza e inténtalo de nuevo."
+  "formTemplateCorrupt": "La plantilla guardada estaba dañada y se volverá a descargar. Sincroniza e inténtalo de nuevo.",
+  "authErrorUntrustedCertificate": "El servidor presentó un certificado en el que la app no confía.",
+  "authErrorPinMismatch": "La identidad del servidor no coincide con la esperada. Por seguridad, la app no se conectará. Avisa al administrador.",
+  "authErrorCleartext": "La dirección del servidor no usa una conexión segura (https).",
+  "sessionEnded": "Tu sesión terminó. Vuelve a iniciar sesión: las visitas guardadas en el teléfono se conservan y se enviarán después.",
+  "tofuTitle": "¿Confiar en este servidor?",
+  "tofuIntro": "El servidor {server} usa un certificado que no está firmado por una autoridad reconocida. Es normal en servidores propios de una organización, pero también es lo que verías si alguien estuviera interceptando la conexión.",
+  "@tofuIntro": {
+    "placeholders": { "server": { "type": "String" } }
+  },
+  "tofuChangedIntro": "El certificado de {server} CAMBIÓ desde que lo aprobaste el {date}. Si el administrador no te avisó de un cambio, no continúes: alguien podría estar interceptando la conexión.",
+  "@tofuChangedIntro": {
+    "placeholders": { "server": { "type": "String" }, "date": { "type": "String" } }
+  },
+  "tofuInstruction": "Antes de continuar, pide al administrador la huella SHA-256 del certificado y compárala carácter por carácter con la de abajo.",
+  "tofuFingerprint": "Huella SHA-256 del certificado",
+  "tofuSubject": "Nombre (CN)",
+  "tofuAltNames": "Nombres alternativos (SAN)",
+  "tofuIssuer": "Emitido por",
+  "tofuValidity": "Válido",
+  "tofuValidityRange": "del {from} al {to}",
+  "@tofuValidityRange": {
+    "placeholders": { "from": { "type": "String" }, "to": { "type": "String" } }
+  },
+  "tofuNotValidNow": "Este certificado no está vigente hoy.",
+  "tofuNone": "(ninguno)",
+  "tofuConfirmCheck": "Comparé la huella con la que me dio el administrador y coincide.",
+  "tofuTrust": "Confiar en este servidor",
+  "tofuCancel": "No confiar"
 }

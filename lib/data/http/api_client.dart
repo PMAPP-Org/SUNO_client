@@ -17,12 +17,15 @@
 // respuesta. Verificado en `test/core/auth/tls_default_rejects_invalid_cert_test.dart`
 // contra un servidor HTTPS real con certificado autofirmado. El Paso 16
 // introduce `TrustStore` como la única excepción auditada a este default,
-// para pinning de SPKI y TOFU explícito.
+// para pinning de SPKI y TOFU explícito: el `Dio` de la app lleva su
+// adaptador (`AppDependencies.bootstrap`), y aquí solo se traduce su motivo
+// de rechazo a `AuthError.certificate` para que el login ofrezca el diálogo.
 import 'package:dio/dio.dart';
 
 import '../../core/auth/auth_models.dart';
 import '../../core/auth/auth_result.dart';
 import '../../core/auth/auth_transport.dart';
+import '../../core/security/trust_store.dart';
 
 class AuthApiClient implements AuthTransport {
   const AuthApiClient(this._dio);
@@ -91,6 +94,9 @@ class AuthApiClient implements AuthTransport {
   /// transporte (sin respuesta del servidor, incluido el TLS rechazado del
   /// docstring de arriba); cualquier otro código se refleja tal cual.
   AuthError _mapError(DioException e, {bool isLogin = false}) {
+    final cause = e.error;
+    if (cause is CertificateRejection) return AuthError.certificate(cause);
+    if (cause is CleartextRefused) return const AuthError.cleartext();
     final status = e.response?.statusCode;
     if (status == null) {
       return AuthError.network(e.message ?? e.type.name);

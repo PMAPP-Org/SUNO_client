@@ -46,7 +46,7 @@ bash tool/lint_no_dynamic_code.sh
 
 Hallazgo **crítico** de la revisión de la arquitectura de referencia: QField aceptaba certificados TLS inválidos sin condiciones. Aquí está prohibido.
 
-`tool/lint_no_tls_bypass.sh` falla si aparece `badCertificateCallback`, `allowBadCertificates`, `ignoreSslErrors` o `ignoreCertificateErrors` en cualquier `.dart` fuera de `lib/core/security/trust_store.dart` (o de `lib/core/security/trust_store/`). Ese es el módulo `TrustStore` auditado del Paso 16, con pinning de SPKI y consentimiento explícito del usuario.
+`tool/lint_no_tls_bypass.sh` falla si aparece `badCertificateCallback`, `onBadCertificate`, `connectionFactory`, `allowBadCertificates`, `ignoreSslErrors` o `ignoreCertificateErrors` en cualquier `.dart` fuera de `lib/core/security/trust_store.dart` (o de `lib/core/security/trust_store/`). Ese es el módulo `TrustStore` auditado del Paso 16: solo HTTPS, pinning SPKI para el servidor oficial y TOFU con consentimiento explícito para los autohospedados, verificando el certificado antes de enviar la petición. Un cambio en ese módulo exige la misma revisión que el Paso 16.
 
 Ante un falso positivo, se ajusta el script en un PR. **Nunca se elimina el gate.**
 
