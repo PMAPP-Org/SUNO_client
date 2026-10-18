@@ -106,6 +106,25 @@ class VisitStatusRepository {
     return _summarize(visits, templateNames);
   }
 
+  /// Las visitas de [orgId] con ubicación, para el mapa (Fase B). Hasta
+  /// [limit], las más recientes: miles de marcadores no se leen en un
+  /// teléfono, y la búsqueda de la lista sigue llegando a todas.
+  Future<List<({VisitSummary summary, double lat, double lon})>> mapVisits({
+    required String orgId,
+    int limit = 2000,
+  }) async {
+    final visits =
+        await (db.select(db.visits)
+              ..where((t) => t.orgId.equals(orgId) & t.deletedAt.isNull() & t.lat.isNotNull() & t.lon.isNotNull())
+              ..orderBy([(t) => OrderingTerm.desc(t.capturedAt)])
+              ..limit(limit))
+            .get();
+    final summaries = await _summarize(visits, await _templateNames(visits));
+    return [
+      for (final (index, visit) in visits.indexed) (summary: summaries[index], lat: visit.lat!, lon: visit.lon!),
+    ];
+  }
+
   /// Una visita con su estado y sus adjuntos; `null` si no existe en [orgId]
   /// o está borrada.
   Future<VisitDetail?> detail({required String orgId, required String visitId}) async {

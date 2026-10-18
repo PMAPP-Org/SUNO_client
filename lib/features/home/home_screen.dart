@@ -26,6 +26,7 @@ import '../../ui/widgets/app_page_body.dart';
 import '../auth/login_screen.dart';
 import '../capture/capture_screen.dart';
 import '../assignments/assignments_screen.dart';
+import '../map/map_screen.dart';
 import '../review/review_screen.dart';
 import '../settings/settings_screen.dart';
 import '../visits/visit_detail_screen.dart';
@@ -266,6 +267,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         title: const AppBrand(),
         actions: [
+          IconButton(
+            key: const Key('home_map'),
+            tooltip: l10n.mapTitle,
+            icon: const Icon(Icons.map_outlined),
+            onPressed: () async {
+              await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const MapScreen()));
+              await _loadVisits();
+            },
+          ),
           IconButton(
             key: const Key('home_settings'),
             tooltip: l10n.settingsTitle,
