@@ -14,12 +14,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/attachments/attachment_upload_scheduler.dart';
 import '../../core/auth/auth_state.dart';
+import '../../core/basemaps/basemap_manager.dart';
 import '../../core/providers.dart';
 import '../../core/sync/sync_coordinator.dart';
 import '../../data/local/assignment_repository.dart';
 import '../../data/local/visit_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_icons.dart';
+import '../../ui/theme/app_tokens.dart';
 import '../../ui/widgets/app_brand.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
@@ -64,7 +66,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _scheduler = dependencies.uploadScheduler;
     _coordinator = dependencies.syncCoordinator;
     _drained = _scheduler.drained.listen((_) => _loadVisits());
-    _cycles = _coordinator.completed.listen((_) => _loadVisits());
+    _cycles = _coordinator.completed.listen((report) {
+      unawaited(_loadVisits());
+      // Fase B: con red, el mapa base de la organización llega solo (también
+      // tras el primer login). Aparte del ciclo: un paquete de cientos de MB
+      // no retrasa el envío de las visitas.
+      if (report.pullOk) unawaited(dependencies.basemaps.syncAll());
+    });
     // Al volver de segundo plano: puede haber red de nuevo. El ciclo incluye
     // los adjuntos (mismo planificador, sin drenajes en paralelo).
     _lifecycle = AppLifecycleListener(
@@ -323,6 +331,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: _sync,
           ),
           ..._syncStatus(l10n),
+          ValueListenableBuilder<BasemapProgress?>(
+            valueListenable: ref.read(appDependenciesProvider).basemaps.progress,
+            builder: (context, progress, _) => progress == null
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.sm),
+                    child: Column(
+                      key: const Key('home_basemap_progress'),
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          progress.fraction == null
+                              ? l10n.homeBasemapDownloading(progress.name)
+                              : l10n.homeBasemapDownloadingPercent(
+                                  progress.name,
+                                  (progress.fraction! * 100).round(),
+                                ),
+                        ),
+                        LinearProgressIndicator(value: progress.fraction),
+                      ],
+                    ),
+                  ),
+          ),
           if (_pendingAssignments case final pending?) ...[
             const AppGap.sm(),
             OutlinedButton.icon(

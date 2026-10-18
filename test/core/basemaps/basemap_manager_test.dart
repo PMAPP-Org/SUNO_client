@@ -101,4 +101,48 @@ void main() {
     transport.contents['x'] = bytes;
     await expectLater(manager.download(evil), throwsArgumentError);
   });
+
+  group('descarga automática (syncAll)', () {
+    test('baja todo lo que ofrece la organización sin que el agente lo pida', () async {
+      final otros = List<int>.generate(1000, (i) => (i * 7) % 256);
+      transport
+        ..offered = [info('a', bytes), info('b', otros)]
+        ..contents['a'] = bytes
+        ..contents['b'] = otros;
+      final seen = <String>[];
+      manager.progress.addListener(() {
+        final value = manager.progress.value;
+        if (value != null && !seen.contains(value.name)) seen.add(value.name);
+      });
+
+      await manager.syncAll();
+      expect((await manager.downloaded()).map((e) => e.info.id), unorderedEquals(['a', 'b']));
+      expect(seen, ['Mapa a', 'Mapa b'], reason: 'el aviso de inicio muestra cuál baja');
+      expect(manager.progress.value, isNull, reason: 'al terminar, sin aviso');
+    });
+
+    test('dos llamadas a la vez no descargan dos veces', () async {
+      transport
+        ..offered = [info('a', bytes)]
+        ..contents['a'] = bytes;
+      await Future.wait([manager.syncAll(), manager.syncAll()]);
+      expect(transport.fetches, 1);
+    });
+
+    test('un paquete corrupto no se reintenta en bucle en la misma sesión', () async {
+      transport
+        ..offered = [info('a', bytes, sha: 'e' * 64)]
+        ..contents['a'] = bytes;
+      await manager.syncAll();
+      await manager.syncAll();
+      expect(transport.fetches, 1);
+      expect(await manager.downloaded(), isEmpty);
+    });
+
+    test('sin red no hace nada', () async {
+      transport.offered = null;
+      await manager.syncAll();
+      expect(transport.fetches, 0);
+    });
+  });
 }

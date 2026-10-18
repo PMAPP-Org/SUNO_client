@@ -10,6 +10,8 @@
 // un adjunto que falla debe producir un mensaje distinto que mencione el
 // fallo con su conteo real, no el mensaje de éxito de siempre.
 
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
@@ -23,6 +25,7 @@ import 'package:visitacampo/core/attachments/attachment_upload_service.dart';
 import 'package:visitacampo/core/auth/auth_controller.dart';
 import 'package:visitacampo/core/auth/auth_models.dart';
 import 'package:visitacampo/core/auth/auth_result.dart';
+import 'package:visitacampo/core/basemaps/basemap_manager.dart';
 import 'package:visitacampo/core/providers.dart';
 import 'package:visitacampo/core/sync/result.dart';
 import 'package:visitacampo/core/sync/sync_engine.dart';
@@ -34,6 +37,7 @@ import '../../core/attachments/fake_attachment_transport.dart';
 import '../../core/attachments/fake_file_source.dart';
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
+import '../../core/basemaps/fake_basemap_transport.dart';
 import '../../core/sync/fake_sync_transport.dart';
 
 import '../../support/test_app.dart';
@@ -132,6 +136,59 @@ void main() {
     // Sin red: se avisa que queda pendiente, sin bloquear nada.
     expect(find.byKey(const Key('home_sync_pending')), findsOneWidget);
     expect(find.byKey(const Key('home_last_sync')), findsNothing);
+  });
+
+  testWidgets('tras la primera sincronización el mapa base se descarga solo (Fase B)', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final dir = Directory.systemTemp.createTempSync('home-basemap');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    const page = PullResponse(rows: [], tombstones: [], nextCursor: 'c1:00000000000000000001', hasMore: false);
+    final syncTransport = FakeSyncTransport()..pullResponses.add(Result.ok(page));
+    final bytes = List<int>.generate(2048, (i) => i % 200);
+    final basemaps = FakeBasemapTransport()
+      ..offered = [info('roble', bytes)]
+      ..contents['roble'] = bytes;
+    final authController = AuthController(
+      transport: FakeAuthTransport()
+        ..loginResponses.add(AuthResult.ok(LoginResponse(tokens: _tokenPair(), user: _user))),
+      tokenStore: FakeTokenStore(),
+      deviceId: 'device-1',
+    );
+    await authController.login(
+      username: 'agente1',
+      password: 'secret',
+      deviceInfo: const DeviceInfo(deviceId: 'device-1', platform: 'android', appVersion: '1.0.0'),
+    );
+    final dependencies = AppDependencies(
+      database: db,
+      dio: Dio(),
+      authController: authController,
+      deviceId: 'device-1',
+      syncEngine: SyncEngine(db: db, transport: syncTransport, deviceId: 'device-1'),
+      attachmentUploadService: AttachmentUploadService(db: db, transport: FakeAttachmentTransport()),
+      basemaps: BasemapManager(transport: basemaps, directory: dir),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDependenciesProvider.overrideWithValue(dependencies)],
+        child: testApp(const HomeScreen()),
+      ),
+    );
+    // La descarga escribe un archivo real: se alterna E/S real y `pump`.
+    var downloaded = const <BasemapEntry>[];
+    for (var i = 0; i < 200 && downloaded.isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+      downloaded = (await tester.runAsync(dependencies.basemaps.downloaded))!;
+    }
+    // Que termine (y suelte el archivo) antes de borrar la carpeta.
+    for (var i = 0; i < 100 && dependencies.basemaps.progress.value != null; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+    }
+    expect(downloaded.single.info.id, 'roble', reason: 'el agente no tuvo que pedirlo');
   });
 
   testWidgets(

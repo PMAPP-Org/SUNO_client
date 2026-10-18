@@ -82,6 +82,14 @@
   "@mapBasemaps": {
     "placeholders": { "names": { "type": "String" } }
   },
+  "homeBasemapDownloading": "Descargando el mapa base «{name}»…",
+  "@homeBasemapDownloading": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "homeBasemapDownloadingPercent": "Descargando el mapa base «{name}»… {percent} %",
+  "@homeBasemapDownloadingPercent": {
+    "placeholders": { "name": { "type": "String" }, "percent": { "type": "int" } }
+  },
   "basemapsTitle": "Mapas offline",
   "basemapsHelp": "Descarga el mapa de tu zona para verlo sin red.",
   "basemapsEmpty": "Tu organización todavía no ha publicado mapas offline.",
