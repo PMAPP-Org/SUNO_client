@@ -11,6 +11,7 @@ import 'package:visitacampo/core/auth/auth_models.dart';
 import 'package:visitacampo/core/auth/auth_result.dart';
 import 'package:visitacampo/core/capture/visit_capture.dart';
 import 'package:visitacampo/core/forms/form_definition.dart';
+import 'package:visitacampo/core/location/coordinate_system.dart';
 import 'package:visitacampo/core/location/location_source.dart';
 import 'package:visitacampo/core/providers.dart';
 import 'package:visitacampo/data/local/database.dart';
@@ -122,9 +123,16 @@ void main() {
     expect(find.text('Enferma'), findsOneWidget, reason: 'la etiqueta, no el valor `enferma`');
     expect(find.text('¿Tiene riego?'), findsOneWidget);
     expect(find.text('Sí'), findsOneWidget);
-    expect(find.text('lat: 4.609700, lon: -74.081700 (±4 m)'), findsOneWidget);
+    expect(find.text('lat 4.609700, lon -74.081700 (±4 m)'), findsOneWidget);
     expect(find.text('Altitud: 2640 m'), findsOneWidget);
     expect(find.text('Pendiente'), findsOneWidget, reason: 'aún no se sincroniza');
+  });
+
+  testWidgets('muestra la ubicación en el sistema elegido en Ajustes (Fase C)', (tester) async {
+    final (dependencies, id) = await scenario(withTemplate: true);
+    dependencies.coordinates.current.value = CoordinateSystem.magnaOrigenNacional;
+    await pump(tester, dependencies, id);
+    expect(find.text('E 4880061.56, N 2067458.02 (EPSG:9377) (±4 m)'), findsOneWidget);
   });
 
   testWidgets('sin la plantilla en caché muestra las claves, no una pantalla vacía', (tester) async {

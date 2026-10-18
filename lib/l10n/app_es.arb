@@ -129,6 +129,16 @@
   "@homeAssignments": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "coordinatesWithAccuracy": "{coordinates} (±{accuracy} m)",
+  "@coordinatesWithAccuracy": {
+    "placeholders": { "coordinates": { "type": "String" }, "accuracy": { "type": "int" } }
+  },
+  "captureAssignmentPointIn": "Punto asignado: {coordinates}",
+  "@captureAssignmentPointIn": {
+    "placeholders": { "coordinates": { "type": "String" } }
+  },
+  "settingsCoordinates": "Sistema de coordenadas",
+  "settingsCoordinatesHelp": "Cómo se muestran las coordenadas. Siempre se guardan y se envían en WGS 84 (EPSG:4326).",
   "captureForAssignment": "Asignación: {title}",
   "@captureForAssignment": {
     "placeholders": { "title": { "type": "String" } }

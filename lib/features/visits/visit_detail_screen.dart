@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/capture/visit_capture.dart';
 import '../../core/forms/form_definition.dart';
+import '../../core/location/coordinate_system.dart';
 import '../../core/providers.dart';
 import '../../data/local/form_template_repository.dart';
 import '../../data/local/visit_status_repository.dart';
@@ -150,16 +151,23 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : detail == null
           ? AppPageBody(children: [Text(l10n.visitNotFound, key: const Key('visit_not_found'))])
-          : _Body(detail: detail, definition: loaded.definition),
+          : _Body(
+              detail: detail,
+              definition: loaded.definition,
+              crs: ref.read(appDependenciesProvider).coordinates.current.value,
+            ),
     );
   }
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.detail, required this.definition});
+  const _Body({required this.detail, required this.definition, required this.crs});
 
   final VisitDetail detail;
   final FormDefinition? definition;
+
+  /// Sistema en que se muestran las coordenadas (Fase C).
+  final CoordinateSystem crs;
 
   @override
   Widget build(BuildContext context) {
@@ -191,11 +199,7 @@ class _Body extends StatelessWidget {
           Text(l10n.visitNoLocation, key: const Key('visit_no_location'))
         else ...[
           Text(
-            l10n.captureLocationWithAccuracy(
-              visit.lat!.toStringAsFixed(6),
-              visit.lon!.toStringAsFixed(6),
-              (visit.accuracyM ?? 0).round(),
-            ),
+            l10n.coordinatesWithAccuracy(crs.format(visit.lat!, visit.lon!), (visit.accuracyM ?? 0).round()),
             key: const Key('visit_location'),
           ),
           if (visit.altitudeM != null) Text(l10n.visitAltitude(visit.altitudeM!.round())),

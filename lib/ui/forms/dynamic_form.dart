@@ -30,10 +30,14 @@ abstract interface class FormMediaDelegate {
 }
 
 class DynamicForm extends StatelessWidget {
-  const DynamicForm({super.key, required this.controller, this.mediaDelegate});
+  const DynamicForm({super.key, required this.controller, this.mediaDelegate, this.formatLocation});
 
   final FormController controller;
   final FormMediaDelegate? mediaDelegate;
+
+  /// Cómo mostrar una ubicación respondida (Fase C: en el sistema de
+  /// coordenadas elegido). Por defecto, grados WGS84.
+  final String Function(double lat, double lon)? formatLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +64,7 @@ class DynamicForm extends StatelessWidget {
                   locale: locale,
                   controller: controller,
                   mediaDelegate: mediaDelegate,
+                  formatLocation: formatLocation,
                 ),
               ),
           ],
@@ -88,12 +93,14 @@ class _FieldInput extends StatelessWidget {
     required this.locale,
     required this.controller,
     required this.mediaDelegate,
+    required this.formatLocation,
   });
 
   final FormFieldDef field;
   final String locale;
   final FormController controller;
   final FormMediaDelegate? mediaDelegate;
+  final String Function(double lat, double lon)? formatLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -266,7 +273,14 @@ class _FieldInput extends StatelessWidget {
         label: shownLabel,
         help: help,
         error: error,
-        status: value is Map ? l10n.captureLocation('${value['lat']}', '${value['lon']}') : null,
+        status: switch (value) {
+          {'lat': final num lat, 'lon': final num lon} when formatLocation != null => formatLocation!(
+            lat.toDouble(),
+            lon.toDouble(),
+          ),
+          final Map<dynamic, dynamic> map => l10n.captureLocation('${map['lat']}', '${map['lon']}'),
+          _ => null,
+        },
         actionLabel: value == null ? l10n.formGetLocation : l10n.formUpdateLocation,
         capture: mediaDelegate == null ? null : () => mediaDelegate!.captureLocation(field.key),
         onCaptured: set,
