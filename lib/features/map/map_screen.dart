@@ -21,12 +21,14 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/auth/auth_state.dart';
 import '../../core/basemaps/basemap_manager.dart';
+import '../../core/forms/geometry.dart';
 import '../../core/location/location_source.dart';
 import '../../core/providers.dart';
 import '../../data/local/assignment_repository.dart';
 import '../../data/map/mbtiles_tile_provider.dart';
 import '../../data/local/visit_status_repository.dart';
 import '../../l10n/l10n.dart';
+import '../../ui/theme/app_colors.dart';
 import '../../ui/theme/app_theme.dart';
 import '../../ui/theme/app_tokens.dart';
 import '../../ui/widgets/app_page_body.dart';
@@ -45,7 +47,7 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   final _controller = MapController();
-  List<({VisitSummary summary, double lat, double lon})>? _visits;
+  List<MapVisit>? _visits;
   List<AssignmentItem> _assignments = const [];
   LocationFix? _me;
 
@@ -174,6 +176,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     ),
   );
 
+  static Color _statusColor(VisitSyncStatus s, AppStatusColors colors, ColorScheme scheme) => switch (s) {
+    VisitSyncStatus.pending => colors.warning,
+    VisitSyncStatus.synced => colors.success,
+    VisitSyncStatus.rejected => scheme.error,
+  };
+
   static String _statusLabel(AppLocalizations l10n, VisitSyncStatus status) => switch (status) {
     VisitSyncStatus.pending => l10n.visitStatusPending,
     VisitSyncStatus.synced => l10n.visitStatusSynced,
@@ -247,6 +255,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     LatLng(basemap.info.north, basemap.info.east),
                   ),
                 ),
+              // Líneas y polígonos de las visitas (Fase C), con el color de
+              // su sincronización, debajo de los puntos.
+              PolygonLayer(
+                polygons: [
+                  for (final v in visits)
+                    for (final g in v.geometries)
+                      if (kindOf(g) == GeometryKind.polygon && verticesOf(g).length >= 3)
+                        Polygon(
+                          points: [for (final p in verticesOf(g)) LatLng(p.lat, p.lon)],
+                          color: _statusColor(v.summary.status, status, scheme).withValues(alpha: 0.2),
+                          borderColor: _statusColor(v.summary.status, status, scheme),
+                          borderStrokeWidth: AppSizes.signatureStroke,
+                        ),
+                ],
+              ),
+              PolylineLayer(
+                polylines: [
+                  for (final v in visits)
+                    for (final g in v.geometries)
+                      if (kindOf(g) == GeometryKind.line && verticesOf(g).length >= 2)
+                        Polyline(
+                          points: [for (final p in verticesOf(g)) LatLng(p.lat, p.lon)],
+                          color: _statusColor(v.summary.status, status, scheme),
+                          strokeWidth: AppSizes.signatureStroke,
+                        ),
+                ],
+              ),
               MarkerLayer(
                 markers: [
                   for (final v in visits)

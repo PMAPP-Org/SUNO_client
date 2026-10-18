@@ -18,9 +18,13 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:meta/meta.dart';
 
+import '../../core/forms/geometry.dart';
 import 'database.dart';
 
 enum VisitSyncStatus { pending, synced, rejected }
+
+/// Una visita para el mapa: su punto y sus geometrías (GeoJSON, WGS84).
+typedef MapVisit = ({VisitSummary summary, double lat, double lon, List<Map<String, Object?>> geometries});
 
 @immutable
 class VisitSummary {
@@ -109,7 +113,10 @@ class VisitStatusRepository {
   /// Las visitas de [orgId] con ubicación, para el mapa (Fase B). Hasta
   /// [limit], las más recientes: miles de marcadores no se leen en un
   /// teléfono, y la búsqueda de la lista sigue llegando a todas.
-  Future<List<({VisitSummary summary, double lat, double lon})>> mapVisits({
+  ///
+  /// Con cada visita, las líneas y polígonos de sus respuestas (Fase C), para
+  /// dibujarlos.
+  Future<List<MapVisit>> mapVisits({
     required String orgId,
     int limit = 2000,
   }) async {
@@ -121,7 +128,22 @@ class VisitStatusRepository {
             .get();
     final summaries = await _summarize(visits, await _templateNames(visits));
     return [
-      for (final (index, visit) in visits.indexed) (summary: summaries[index], lat: visit.lat!, lon: visit.lon!),
+      for (final (index, visit) in visits.indexed)
+        (summary: summaries[index], lat: visit.lat!, lon: visit.lon!, geometries: _geometries(visit.answersJson)),
+    ];
+  }
+
+  static List<Map<String, Object?>> _geometries(String answersJson) {
+    final Object? answers;
+    try {
+      answers = jsonDecode(answersJson);
+    } on FormatException {
+      return const [];
+    }
+    if (answers is! Map) return const [];
+    return [
+      for (final value in answers.values)
+        if (value is Map<String, Object?> && kindOf(value) != null) value,
     ];
   }
 

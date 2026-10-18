@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/capture/visit_capture.dart';
 import '../../core/forms/form_definition.dart';
+import '../../core/forms/geometry.dart';
 import '../../core/location/coordinate_system.dart';
 import '../../core/providers.dart';
 import '../../data/local/form_template_repository.dart';
@@ -261,6 +262,16 @@ class _Body extends StatelessWidget {
       MultiChoiceFieldDef(:final options) when value is List => Text(
         [for (final v in value) _option(options, v, locale) ?? '$v'].join(', '),
       ),
+      LineFieldDef() || PolygonFieldDef() when kindOf(value) != null => () {
+        final kind = kindOf(value)!;
+        final vertices = verticesOf(value);
+        final measured = formatMeasure(kind, measure(kind, vertices));
+        return Text(
+          kind == GeometryKind.line
+              ? l10n.geometryLineSummary(vertices.length, measured)
+              : l10n.geometryPolygonSummary(vertices.length, measured),
+        );
+      }(),
       DateTimeFieldDef() when value is String && DateTime.tryParse(value) != null => Text(() {
         final local = DateTime.parse(value).toLocal();
         return '${localizations.formatShortDate(local)} '

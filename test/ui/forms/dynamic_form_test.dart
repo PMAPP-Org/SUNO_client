@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:visitacampo/core/forms/form_definition.dart';
+import 'package:visitacampo/core/forms/geometry.dart';
 import 'package:visitacampo/ui/forms/dynamic_form.dart';
 import 'package:visitacampo/ui/forms/form_controller.dart';
 
@@ -42,6 +43,11 @@ class FakeMedia implements FormMediaDelegate {
     calls.add('location:$fieldKey');
     return {'lat': 4.6, 'lon': -74.08};
   }
+
+  Map<String, Object?>? geometry;
+
+  @override
+  Future<Map<String, Object?>?> captureGeometry(FormFieldDef field, GeometryKind kind, Object? current) async => geometry;
 }
 
 Future<void> pumpForm(WidgetTester tester, FormController controller, {FormMediaDelegate? media}) async {
@@ -184,6 +190,44 @@ void main() {
     expect(find.text('Foto adjunta.'), findsOneWidget);
     expect(find.text('Repetir foto'), findsOneWidget);
     expect(find.text('lat: 4.6, lon: -74.08'), findsOneWidget);
+  });
+
+  testWidgets('un campo polígono se traza en el mapa y muestra vértices y área (Fase C)', (tester) async {
+    final media = FakeMedia()
+      ..geometry = {
+        'type': 'Polygon',
+        'coordinates': [
+          [
+            [-74.08, 4.6],
+            [-74.079, 4.6],
+            [-74.079, 4.601],
+            [-74.08, 4.601],
+            [-74.08, 4.6],
+          ],
+        ],
+      };
+    final definition =
+        (parseFormDefinition({
+                  'fields': [
+                    {
+                      'key': 'lote',
+                      'type': 'polygon',
+                      'label': {'es': 'Lindero del lote'},
+                    },
+                  ],
+                })
+                as DefinitionOk)
+            .definition;
+    final controller = FormController(definition);
+    await pumpForm(tester, controller, media: media);
+
+    await tester.tap(find.text('Trazar en el mapa'));
+    await tester.pumpAndSettle();
+
+    expect(controller.valueOf('lote'), media.geometry);
+    expect(find.text('4 vértices · área 1.23 ha'), findsOneWidget);
+    expect(find.text('Volver a trazar'), findsOneWidget);
+    expect(controller.validate(), isTrue);
   });
 
   testWidgets('sin captura disponible el botón queda deshabilitado', (tester) async {

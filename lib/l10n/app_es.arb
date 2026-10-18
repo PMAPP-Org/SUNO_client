@@ -331,6 +331,25 @@
   "formResign": "Firmar de nuevo",
   "formSignatureAttached": "Firma adjunta.",
   "formGetLocation": "Obtener ubicación",
+  "geometryDraw": "Trazar en el mapa",
+  "geometryRedraw": "Volver a trazar",
+  "geometrySave": "Guardar",
+  "geometryUndo": "Deshacer el último vértice",
+  "geometryClear": "Borrar todo",
+  "geometryWaitingGps": "Esperando GPS…",
+  "geometryAddPosition": "Agregar mi posición (±{accuracy} m)",
+  "@geometryAddPosition": {
+    "placeholders": { "accuracy": { "type": "int" } }
+  },
+  "geometryHint": "Toca el mapa para marcar vértices, o camina y agrega tu posición.",
+  "geometryLineSummary": "{count, plural, =1{1 vértice} other{{count} vértices}} · {length}",
+  "@geometryLineSummary": {
+    "placeholders": { "count": { "type": "int" }, "length": { "type": "String" } }
+  },
+  "geometryPolygonSummary": "{count, plural, =1{1 vértice} other{{count} vértices}} · área {area}",
+  "@geometryPolygonSummary": {
+    "placeholders": { "count": { "type": "int" }, "area": { "type": "String" } }
+  },
   "formUpdateLocation": "Actualizar ubicación",
   "formCaptureUnavailable": "No disponible en esta pantalla",
   "formErrorRequired": "Este campo es obligatorio.",

@@ -362,6 +362,80 @@ final class LocationFieldDef extends FormFieldDef {
   }
 }
 
+/// Vértices máximos de una línea o un polígono (mismo tope que el servidor).
+const maxVertices = 2000;
+
+String? _checkPositions(Object? positions, {required int minimum}) {
+  if (positions is! List<Object?>) return 'not_a_geometry';
+  if (positions.length < minimum) return 'too_few_vertices';
+  if (positions.length > maxVertices) return 'too_many_vertices';
+  for (final position in positions) {
+    if (position is! List<Object?> || position.length != 2) return 'not_a_geometry';
+    for (final (coordinate, low, high) in [(position[0], lonMin, lonMax), (position[1], latMin, latMax)]) {
+      if (coordinate is! num) return 'not_a_number';
+      if (!coordinate.isFinite || coordinate < low || coordinate > high) return 'out_of_range';
+    }
+  }
+  return null;
+}
+
+/// Fase C: recorrido o lindero abierto. GeoJSON `LineString` en WGS84,
+/// `{"type": "LineString", "coordinates": [[lon, lat], ...]}`, 2+ vértices.
+final class LineFieldDef extends FormFieldDef {
+  const LineFieldDef({
+    required super.key,
+    required super.label,
+    required super.help,
+    required super.required,
+    required super.visibleIf,
+  });
+
+  @override
+  String get type => 'line';
+
+  @override
+  String? checkAnswer(Object? value) {
+    if (value is! Map<String, Object?>) return 'not_an_object';
+    if (value.length != 2 || value['type'] != 'LineString' || !value.containsKey('coordinates')) {
+      return 'not_a_geometry';
+    }
+    return _checkPositions(value['coordinates'], minimum: 2);
+  }
+}
+
+/// Fase C: un área. GeoJSON `Polygon` en WGS84 con un anillo exterior
+/// cerrado (el último vértice repite el primero), 3+ vértices distintos.
+final class PolygonFieldDef extends FormFieldDef {
+  const PolygonFieldDef({
+    required super.key,
+    required super.label,
+    required super.help,
+    required super.required,
+    required super.visibleIf,
+  });
+
+  @override
+  String get type => 'polygon';
+
+  @override
+  String? checkAnswer(Object? value) {
+    if (value is! Map<String, Object?>) return 'not_an_object';
+    if (value.length != 2 || value['type'] != 'Polygon' || !value.containsKey('coordinates')) {
+      return 'not_a_geometry';
+    }
+    final rings = value['coordinates'];
+    if (rings is! List<Object?> || rings.length != 1) return 'not_a_geometry';
+    final ring = rings.single;
+    final problem = _checkPositions(ring, minimum: 4);
+    if (problem != null) return problem;
+    final positions = ring! as List<Object?>;
+    final first = positions.first! as List<Object?>;
+    final last = positions.last! as List<Object?>;
+    if (first[0] != last[0] || first[1] != last[1]) return 'not_closed';
+    return null;
+  }
+}
+
 /// Una plantilla bien formada.
 @immutable
 class FormDefinition {
@@ -442,6 +516,8 @@ const _typeKeys = <String, Set<String>>{
   'photo': {},
   'signature': {},
   'location': {},
+  'line': {},
+  'polygon': {},
 };
 
 /// Tipos del catálogo cerrado.
@@ -557,6 +633,10 @@ FormFieldDef _parseField(Object? raw, String path) {
       return PhotoFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
     case 'signature':
       return SignatureFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
+    case 'line':
+      return LineFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
+    case 'polygon':
+      return PolygonFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
     default: // 'location' (el catálogo ya se comprobó arriba)
       return LocationFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
   }
