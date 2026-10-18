@@ -19,6 +19,8 @@ import '../../core/auth/auth_state.dart';
 import '../../core/capture/visit_capture.dart';
 import '../../core/location/coordinate_system.dart';
 import '../../core/location/geo.dart';
+import '../../core/forms/form_definition.dart';
+import '../../core/forms/geometry.dart';
 import '../../core/location/location_source.dart';
 import '../../core/providers.dart';
 import '../../data/local/assignment_repository.dart';
@@ -29,6 +31,7 @@ import '../../ui/forms/form_controller.dart';
 import '../../ui/forms/template_status.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
+import 'geometry_capture_screen.dart';
 import 'location_capture_sheet.dart';
 import 'signature_screen.dart';
 
@@ -219,6 +222,16 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       source: dependencies.locationSource,
       policy: dependencies.gpsPolicy,
       coordinateSystem: dependencies.coordinates.current.value,
+    );
+  }
+
+  @override
+  Future<Map<String, Object?>?> captureGeometry(FormFieldDef field, GeometryKind kind, Object? current) {
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    return Navigator.of(context).push<Map<String, Object?>>(
+      MaterialPageRoute(
+        builder: (_) => GeometryCaptureScreen(kind: kind, title: field.label.resolve(locale), initial: verticesOf(current)),
+      ),
     );
   }
 

@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/forms/form_definition.dart';
+import '../../core/forms/geometry.dart';
 import '../../l10n/l10n.dart';
 import '../theme/app_tokens.dart';
 import 'form_controller.dart';
@@ -27,6 +28,10 @@ abstract interface class FormMediaDelegate {
 
   /// `{"lat": …, "lon": …}`.
   Future<Map<String, double>?> captureLocation(String fieldKey);
+
+  /// Fase C: GeoJSON (`LineString` o `Polygon`, WGS84) trazado en el mapa,
+  /// partiendo de [current] si ya había uno.
+  Future<Map<String, Object?>?> captureGeometry(FormFieldDef field, GeometryKind kind, Object? current);
 }
 
 class DynamicForm extends StatelessWidget {
@@ -285,6 +290,24 @@ class _FieldInput extends StatelessWidget {
         capture: mediaDelegate == null ? null : () => mediaDelegate!.captureLocation(field.key),
         onCaptured: set,
       ),
+      LineFieldDef() || PolygonFieldDef() => () {
+        final kind = field is LineFieldDef ? GeometryKind.line : GeometryKind.polygon;
+        final vertices = verticesOf(value);
+        final measured = formatMeasure(kind, measure(kind, vertices));
+        return _CaptureAnswer(
+          label: shownLabel,
+          help: help,
+          error: error,
+          status: vertices.isEmpty
+              ? null
+              : kind == GeometryKind.line
+              ? l10n.geometryLineSummary(vertices.length, measured)
+              : l10n.geometryPolygonSummary(vertices.length, measured),
+          actionLabel: vertices.isEmpty ? l10n.geometryDraw : l10n.geometryRedraw,
+          capture: mediaDelegate == null ? null : () => mediaDelegate!.captureGeometry(field, kind, value),
+          onCaptured: set,
+        );
+      }(),
     };
   }
 }
