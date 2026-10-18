@@ -12,6 +12,7 @@ import 'auth_models.dart';
 import 'auth_result.dart';
 import 'auth_state.dart';
 import 'auth_transport.dart';
+import 'session_store.dart';
 import 'token_store.dart';
 
 class AuthController {
@@ -19,11 +20,16 @@ class AuthController {
     required this._transport,
     required this._tokenStore,
     required this.deviceId,
+    this._sessionStore,
     DateTime Function()? clock,
   }) : _now = clock ?? DateTime.now;
 
   final AuthTransport _transport;
   final TokenStore _tokenStore;
+
+  /// Perfil y caducidad del refresh para volver a entrar sin red. `null` en
+  /// tests que no lo necesitan: entonces no se persiste ni se restaura nada.
+  final SessionStore? _sessionStore;
 
   /// Público como en `SyncEngine.deviceId` (Paso 12) — es un identificador
   /// estable, no un secreto; lo que sí es privado es todo lo que autentica.
@@ -62,6 +68,7 @@ class AuthController {
       ok: (response) async {
         _accessToken = response.tokens.accessToken;
         await _tokenStore.saveRefreshToken(deviceId, response.tokens.refreshToken);
+        await _saveSession(response.user, response.tokens.refreshExpiresIn);
         _state = AuthState.authenticated(
           user: response.user,
           accessTokenExpiresAt: _now().add(Duration(seconds: response.tokens.expiresIn)),
@@ -72,6 +79,33 @@ class AuthController {
       // "deshacer" porque nunca se llegó a persistir nada (verificación
       // explícita del Paso 13: "login fallido no persiste nada").
       err: (error) async => AuthResult<UserProfile>.err(error),
+    );
+  }
+
+  /// Fase A (trabajo offline): vuelve a entrar **sin red** si hay un refresh
+  /// token guardado y vigente y el perfil del usuario. Queda `Authenticated`
+  /// sin access token: la primera petición recibe `401`, el interceptor
+  /// refresca y, si el servidor revocó la sesión, se pasa a `Disconnected`.
+  /// Con el refresh caducado no se entra: se borra y hace falta el login.
+  Future<bool> restoreSession() async {
+    final store = _sessionStore;
+    if (store == null) return false;
+    final refreshToken = await _tokenStore.readRefreshToken(deviceId);
+    final session = await store.read(deviceId);
+    if (refreshToken == null || session == null) return false;
+    if (!_now().isBefore(session.refreshExpiresAt)) {
+      await _tokenStore.clearRefreshToken(deviceId);
+      await store.clear(deviceId);
+      return false;
+    }
+    _state = AuthState.authenticated(user: session.user, accessTokenExpiresAt: _now());
+    return true;
+  }
+
+  Future<void> _saveSession(UserProfile user, int refreshExpiresIn) async {
+    await _sessionStore?.save(
+      deviceId,
+      StoredSession(user: user, refreshExpiresAt: _now().add(Duration(seconds: refreshExpiresIn))),
     );
   }
 
@@ -112,6 +146,8 @@ class AuthController {
         // proceso, o el estado ya viene de un login previo), se deja el
         // estado como estaba — nunca se inventa un `UserProfile`.
         if (current case Authenticated(user: final user)) {
+          // El refresh rota: la sesión guardada vale hasta la caducidad nueva.
+          await _saveSession(user, pair.refreshExpiresIn);
           _state = AuthState.authenticated(
             user: user,
             accessTokenExpiresAt: _now().add(Duration(seconds: pair.expiresIn)),
@@ -135,6 +171,7 @@ class AuthController {
         _accessToken = null;
         if (error is UnauthorizedAuthError) {
           await _tokenStore.clearRefreshToken(deviceId);
+          await _sessionStore?.clear(deviceId);
           _state = const AuthState.disconnected();
         }
         return false;
@@ -155,6 +192,7 @@ class AuthController {
     }
     _accessToken = null;
     await _tokenStore.clearRefreshToken(deviceId);
+    await _sessionStore?.clear(deviceId);
     _state = const AuthState.unauthenticated();
   }
 

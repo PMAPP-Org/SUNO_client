@@ -89,4 +89,44 @@ void main() {
     expect(find.byType(HomeScreen), findsNothing);
     expect(find.textContaining('Tu sesión terminó'), findsOneWidget);
   });
+
+  testWidgets(
+    'Fase A: si la revocación llega antes de abrir el inicio, también vuelve al login',
+    (tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      final transport = FakeAuthTransport()
+        ..refreshResponses.add(const AuthResult.err(AuthError.unauthorized()));
+      final tokenStore = FakeTokenStore();
+      await tokenStore.saveRefreshToken('device-1', 'r');
+      final controller = AuthController(
+        transport: transport,
+        tokenStore: tokenStore,
+        deviceId: 'device-1',
+      );
+      // Arranque con sesión restaurada cuyo refresh en segundo plano termina
+      // con 401 antes de que la pantalla de inicio se suscriba a `changes`.
+      await controller.refreshOnce();
+      final dependencies = AppDependencies(
+        database: db,
+        dio: Dio(),
+        authController: controller,
+        deviceId: 'device-1',
+        attachmentUploadService: AttachmentUploadService(
+          db: db,
+          transport: FakeAttachmentTransport(),
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appDependenciesProvider.overrideWithValue(dependencies)],
+          child: testApp(const HomeScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+    },
+  );
 }
