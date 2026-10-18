@@ -451,6 +451,7 @@ class SyncEngine {
       deviceId: serverRow['device_id'] as String,
       createdBy: serverRow['created_by'] as String,
       serverDataJson: Value(serverDataJson),
+      assignmentId: Value(serverRow['assignment_id'] as String?),
     );
     if (!overwrite && await _hasLocalChanges(id, except: confirmedBy)) {
       await (db.update(db.visits)..where((t) => t.id.equals(id))).write(
@@ -459,6 +460,39 @@ class SyncEngine {
       return;
     }
     await db.into(db.visits).insertOnConflictUpdate(companion);
+  }
+
+  /// Contrato `Assignment` → fila local (Fase B). Una borrada en el servidor
+  /// sale del teléfono. Una fila que no cumple el contrato se ignora sin
+  /// bloquear el resto del pull, como las plantillas.
+  Future<void> _upsertAssignment(Map<String, dynamic> row) async {
+    try {
+      final id = row['id'] as String;
+      if (row['deleted_at'] != null) {
+        await (db.delete(db.assignments)..where((t) => t.id.equals(id))).go();
+        return;
+      }
+      await db
+          .into(db.assignments)
+          .insertOnConflictUpdate(
+            AssignmentsCompanion.insert(
+              id: id,
+              orgId: row['org_id'] as String,
+              version: row['version'] as int,
+              changeSeq: Value(row['change_seq'] as int?),
+              templateVersionId: row['template_version_id'] as String,
+              assignedTo: row['assigned_to'] as String,
+              title: Value(row['title'] as String?),
+              scheduledFor: Value(_parseNullableDate(row['scheduled_for'])),
+              lat: Value((row['lat'] as num?)?.toDouble()),
+              lon: Value((row['lon'] as num?)?.toDouble()),
+            ),
+          );
+    } on TypeError {
+      return;
+    } on FormatException {
+      return;
+    }
   }
 
   Future<bool> _hasLocalChanges(String visitId, {String? except}) async {
@@ -500,8 +534,9 @@ class SyncEngine {
             await templates.upsertFromServerRow(row.data);
           case 'visit_attachment':
             await _applyServerRecord({'entity': row.entity, 'data': row.data});
+          case 'assignment':
+            await _upsertAssignment(row.data);
         }
-        // `assignment`: sin tabla local todavía.
       }
       for (final tombstone in response.tombstones) {
         switch (tombstone.entity) {
@@ -511,6 +546,8 @@ class SyncEngine {
             await (db.delete(db.visitAttachments)..where((t) => t.id.equals(tombstone.id))).go();
           case 'form_template_version':
             await templates.markDeleted(tombstone.id, tombstone.deletedAt);
+          case 'assignment':
+            await (db.delete(db.assignments)..where((t) => t.id.equals(tombstone.id))).go();
         }
       }
       await db.writeCursor(response.nextCursor, now: _now());
@@ -531,6 +568,9 @@ class SyncEngine {
           }
           for (final attachmentJson in bootstrap.visitAttachments) {
             await _applyServerRecord({'entity': 'visit_attachment', 'data': attachmentJson});
+          }
+          for (final assignmentJson in bootstrap.assignments) {
+            await _upsertAssignment(assignmentJson);
           }
           await db.writeCursor(bootstrap.cursor, now: _now());
         });

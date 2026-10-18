@@ -20,7 +20,7 @@ part 'database.g.dart';
 /// instancia (inyectada vía Riverpod desde el Paso 22 en adelante) — nunca
 /// construye la suya propia.
 @DriftDatabase(
-  tables: [Visits, OutboxOps, AttachmentQueue, SyncCursor, FormTemplateVersions, VisitAttachments],
+  tables: [Visits, OutboxOps, AttachmentQueue, SyncCursor, FormTemplateVersions, VisitAttachments, Assignments],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase._(super.executor);
@@ -53,7 +53,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.forTesting(QueryExecutor executor) => AppDatabase._(executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -98,6 +98,17 @@ class AppDatabase extends _$AppDatabase {
       // siguiente pull que las traiga.
       if (from < 7) {
         await migrator.addColumn(visits, visits.serverDataJson);
+      }
+      // v7 → v8 (Fase B, asignaciones): tabla nueva y `visits.assignment_id`.
+      // Hasta aquí el pull **descartaba** las asignaciones y aun así avanzaba
+      // el cursor: sin reiniciarlo, este teléfono nunca recibiría las ya
+      // existentes. Sin cursor, el siguiente pull trae todo desde cero; es
+      // seguro porque no pisa visitas con cambios locales sin enviar
+      // (`SyncEngine._upsertVisitFromServerRow`).
+      if (from < 8) {
+        await migrator.createTable(assignments);
+        await migrator.addColumn(visits, visits.assignmentId);
+        await delete(syncCursor).go();
       }
     },
   );

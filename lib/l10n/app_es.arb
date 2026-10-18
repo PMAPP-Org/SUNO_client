@@ -77,6 +77,27 @@
   "visitAttachmentPending": "Por subir",
   "visitAttachmentFailed": "Error al subir",
   "visitAttachmentRemote": "En el servidor",
+  "assignmentsTitle": "Mis asignaciones",
+  "assignmentsEmpty": "No tienes asignaciones. Sincroniza para recibir las nuevas.",
+  "assignmentPending": "Pendiente",
+  "assignmentDone": "Hecha",
+  "assignmentHasPoint": "Con punto",
+  "homeAssignments": "{count, plural, =0{Mis asignaciones (todas hechas)} =1{Mis asignaciones (1 pendiente)} other{Mis asignaciones ({count} pendientes)}}",
+  "@homeAssignments": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "captureForAssignment": "Asignación: {title}",
+  "@captureForAssignment": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "captureAssignmentPoint": "Punto asignado: lat {lat}, lon {lon}",
+  "@captureAssignmentPoint": {
+    "placeholders": { "lat": { "type": "String" }, "lon": { "type": "String" } }
+  },
+  "captureAssignmentDistance": "Estás a {meters} m del punto asignado.",
+  "@captureAssignmentDistance": {
+    "placeholders": { "meters": { "type": "int" } }
+  },
   "settingsTitle": "Ajustes",
   "settingsAccount": "Cuenta y dispositivo",
   "settingsUser": "Usuario",

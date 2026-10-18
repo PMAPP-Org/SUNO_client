@@ -84,6 +84,7 @@ class VisitCapture {
     required Map<String, PendingAttachment> captured,
     List<PendingAttachment> extraPhotos = const [],
     LocationFix? fix,
+    String? assignmentId,
   }) async {
     final visitId = _newId();
     final now = _now().toUtc();
@@ -101,6 +102,7 @@ class VisitCapture {
       'answers': kept,
       'captured_at': now.toIso8601String(),
       'device_id': identity.deviceId,
+      'assignment_id': ?assignmentId,
       if (fix != null) ...{
         'lat': fix.lat,
         'lon': fix.lon,
@@ -124,6 +126,7 @@ class VisitCapture {
         capturedAt: now,
         deviceId: identity.deviceId,
         createdBy: identity.userId,
+        assignmentId: Value(assignmentId),
       ),
       attachments: [
         for (final (order, a) in attachments.indexed)

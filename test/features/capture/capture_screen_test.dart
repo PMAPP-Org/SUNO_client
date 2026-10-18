@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -129,18 +130,52 @@ void main() {
     return dependencies;
   }
 
-  Future<void> pumpCapture(WidgetTester tester, AppDependencies dependencies) async {
+  Future<void> pumpCapture(WidgetTester tester, AppDependencies dependencies, {CaptureScreen screen = const CaptureScreen()}) async {
     tester.view.physicalSize = const Size(1200, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appDependenciesProvider.overrideWithValue(dependencies)],
-        child: testApp(const CaptureScreen()),
+        child: testApp(screen),
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('desde una asignación: muestra su punto, la distancia y la guarda con su id (Fase B)', (tester) async {
+    // ~111 m al norte del punto asignado.
+    final dependencies = await buildDependencies(fix: const LocationFix(lat: 4.601, lon: -74, accuracyM: 3));
+    await db
+        .into(db.assignments)
+        .insert(
+          AssignmentsCompanion.insert(
+            id: 'asg-1',
+            orgId: 'org-1',
+            version: 1,
+            templateVersionId: 'tv-1',
+            assignedTo: 'user-1',
+            title: const Value('Finca El Roble'),
+            lat: const Value(4.6),
+            lon: const Value(-74),
+          ),
+        );
+    await pumpCapture(tester, dependencies, screen: const CaptureScreen(assignmentId: 'asg-1'));
+
+    expect(find.text('Asignación: Finca El Roble'), findsOneWidget);
+    expect(find.textContaining('Punto asignado'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('capture_get_location_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Estás a 111 m del punto asignado.'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'No'));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('capture_save_button')));
+    await tester.pumpAndSettle();
+    final visit = await db.select(db.visits).getSingle();
+    expect(visit.assignmentId, 'asg-1');
+  });
 
   testWidgets('captura completa offline: formulario, foto del campo, GPS y foto adicional', (tester) async {
     final dependencies = await buildDependencies(fix: const LocationFix(lat: 4.6, lon: -74.08, accuracyM: 4.2));
