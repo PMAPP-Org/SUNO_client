@@ -53,7 +53,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.forTesting(QueryExecutor executor) => AppDatabase._(executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -92,6 +92,12 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(outboxOps, outboxOps.errorCode);
         await migrator.addColumn(outboxOps, outboxOps.errorFieldsJson);
         await migrator.addColumn(outboxOps, outboxOps.serverRowJson);
+      }
+      // v6 → v7 (Fase A, editar y borrar): copia confirmada por el servidor.
+      // Aditiva: las visitas existentes empiezan sin copia y la toman en el
+      // siguiente pull que las traiga.
+      if (from < 7) {
+        await migrator.addColumn(visits, visits.serverDataJson);
       }
     },
   );

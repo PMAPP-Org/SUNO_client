@@ -124,10 +124,11 @@ class SyncEngine {
   /// No hace nada si no hay operaciones **debidas** (`pending` sin backoff
   /// pendiente) — llamar a `drainOutbox()` a menudo es seguro y barato.
   Future<DrainReport> drainOutbox() async {
+    await _recoverInterruptedPush();
     final now = _now();
-    final pendingRows =
+    final unresolved =
         await (db.select(db.outboxOps)
-              ..where((t) => t.state.equals(_statePending))
+              ..where((t) => t.state.isIn(const [_statePending, _stateInflight, _stateQuarantine]))
               // `createdAt` se guarda con precisión de segundos: una visita y
               // sus adjuntos, encolados en la misma transacción, empatan. El
               // `rowid` (orden de inserción) desempata, y es lo que garantiza
@@ -139,10 +140,23 @@ class SyncEngine {
               ]))
             .get();
 
-    final due = pendingRows.where((row) {
+    // **Orden por entidad** (Fase A, editar y borrar): una op solo viaja si
+    // ninguna anterior de la misma visita sigue sin resolverse (en backoff o
+    // en cuarentena). Si no, un `update` adelantaría a su `create` (el
+    // servidor contesta `not_found`) o a otro `update` (su `base_version` ya
+    // no cuadraría). Un adjunto espera, además, a su visita.
+    final blocked = <String>{};
+    final due = <OutboxOp>[];
+    for (final row in unresolved) {
       final b = _backoffState[row.opUuid];
-      return b == null || !b.nextAttemptAt.isAfter(now);
-    }).toList();
+      final isDue = row.state == _statePending && (b == null || !b.nextAttemptAt.isAfter(now));
+      final waitsFor = {row.entityId, ?_visitOfAttachmentOp(row)};
+      if (isDue && !waitsFor.any(blocked.contains)) {
+        due.add(row);
+      } else {
+        blocked.add(row.entityId);
+      }
+    }
 
     if (due.isEmpty) return DrainReport.empty;
 
@@ -170,6 +184,27 @@ class SyncEngine {
       ok: (response) => _applyPushResponse(batch, response),
       err: (error) => _handleTransportFailure(batch),
     );
+  }
+
+  /// Una op `inflight` al empezar el primer drenaje de este proceso es de un
+  /// envío que se cortó (la app se cerró a mitad del push): nadie la iba a
+  /// reenviar y la visita se quedaba en el teléfono para siempre. Vuelve a
+  /// `pending`; reenviarla es seguro porque el push es idempotente por
+  /// `op_uuid` (si llegó, el servidor contesta lo que ya aplicó).
+  Future<void> _recoverInterruptedPush() async {
+    if (_recoveredInflight) return;
+    _recoveredInflight = true;
+    await (db.update(db.outboxOps)..where((t) => t.state.equals(_stateInflight))).write(
+      const OutboxOpsCompanion(state: Value(_statePending)),
+    );
+  }
+
+  bool _recoveredInflight = false;
+
+  static String? _visitOfAttachmentOp(OutboxOp row) {
+    if (row.entity != 'visit_attachment') return null;
+    final payload = jsonDecode(row.payloadJson);
+    return payload is Map<String, dynamic> ? payload['visit_id'] as String? : null;
   }
 
   RawSyncOp _toRawSyncOp(OutboxOp row) => RawSyncOp(
@@ -221,7 +256,7 @@ class SyncEngine {
         // `applied` (y el conflicto de un adjunto, que el agente no edita) son
         // terminales: la fila local toma `server_row` si viene y la op se borra.
         if (outcome.status == 'applied' || outcome.status == 'conflict') {
-          if (outcome.serverRow != null && !await _applyServerRecord(outcome.serverRow!)) {
+          if (outcome.serverRow != null && !await _applyServerRecord(outcome.serverRow!, confirmedBy: row.opUuid)) {
             // `server_row` que no se puede interpretar: no se aplica a medias
             // ni se pierde la op en silencio (RD-02/RD-03).
             await (db.update(db.outboxOps)..where((t) => t.opUuid.equals(row.opUuid))).write(
@@ -234,6 +269,14 @@ class SyncEngine {
             continue;
           }
           await (db.delete(db.outboxOps)..where((t) => t.opUuid.equals(row.opUuid))).go();
+          // La versión que el servidor le dio (contrato `OpResult`): sobre
+          // ella se calcula el `base_version` de la próxima edición.
+          final serverVersion = outcome.serverVersion;
+          if (outcome.status == 'applied' && row.entity == 'visit' && serverVersion != null) {
+            await (db.update(db.visits)..where((t) => t.id.equals(row.entityId))).write(
+              VisitsCompanion(version: Value(serverVersion)),
+            );
+          }
           if (outcome.status == 'applied') {
             applied++;
           } else {
@@ -316,18 +359,27 @@ class SyncEngine {
   /// transacción y la op quedaba atascada en `inflight`.)
   /// Aplica un `EntityRecord` del servidor a la BD local (para
   /// `QuarantineService`, cuando el agente elige la versión del servidor).
-  Future<bool> applyServerRecord(Map<String, dynamic> record) => _applyServerRecord(record);
+  ///
+  /// Aquí el agente **eligió** la del servidor: pisa la versión local aunque
+  /// tenga cambios sin enviar.
+  Future<bool> applyServerRecord(Map<String, dynamic> record) => _applyServerRecord(record, overwrite: true);
 
   /// Un `op_uuid` nuevo (UUIDv7), con el mismo generador que el resto del outbox.
   String newOpUuid() => _generateId();
 
-  Future<bool> _applyServerRecord(Map<String, dynamic> record) async {
+  /// [confirmedBy]: la op del push que trajo este registro, que no cuenta
+  /// como cambio local pendiente (está a punto de borrarse).
+  Future<bool> _applyServerRecord(
+    Map<String, dynamic> record, {
+    String? confirmedBy,
+    bool overwrite = false,
+  }) async {
     final data = record['data'];
     if (data is! Map<String, dynamic>) return false;
     try {
       switch (record['entity']) {
         case 'visit':
-          await _upsertVisitFromServerRow(data);
+          await _upsertVisitFromServerRow(data, confirmedBy: confirmedBy, overwrite: overwrite);
         case 'visit_attachment':
           await _upsertAttachmentFromServerRow(data);
         default:
@@ -369,7 +421,20 @@ class SyncEngine {
   /// `VisitRecord.data` (contrato Paso 8/9) tiene las mismas claves en
   /// snake_case que `VisitsCompanion` — la traducción vive aquí porque solo
   /// el push/pull de `visit` la necesita.
-  Future<void> _upsertVisitFromServerRow(Map<String, dynamic> serverRow) async {
+  ///
+  /// Si la visita tiene cambios locales sin resolver (ops en el outbox), solo
+  /// se guarda la copia del servidor (`serverDataJson`): pisar la fila
+  /// borraría de la pantalla lo que el agente editó y todavía no se envió.
+  /// Esos cambios terminan aplicados (y el pull siguiente trae la fila con
+  /// ellos), en conflicto (la revisión muestra las dos versiones) o
+  /// descartados (la visita vuelve a esta copia, `QuarantineService`).
+  Future<void> _upsertVisitFromServerRow(
+    Map<String, dynamic> serverRow, {
+    String? confirmedBy,
+    bool overwrite = false,
+  }) async {
+    final id = serverRow['id'] as String;
+    final serverDataJson = jsonEncode(serverRow);
     final companion = VisitsCompanion.insert(
       id: serverRow['id'] as String,
       orgId: serverRow['org_id'] as String,
@@ -385,8 +450,23 @@ class SyncEngine {
       capturedAt: DateTime.parse(serverRow['captured_at'] as String),
       deviceId: serverRow['device_id'] as String,
       createdBy: serverRow['created_by'] as String,
+      serverDataJson: Value(serverDataJson),
     );
+    if (!overwrite && await _hasLocalChanges(id, except: confirmedBy)) {
+      await (db.update(db.visits)..where((t) => t.id.equals(id))).write(
+        VisitsCompanion(serverDataJson: Value(serverDataJson)),
+      );
+      return;
+    }
     await db.into(db.visits).insertOnConflictUpdate(companion);
+  }
+
+  Future<bool> _hasLocalChanges(String visitId, {String? except}) async {
+    final query = db.select(db.outboxOps)
+      ..where((t) => t.entity.equals('visit') & t.entityId.equals(visitId))
+      ..limit(1);
+    if (except != null) query.where((t) => t.opUuid.equals(except).not());
+    return (await query.get()).isNotEmpty;
   }
 
   DateTime? _parseNullableDate(Object? value) =>

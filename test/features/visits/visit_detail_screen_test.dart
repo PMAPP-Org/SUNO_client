@@ -51,7 +51,7 @@ void main() {
   setUp(() => db = AppDatabase.forTesting(NativeDatabase.memory()));
   tearDown(() => db.close());
 
-  Future<(AppDependencies, String)> scenario({required bool withTemplate}) async {
+  Future<(AppDependencies, String)> scenario({required bool withTemplate, String author = 'user-1'}) async {
     final auth = AuthController(
       transport: FakeAuthTransport()
         ..loginResponses.add(
@@ -93,7 +93,7 @@ void main() {
       });
     }
     final id = await VisitCapture(db: db).save(
-      identity: const CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1'),
+      identity: CaptureIdentity(orgId: 'org-1', userId: author, deviceId: 'device-1'),
       templateVersionId: 'tv-1',
       definition: (parseFormDefinition(_definitionJson) as DefinitionOk).definition,
       answers: {'estado': 'enferma', 'tiene_riego': true},
@@ -139,5 +139,45 @@ void main() {
     final (dependencies, _) = await scenario(withTemplate: true);
     await pump(tester, dependencies, 'no-existe');
     expect(find.byKey(const Key('visit_not_found')), findsOneWidget);
+  });
+
+  testWidgets('las propias se pueden eliminar, con confirmación', (tester) async {
+    final (dependencies, id) = await scenario(withTemplate: true);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDependenciesProvider.overrideWithValue(dependencies)],
+        child: testApp(
+          Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => VisitDetailScreen(visitId: id))),
+              child: const Text('abrir'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('visit_edit')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('visit_delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('visit_delete_confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(VisitDetailScreen), findsNothing, reason: 'vuelve a la lista');
+    final visit = await (db.select(db.visits)..where((t) => t.id.equals(id))).getSingle();
+    expect(visit.deletedAt, isNotNull);
+    final ops = await db.select(db.outboxOps).get();
+    expect(ops.map((o) => o.opType), ['create', 'delete']);
+  });
+
+  testWidgets('las de otro agente no muestran editar ni eliminar', (tester) async {
+    final (dependencies, id) = await scenario(withTemplate: true, author: 'user-2');
+    await pump(tester, dependencies, id);
+    expect(find.byKey(const Key('visit_edit')), findsNothing);
+    expect(find.byKey(const Key('visit_delete')), findsNothing);
   });
 }

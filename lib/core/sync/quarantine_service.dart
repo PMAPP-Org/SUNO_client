@@ -70,6 +70,10 @@ class QuarantinedVisit {
 
   Map<String, Object?> get localAnswers => (jsonDecode(visit.answersJson) as Map).cast<String, Object?>();
 
+  /// El servidor ya tiene la visita: lo rechazado es una edición o un
+  /// borrado, y descartarlo devuelve la visita a la versión del servidor.
+  bool get existsOnServer => visit.serverDataJson != null;
+
   /// ¿Tiene sentido abrir el formulario para corregir? Solo si el servidor
   /// señaló respuestas concretas.
   bool get canCorrect => kind == QuarantineKind.rejected && answerViolations.isNotEmpty;
@@ -179,9 +183,30 @@ class QuarantineService {
     if (item.kind != QuarantineKind.conflict || server == null) {
       throw StateError('resendMine solo resuelve conflictos con fila del servidor.');
     }
+    final visit = item.visit;
+    // Lo del agente era **borrarla** (Fase A): su versión gana borrándola
+    // sobre la versión actual del servidor, no reenviando sus campos.
+    if (item.ops.any((op) => op.entity == 'visit' && op.opType == 'delete')) {
+      final serverVersion = server['version'] as int;
+      await _deleteOps(item.ops);
+      await db
+          .into(db.outboxOps)
+          .insert(
+            OutboxOpsCompanion.insert(
+              opUuid: engine.newOpUuid(),
+              entity: 'visit',
+              entityId: visit.id,
+              opType: 'delete',
+              baseVersion: Value(serverVersion),
+              payloadJson: jsonEncode({'id': visit.id}),
+              state: _pending,
+              createdAt: _now().toUtc(),
+            ),
+          );
+      return;
+    }
     final changed = <String, Object?>{};
     if (!_sameJson(item.localAnswers, server['answers'])) changed['answers'] = item.localAnswers;
-    final visit = item.visit;
     for (final (key, mine) in [
       ('lat', visit.lat),
       ('lon', visit.lon),
@@ -225,16 +250,46 @@ class QuarantineService {
     await _acceptServer(item, server);
   });
 
-  /// Rechazo: borra la visita del teléfono, sus adjuntos y sus operaciones.
-  /// **Pierde la visita**: la UI lo confirma antes de llamar aquí. Las fotos
-  /// que ninguna otra visita usa salen también de la cola de subida.
+  /// Rechazo: descarta lo que el servidor no aceptó, con sus operaciones.
+  ///
+  /// - Visita que el servidor **nunca tuvo**: se borra del teléfono con sus
+  ///   adjuntos. **Pierde la visita**.
+  /// - Visita que el servidor **ya tiene** (lo rechazado era una edición o un
+  ///   borrado, Fase A): se descartan los cambios sin enviar y la visita
+  ///   vuelve a la última versión confirmada por el servidor
+  ///   (`serverDataJson`); los adjuntos que solo existían en esas ediciones
+  ///   se van con ellas. **Pierde la edición**.
+  ///
+  /// La UI lo confirma antes de llamar aquí. Las fotos que ninguna otra
+  /// visita usa salen también de la cola de subida.
   Future<void> discard(QuarantinedVisit item) => db.transaction(() async {
     final visitId = item.visit.id;
-    final attachments = await (db.select(db.visitAttachments)..where((t) => t.visitId.equals(visitId))).get();
+    final current = await (db.select(db.visits)..where((t) => t.id.equals(visitId))).getSingleOrNull();
+    final serverData = current?.serverDataJson;
+    final all = await (db.select(db.visitAttachments)..where((t) => t.visitId.equals(visitId))).get();
+    final List<VisitAttachment> attachments;
+    if (serverData == null) {
+      attachments = all;
+    } else {
+      // Solo los adjuntos cuya alta sigue sin enviar: los demás ya están en
+      // el servidor y se quedan.
+      final unsent = {
+        for (final op
+            in await (db.select(db.outboxOps)
+                  ..where((t) => t.entity.equals('visit_attachment') & t.entityId.isIn([for (final a in all) a.id])))
+                .get())
+          op.entityId,
+      };
+      attachments = [for (final a in all) if (unsent.contains(a.id)) a];
+    }
     final attachmentIds = [for (final a in attachments) a.id];
     await (db.delete(db.outboxOps)..where((t) => t.entityId.isIn([visitId, ...attachmentIds]))).go();
-    await (db.delete(db.visitAttachments)..where((t) => t.visitId.equals(visitId))).go();
-    await (db.delete(db.visits)..where((t) => t.id.equals(visitId))).go();
+    await (db.delete(db.visitAttachments)..where((t) => t.id.isIn(attachmentIds))).go();
+    if (serverData == null) {
+      await (db.delete(db.visits)..where((t) => t.id.equals(visitId))).go();
+    } else if (!await engine.applyServerRecord({'entity': 'visit', 'data': jsonDecode(serverData)})) {
+      throw StateError('La copia del servidor guardada no tiene la forma del contrato.');
+    }
     for (final sha in {for (final a in attachments) a.sha256}) {
       final stillUsed = await (db.select(db.visitAttachments)..where((t) => t.sha256.equals(sha))).get();
       if (stillUsed.isEmpty) {

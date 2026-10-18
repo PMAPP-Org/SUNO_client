@@ -133,11 +133,19 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   }
                 },
                 onDiscard: () async {
-                  final ok = await _confirm(
-                    title: l10n.reviewDiscardTitle,
-                    body: l10n.reviewDiscardBody,
-                    confirm: l10n.reviewDiscardConfirm,
-                  );
+                  // Una edición rechazada de una visita que el servidor ya
+                  // tiene no borra la visita: vuelve a la del servidor.
+                  final ok = item.existsOnServer
+                      ? await _confirm(
+                          title: l10n.reviewDiscardChangesTitle,
+                          body: l10n.reviewDiscardChangesBody,
+                          confirm: l10n.reviewDiscardChangesConfirm,
+                        )
+                      : await _confirm(
+                          title: l10n.reviewDiscardTitle,
+                          body: l10n.reviewDiscardBody,
+                          confirm: l10n.reviewDiscardConfirm,
+                        );
                   if (ok) await _run(() => ref.read(appDependenciesProvider).quarantine.discard(item), l10n.reviewDiscarded);
                 },
               ),
@@ -244,7 +252,7 @@ class _ReviewCard extends StatelessWidget {
                   TextButton(
                     key: const Key('review_discard'),
                     onPressed: busy ? null : onDiscard,
-                    child: Text(l10n.reviewDiscard),
+                    child: Text(item.existsOnServer ? l10n.reviewDiscardChanges : l10n.reviewDiscard),
                   ),
                 ],
               ],
