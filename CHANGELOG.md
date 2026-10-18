@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.9.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.8.0...v0.9.0) (2026-10-18)
+
+
+### Agregado
+
+* **layers:** show the organization's reference layers on the map (Fase C) ([#34](https://github.com/PMAPP-Org/SUNO_client/issues/34)) ([cc5e002](https://github.com/PMAPP-Org/SUNO_client/commit/cc5e00263637935b17a6ca93f29b3aa2043a6e09))
+
 ## [0.8.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.7.0...v0.8.0) (2026-10-18)
 
 
