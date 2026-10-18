@@ -63,7 +63,12 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
     final dependencies = ref.read(appDependenciesProvider);
     final auth = dependencies.authController.state;
     return auth is Authenticated
-        ? CaptureIdentity(orgId: auth.user.orgId, userId: auth.user.id, deviceId: dependencies.deviceId)
+        ? CaptureIdentity(
+            orgId: auth.user.orgId,
+            userId: auth.user.id,
+            deviceId: dependencies.deviceId,
+            roles: auth.user.roles,
+          )
         : null;
   }
 
@@ -119,7 +124,7 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
     final editable =
         detail != null &&
         identity != null &&
-        canEdit(detail.visit, identity.userId) &&
+        canEdit(detail.visit, userId: identity.userId, roles: identity.roles) &&
         detail.summary.status != VisitSyncStatus.rejected;
     return Scaffold(
       appBar: AppBar(

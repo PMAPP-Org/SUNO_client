@@ -55,10 +55,18 @@ class PendingAttachment {
 /// Quién captura, desde qué dispositivo y para qué organización.
 @immutable
 class CaptureIdentity {
-  const CaptureIdentity({required this.orgId, required this.userId, required this.deviceId});
+  const CaptureIdentity({
+    required this.orgId,
+    required this.userId,
+    required this.deviceId,
+    this.roles = const [],
+  });
   final String orgId;
   final String userId;
   final String deviceId;
+
+  /// Roles del usuario en la organización (`UserProfile.roles`).
+  final List<String> roles;
 }
 
 class VisitCapture {
@@ -290,7 +298,7 @@ class VisitCapture {
               ..where((t) => t.id.equals(visitId) & t.orgId.equals(identity.orgId) & t.deletedAt.isNull()))
             .getSingleOrNull();
     if (visit == null) return VisitChange.notFound;
-    if (!canEdit(visit, identity.userId)) return VisitChange.notAllowed;
+    if (!canEdit(visit, userId: identity.userId, roles: identity.roles)) return VisitChange.notAllowed;
     final quarantined =
         await (db.select(db.outboxOps)
               ..where((t) => t.entityId.equals(visitId) & t.state.equals('quarantine'))
@@ -361,12 +369,15 @@ enum VisitChange {
   needsReview,
 }
 
-/// ¿Puede [userId] editar o borrar [visit]? Solo las suyas.
-///
-/// El servidor hoy autoriza la escritura por organización
-/// (`check_write_visit`); esta regla es la del cliente, para que un agente
-/// no modifique por error el trabajo de otro que le llegó por el pull.
-bool canEdit(Visit visit, String userId) => visit.createdBy == userId;
+/// ¿Puede el usuario editar o borrar [visit]? Su autor o supervisión: la
+/// misma regla que impone el servidor (`can_modify_visit`, ISO 27001
+/// A.5.15). Aquí solo decide qué botones se muestran; quien autoriza es el
+/// servidor, que rechaza con `forbidden` lo que no corresponda.
+bool canEdit(Visit visit, {required String userId, required List<String> roles}) =>
+    visit.createdBy == userId || roles.any(supervisionRoles.contains);
+
+/// Roles que supervisan el trabajo de campo (`SUPERVISION_ROLES` del servidor).
+const supervisionRoles = {'OWNER', 'ADMIN', 'SUPERVISOR'};
 
 /// Las respuestas que se guardan: solo las de campos visibles.
 Map<String, Object?> keptAnswers(FormDefinition definition, Map<String, Object?> answers) => {
