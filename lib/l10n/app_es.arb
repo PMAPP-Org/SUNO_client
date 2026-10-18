@@ -51,6 +51,25 @@
   "visitStatusPending": "Pendiente",
   "visitStatusSynced": "Sincronizada",
   "visitStatusRejected": "Rechazada",
+  "homeSearchHint": "Buscar por formulario o respuesta",
+  "homeNoResults": "Ninguna visita coincide con la búsqueda.",
+  "homeLoadMore": "Ver más",
+  "visitNotFound": "Esta visita ya no está en el teléfono.",
+  "visitNoLocation": "Sin ubicación.",
+  "visitAltitude": "Altitud: {meters} m",
+  "@visitAltitude": {
+    "placeholders": { "meters": { "type": "int" } }
+  },
+  "visitAnswers": "Respuestas",
+  "visitExtraPhotos": "Fotos adicionales",
+  "visitId": "Identificador: {id}",
+  "@visitId": {
+    "placeholders": { "id": { "type": "String" } }
+  },
+  "visitAttachmentUploaded": "Subida",
+  "visitAttachmentPending": "Por subir",
+  "visitAttachmentFailed": "Error al subir",
+  "visitAttachmentRemote": "En el servidor",
   "homeReviewPending": "{count, plural, =1{1 visita para revisar} other{{count} visitas para revisar}}",
   "@homeReviewPending": {
     "description": "Botón de la portada que abre la revisión de visitas rechazadas o en conflicto.",

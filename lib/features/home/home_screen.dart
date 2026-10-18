@@ -23,6 +23,7 @@ import '../../ui/widgets/app_page_body.dart';
 import '../auth/login_screen.dart';
 import '../capture/capture_screen.dart';
 import '../review/review_screen.dart';
+import '../visits/visit_detail_screen.dart';
 import 'visit_status_list.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -105,20 +106,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Visitas en cuarentena (Paso 23): el aviso "N para revisar".
   int _toReview = 0;
 
+  /// Búsqueda y paginado de la lista (Fase A): de [_pageSize] en
+  /// [_pageSize], con "Ver más".
+  static const _pageSize = 50;
+  int _limit = _pageSize;
+  String _query = '';
+
   Future<void> _loadVisits() async {
     final dependencies = ref.read(appDependenciesProvider);
     final authState = dependencies.authController.state;
     final orgId = authState is Authenticated ? authState.user.orgId : null;
+    final query = _query;
     final visits = orgId == null
         ? const <VisitSummary>[]
-        : await dependencies.visitStatus.recentVisits(orgId: orgId);
+        : await dependencies.visitStatus.recentVisits(orgId: orgId, limit: _limit, query: query);
     final toReview = orgId == null ? 0 : await dependencies.quarantine.count(orgId: orgId);
-    if (mounted) {
+    // Una búsqueda más nueva ya está en camino: este resultado está viejo.
+    if (mounted && query == _query) {
       setState(() {
         _visits = visits;
         _toReview = toReview;
       });
     }
+  }
+
+  void _search(String query) {
+    _query = query;
+    _limit = _pageSize;
+    unawaited(_loadVisits());
+  }
+
+  void _loadMore() {
+    _limit += _pageSize;
+    unawaited(_loadVisits());
+  }
+
+  Future<void> _openVisit(VisitSummary visit) async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => VisitDetailScreen(visitId: visit.id)));
+    await _loadVisits();
   }
 
   Future<void> _openReview() async {
@@ -237,10 +264,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
           const AppGap.lg(),
           Text(l10n.homeRecentVisits, style: Theme.of(context).textTheme.titleMedium),
+          const AppGap.sm(),
+          TextField(
+            key: const Key('home_search'),
+            decoration: InputDecoration(
+              hintText: l10n.homeSearchHint,
+              prefixIcon: const Icon(Icons.search),
+            ),
+            textInputAction: TextInputAction.search,
+            onChanged: _search,
+          ),
           if (_visits == null)
             const Center(child: CircularProgressIndicator())
-          else
-            VisitStatusList(visits: _visits!),
+          else ...[
+            VisitStatusList(
+              visits: _visits!,
+              onOpen: _openVisit,
+              emptyText: _query.trim().isEmpty ? null : l10n.homeNoResults,
+            ),
+            // Página llena: puede haber más.
+            if (_visits!.length >= _limit)
+              TextButton(
+                key: const Key('home_load_more'),
+                onPressed: _loadMore,
+                child: Text(l10n.homeLoadMore),
+              ),
+          ],
         ],
       ),
     );
