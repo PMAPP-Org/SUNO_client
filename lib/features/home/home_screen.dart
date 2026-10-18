@@ -55,6 +55,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Al volver de segundo plano: puede haber red de nuevo.
     _lifecycle = AppLifecycleListener(onResume: () => unawaited(_scheduler.nudge()));
     unawaited(_scheduler.start());
+    // Reintento de la prueba de autorización (Ley 1581) si quedó pendiente.
+    unawaited(ref.read(appDependenciesProvider).consent.syncPending());
     // Paso 16, tarea 7: sesión revocada en el servidor (p. ej. reuso del
     // refresh detectado) → login limpio. La outbox no se toca: lo capturado
     // se envía tras volver a entrar.

@@ -199,5 +199,26 @@
   "tofuNone": "(ninguno)",
   "tofuConfirmCheck": "Comparé la huella con la que me dio el administrador y coincide.",
   "tofuTrust": "Confiar en este servidor",
-  "tofuCancel": "No confiar"
+  "tofuCancel": "No confiar",
+  "privacyTitle": "Aviso de privacidad",
+  "@privacyTitle": {
+    "description": "BORRADOR pendiente de validación jurídica (Ley 1581, art. 12). Al cambiar cualquier texto privacy*, subir kPrivacyNoticeVersion en lib/core/privacy/consent.dart para que la app vuelva a pedir la autorización."
+  },
+  "privacyIntro": "Antes de usar la aplicación, lee cómo se tratan tus datos personales y autoriza cada uso.",
+  "privacyResponsible": "La organización para la que trabajas es la responsable del tratamiento de tus datos. El operador de la aplicación los trata por encargo suyo, conforme a la Ley 1581 de 2012.",
+  "privacyPurposeAccountTitle": "Cuenta y uso de la aplicación",
+  "privacyPurposeAccountBody": "Tu usuario, correo y nombre, y el teléfono desde el que entras: para identificarte, proteger tu cuenta y registrar quién hizo cada visita.",
+  "privacyPurposeLocationTitle": "Ubicación de las visitas",
+  "privacyPurposeLocationBody": "La posición GPS y la hora de cada visita que guardes, como evidencia del trabajo de campo. No se registra tu ubicación fuera de las visitas.",
+  "privacyPurposePhotosTitle": "Fotos y firmas",
+  "privacyPurposePhotosBody": "Las fotos y firmas que captures en las visitas. Pueden aparecer otras personas: captura solo lo necesario para la visita.",
+  "privacyRights": "Puedes conocer, actualizar, rectificar y pedir que se supriman tus datos, y revocar esta autorización, a través de la administración de tu organización.",
+  "privacyAllRequired": "Marca las tres autorizaciones para continuar.",
+  "privacyAccept": "Acepto y continúo",
+  "privacyDecline": "No acepto",
+  "privacyDeclined": "Sin esta autorización no se puede usar la aplicación: una visita de campo necesita tu cuenta, la ubicación y las fotos. Puedes volver a leer el aviso cuando quieras.",
+  "privacyVersion": "Versión del aviso: {version}",
+  "@privacyVersion": {
+    "placeholders": { "version": { "type": "String" } }
+  }
 }

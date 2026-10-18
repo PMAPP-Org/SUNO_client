@@ -25,6 +25,7 @@ import 'capture/visit_capture.dart';
 import 'constants.dart';
 import 'device/device_id_store.dart';
 import 'location/location_source.dart';
+import 'privacy/consent.dart';
 import 'security/pin_store.dart';
 import 'security/secure_storage.dart';
 import 'security/trust_store.dart';
@@ -35,6 +36,7 @@ import '../data/capture/image_picker_photo_capture.dart';
 import '../data/http/api_client.dart';
 import '../data/http/attachment_api_client.dart';
 import '../data/http/auth_interceptor.dart';
+import '../data/http/consent_api_client.dart';
 import '../data/http/sync_api_client.dart';
 import '../data/local/database.dart';
 import '../data/local/encryption_key_store.dart';
@@ -55,7 +57,16 @@ class AppDependencies {
     SignatureStore? signatureStore,
     VisitCapture? visitCapture,
     TrustStore? trustStore,
+    ConsentService? consent,
   }) : trustStore = trustStore ?? TrustStore(pinStore: PinStore(HardenedSecureStorage())),
+       consent =
+           consent ??
+           ConsentService(
+             store: ConsentStore(HardenedSecureStorage()),
+             transport: ConsentApiClient(dio),
+             accessTokenProvider: () => authController.accessToken ?? '',
+             deviceId: deviceId,
+           ),
        locationSource = locationSource ?? const GeolocatorLocationSource(),
        photoCapture = photoCapture ?? ImagePickerPhotoCapture(),
        signatureStore = signatureStore ?? const FileSignatureStore(),
@@ -86,6 +97,10 @@ class AppDependencies {
   /// Paso 16: confianza TLS (pinning SPKI / TOFU). Ya cargado y conectado al
   /// `dio`; el login lo usa para guardar un certificado aprobado.
   final TrustStore trustStore;
+
+  /// Ley 1581: autorización del titular (aviso de privacidad antes del login)
+  /// y envío de su prueba al servidor.
+  final ConsentService consent;
   final AuthController authController;
   final String deviceId;
   final LocationSource locationSource;
