@@ -60,6 +60,15 @@ jobs:
         # Medida: 76,4 % con el sistema de diseño (2026-10-17).
         run: python3 tool/check_lcov.py coverage/lcov.info --min 75
 
+      # Paso 25: cada hallazgo H-01…H-21 tiene un test que lo cubre. El mapa
+      # vive en SUNO_server (cubre los dos repos); aquí se comprueba que los
+      # tests de este repo que nombra siguen existiendo.
+      - name: Mapa hallazgo → test (H-01…H-21)
+        run: |
+          curl -sSfL --proto '=https' -o hallazgos-tests.toml \
+            https://raw.githubusercontent.com/PMAPP-Org/SUNO_server/master/docs/seguridad/hallazgos-tests.toml
+          python3 tool/check_findings_map.py --repo client --map hallazgos-tests.toml
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
