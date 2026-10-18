@@ -267,6 +267,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       orgId: authState.user.orgId,
       userId: authState.user.id,
       deviceId: dependencies.deviceId,
+      roles: authState.user.roles,
     );
     setState(() => _saving = true);
     VisitChange change;

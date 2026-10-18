@@ -137,6 +137,27 @@ void main() {
       expect(await db.select(db.attachmentQueue).get(), hasLength(1));
     });
 
+    test('supervisión puede editar y borrar las de otro (como el servidor)', () async {
+      const supervisor = CaptureIdentity(
+        orgId: 'org-1',
+        userId: 'user-9',
+        deviceId: 'device-9',
+        roles: ['SUPERVISOR'],
+      );
+      final id = await newVisit(identity: _other);
+      expect(
+        await capture.update(
+          identity: supervisor,
+          visitId: id,
+          definition: _definition,
+          answers: {'altura_cm': 77},
+          captured: const {},
+        ),
+        VisitChange.saved,
+      );
+      expect(await capture.delete(identity: supervisor, visitId: id), VisitChange.saved);
+    });
+
     test('solo las propias', () async {
       final id = await newVisit(identity: _other);
       expect(await edit(id, {'altura_cm': 99}), VisitChange.notAllowed);
