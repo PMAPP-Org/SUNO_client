@@ -1,16 +1,18 @@
 // Detalle de una visita (Fase A): lo que el agente capturó, con las etiquetas
 // de la plantilla, su ubicación y precisión, sus fotos y firma, y en qué punto
-// de la sincronización está. Solo lectura; editar y borrar vienen después.
+// de la sincronización está. Las propias se pueden editar y eliminar.
 //
 // Todo sale de la BD local: funciona sin red. Si la plantilla no está en la
 // caché (visita traída por pull de una plantilla que este teléfono no
 // descargó), se muestran las claves tal cual en vez de no mostrar nada.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_state.dart';
+import '../../core/capture/visit_capture.dart';
 import '../../core/forms/form_definition.dart';
 import '../../core/providers.dart';
 import '../../data/local/form_template_repository.dart';
@@ -18,6 +20,7 @@ import '../../data/local/visit_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_tokens.dart';
 import '../../ui/widgets/app_page_body.dart';
+import '../capture/capture_screen.dart';
 import '../home/visit_status_list.dart';
 
 class VisitDetailScreen extends ConsumerStatefulWidget {
@@ -56,13 +59,88 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
     if (mounted) setState(() => _loaded = (detail: detail, definition: definition));
   }
 
+  CaptureIdentity? get _identity {
+    final dependencies = ref.read(appDependenciesProvider);
+    final auth = dependencies.authController.state;
+    return auth is Authenticated
+        ? CaptureIdentity(orgId: auth.user.orgId, userId: auth.user.id, deviceId: dependencies.deviceId)
+        : null;
+  }
+
+  Future<void> _edit() async {
+    final saved = await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute(builder: (_) => CaptureScreen(editVisitId: widget.visitId)));
+    if (saved ?? false) await _load();
+  }
+
+  Future<void> _delete() async {
+    final identity = _identity;
+    if (identity == null) return;
+    final l10n = context.l10n;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.visitDeleteTitle),
+        content: Text(l10n.visitDeleteBody),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(l10n.reviewConfirmCancel)),
+          FilledButton(
+            key: const Key('visit_delete_confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.visitDeleteConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final dependencies = ref.read(appDependenciesProvider);
+    final change = await dependencies.visitCapture.delete(identity: identity, visitId: widget.visitId);
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    if (change == VisitChange.saved) {
+      unawaited(dependencies.syncCoordinator.syncNow());
+      messenger.showSnackBar(SnackBar(content: Text(l10n.visitDeleted)));
+      Navigator.of(context).pop();
+    } else {
+      messenger.showSnackBar(
+        SnackBar(content: Text(change == VisitChange.needsReview ? l10n.visitNeedsReview : l10n.visitNotEditable)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final loaded = _loaded;
     final detail = loaded?.detail;
+    final identity = _identity;
+    // Solo las propias, y sin nada en revisión (`VisitCapture._editable`).
+    final editable =
+        detail != null &&
+        identity != null &&
+        canEdit(detail.visit, identity.userId) &&
+        detail.summary.status != VisitSyncStatus.rejected;
     return Scaffold(
-      appBar: AppBar(title: Text(detail?.summary.templateName ?? l10n.homeVisitUntitled)),
+      appBar: AppBar(
+        title: Text(detail?.summary.templateName ?? l10n.homeVisitUntitled),
+        actions: [
+          if (editable) ...[
+            IconButton(
+              key: const Key('visit_edit'),
+              tooltip: l10n.visitEdit,
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: loaded?.definition == null ? null : _edit,
+            ),
+            IconButton(
+              key: const Key('visit_delete'),
+              tooltip: l10n.visitDelete,
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _delete,
+            ),
+          ],
+        ],
+      ),
       body: loaded == null
           ? const Center(child: CircularProgressIndicator())
           : detail == null

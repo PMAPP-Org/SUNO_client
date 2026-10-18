@@ -344,5 +344,55 @@ void main() {
     ).list(orgId: 'org-1')).single;
     expect((item.kind, item.canCorrect, item.message), (QuarantineKind.rejected, false, 'Plantilla desconocida.'));
   });
-}
 
+  test('v6 → v7: las visitas sobreviven y empiezan sin copia del servidor', () async {
+    final raw = sqlite3.sqlite3.openInMemory();
+    addTearDown(raw.close);
+
+    // Esquema v6 (Paso 23): v5 + detalle de la cuarentena.
+    raw.execute('''
+      CREATE TABLE visits (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, version INTEGER NOT NULL,
+        change_seq INTEGER NULL, deleted_at INTEGER NULL, template_version_id TEXT NOT NULL,
+        answers_json TEXT NOT NULL, lat REAL NULL, lon REAL NULL, accuracy_m REAL NULL,
+        altitude_m REAL NULL, captured_at INTEGER NOT NULL, device_id TEXT NOT NULL,
+        created_by TEXT NOT NULL
+      );
+      CREATE TABLE outbox_ops (
+        op_uuid TEXT NOT NULL PRIMARY KEY, entity TEXT NOT NULL, entity_id TEXT NOT NULL,
+        op_type TEXT NOT NULL, base_version INTEGER NULL, payload_json TEXT NOT NULL,
+        state TEXT NOT NULL, created_at INTEGER NOT NULL, error_message TEXT NULL,
+        error_code TEXT NULL, error_fields_json TEXT NULL, server_row_json TEXT NULL
+      );
+      CREATE TABLE attachment_queue (
+        sha256 TEXT NOT NULL PRIMARY KEY, local_path TEXT NOT NULL, state TEXT NOT NULL,
+        created_at INTEGER NOT NULL, mime TEXT NOT NULL DEFAULT 'image/jpeg',
+        attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at INTEGER NULL, last_error TEXT NULL
+      );
+      CREATE TABLE sync_cursor (id INTEGER NOT NULL PRIMARY KEY, cursor TEXT NOT NULL, updated_at INTEGER NOT NULL);
+      CREATE TABLE form_template_versions (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, template_id TEXT NOT NULL,
+        version_number INTEGER NOT NULL, name TEXT NULL, definition_json TEXT NOT NULL,
+        published_at INTEGER NULL, deleted_at INTEGER NULL, version INTEGER NOT NULL,
+        change_seq INTEGER NULL
+      );
+      CREATE TABLE visit_attachments (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, visit_id TEXT NOT NULL,
+        sha256 TEXT NOT NULL, role TEXT NOT NULL, caption TEXT NULL, captured_at INTEGER NOT NULL,
+        position INTEGER NOT NULL, version INTEGER NULL, change_seq INTEGER NULL
+      );
+    ''');
+    raw.execute('PRAGMA user_version = 6;');
+    raw.execute(
+      "INSERT INTO visits (id, org_id, version, template_version_id, answers_json, captured_at, device_id, created_by) "
+      "VALUES ('visit-1', 'org-1', 3, 'tv-1', '{\"altura_cm\": 35}', 1767225600, 'device-1', 'user-1');",
+    );
+
+    final db = AppDatabase.forTesting(NativeDatabase.opened(raw));
+    addTearDown(db.close);
+
+    final visit = await db.select(db.visits).getSingle();
+    expect((visit.version, visit.answersJson), (3, '{"altura_cm": 35}'));
+    expect(visit.serverDataJson, isNull);
+  });
+}

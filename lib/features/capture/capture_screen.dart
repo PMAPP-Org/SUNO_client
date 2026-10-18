@@ -30,7 +30,11 @@ import 'location_capture_sheet.dart';
 import 'signature_screen.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
-  const CaptureScreen({super.key});
+  const CaptureScreen({super.key, this.editVisitId});
+
+  /// Fase A: editar esta visita en vez de crear una. Se abre con su misma
+  /// versión de plantilla y sus respuestas; solo viaja lo que cambie.
+  final String? editVisitId;
 
   @override
   ConsumerState<CaptureScreen> createState() => _CaptureScreenState();
@@ -42,8 +46,13 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   TemplateLookup? _lookup;
   FormController? _form;
 
+  /// Ubicación tomada **en esta pantalla**; al editar, `null` conserva la de
+  /// la visita ([_originalFix]).
   LocationFix? _fix;
+  LocationFix? _originalFix;
   bool _saving = false;
+
+  bool get _editing => widget.editVisitId != null;
 
   /// Adjuntos de los campos foto/firma, por `id` (lo que guarda `answers`).
   final Map<String, PendingAttachment> _captured = {};
@@ -52,7 +61,36 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   @override
   void initState() {
     super.initState();
-    _loadTemplates();
+    if (_editing) {
+      _loadForEdit(widget.editVisitId!);
+    } else {
+      _loadTemplates();
+    }
+  }
+
+  Future<void> _loadForEdit(String visitId) async {
+    final orgId = _orgId;
+    if (orgId == null) return;
+    final dependencies = ref.read(appDependenciesProvider);
+    final detail = await dependencies.visitStatus.detail(orgId: orgId, visitId: visitId);
+    if (detail == null) {
+      if (mounted) setState(() => _templates = const []);
+      return;
+    }
+    final lookup = await dependencies.formTemplates.forVisit(
+      orgId: orgId,
+      templateVersionId: detail.visit.templateVersionId,
+    );
+    if (!mounted) return;
+    final visit = detail.visit;
+    setState(() {
+      _lookup = lookup;
+      _templates = lookup is TemplateReady ? [lookup.info] : const [];
+      _form = lookup is TemplateReady ? FormController(lookup.definition, initialAnswers: detail.answers) : null;
+      _originalFix = visit.lat == null || visit.lon == null
+          ? null
+          : LocationFix(lat: visit.lat!, lon: visit.lon!, accuracyM: visit.accuracyM ?? 0, altitudeM: visit.altitudeM);
+    });
   }
 
   @override
@@ -171,7 +209,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     if (!mounted) return;
     // Cancelar no borra una ubicación ya tomada.
     setState(() => _fix = fix ?? _fix);
-    if (_fix == null) {
+    if ((_fix ?? _originalFix) == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.captureLocationUnavailable)));
     }
   }
@@ -189,31 +227,53 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       return;
     }
 
+    final identity = CaptureIdentity(
+      orgId: authState.user.orgId,
+      userId: authState.user.id,
+      deviceId: dependencies.deviceId,
+    );
     setState(() => _saving = true);
+    VisitChange change;
     try {
-      await dependencies.visitCapture.save(
-        identity: CaptureIdentity(
-          orgId: authState.user.orgId,
-          userId: authState.user.id,
-          deviceId: dependencies.deviceId,
-        ),
-        templateVersionId: lookup.info.id,
-        definition: lookup.definition,
-        answers: form.answers,
-        captured: Map.of(_captured),
-        extraPhotos: List.of(_extraPhotos),
-        fix: _fix,
-      );
+      if (_editing) {
+        change = await dependencies.visitCapture.update(
+          identity: identity,
+          visitId: widget.editVisitId!,
+          definition: lookup.definition,
+          answers: form.answers,
+          captured: Map.of(_captured),
+          extraPhotos: List.of(_extraPhotos),
+          fix: _fix,
+        );
+      } else {
+        await dependencies.visitCapture.save(
+          identity: identity,
+          templateVersionId: lookup.info.id,
+          definition: lookup.definition,
+          answers: form.answers,
+          captured: Map.of(_captured),
+          extraPhotos: List.of(_extraPhotos),
+          fix: _fix,
+        );
+        change = VisitChange.saved;
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
     // La visita y sus fotos salen ya si hay red, sin esperar al siguiente
     // ciclo (Paso 18, Fase A). Sin `await`: no retiene la pantalla ni el
     // guardado; sin red queda en la outbox para el próximo disparo.
-    unawaited(dependencies.syncCoordinator.syncNow());
+    if (change == VisitChange.saved) unawaited(dependencies.syncCoordinator.syncNow());
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.captureSaved)));
-    Navigator.of(context).pop();
+    final message = switch (change) {
+      VisitChange.saved => _editing ? l10n.captureUpdated : l10n.captureSaved,
+      VisitChange.unchanged => l10n.visitUnchanged,
+      VisitChange.notAllowed => l10n.visitNotEditable,
+      VisitChange.needsReview => l10n.visitNeedsReview,
+      VisitChange.notFound => l10n.visitNotFound,
+    };
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    Navigator.of(context).pop(change == VisitChange.saved);
   }
 
   @override
@@ -222,10 +282,10 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     final templates = _templates;
     final lookup = _lookup;
     final form = _form;
-    final fix = _fix;
+    final fix = _fix ?? _originalFix;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.captureTitle)),
+      appBar: AppBar(title: Text(_editing ? l10n.captureEditTitle : l10n.captureTitle)),
       body: AppPageBody(
         children: [
           if (templates == null)

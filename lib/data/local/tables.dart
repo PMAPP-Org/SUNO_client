@@ -32,6 +32,13 @@ class Visits extends Table {
   TextColumn get deviceId => text()();
   TextColumn get createdBy => text()();
 
+  /// Fase A (editar y borrar): la última versión **confirmada por el
+  /// servidor** (`data` del contrato, JSON). `null` si el servidor todavía no
+  /// la conoce. Mientras la visita tiene cambios locales sin enviar, el pull
+  /// solo actualiza esta copia, sin pisar lo que el agente editó; si el agente
+  /// descarta un cambio rechazado, la visita vuelve a esta versión.
+  TextColumn get serverDataJson => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
