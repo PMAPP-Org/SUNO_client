@@ -18,6 +18,8 @@ import '../../core/providers.dart';
 import '../../core/sync/sync_coordinator.dart';
 import '../../data/local/visit_status_repository.dart';
 import '../../l10n/l10n.dart';
+import '../../ui/theme/app_icons.dart';
+import '../../ui/widgets/app_brand.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../auth/login_screen.dart';
@@ -62,7 +64,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _cycles = _coordinator.completed.listen((_) => _loadVisits());
     // Al volver de segundo plano: puede haber red de nuevo. El ciclo incluye
     // los adjuntos (mismo planificador, sin drenajes en paralelo).
-    _lifecycle = AppLifecycleListener(onResume: () => unawaited(_coordinator.syncNow()));
+    _lifecycle = AppLifecycleListener(
+      onResume: () => unawaited(_coordinator.syncNow()),
+    );
     unawaited(_scheduler.start());
     unawaited(_coordinator.start());
     // Reintento de la prueba de autorización (Ley 1581) si quedó pendiente.
@@ -78,15 +82,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // el servidor ya la revocó antes de abrir esta pantalla, el aviso no llegó
     // por `changes`.
     if (auth.state is Disconnected) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_backToLogin()));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => unawaited(_backToLogin()),
+      );
     }
   }
 
   Future<void> _backToLogin() async {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.sessionEnded)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.l10n.sessionEnded)));
     await Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
       (_) => false,
@@ -120,8 +126,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final query = _query;
     final visits = orgId == null
         ? const <VisitSummary>[]
-        : await dependencies.visitStatus.recentVisits(orgId: orgId, limit: _limit, query: query);
-    final toReview = orgId == null ? 0 : await dependencies.quarantine.count(orgId: orgId);
+        : await dependencies.visitStatus.recentVisits(
+            orgId: orgId,
+            limit: _limit,
+            query: query,
+          );
+    final toReview = orgId == null
+        ? 0
+        : await dependencies.quarantine.count(orgId: orgId);
     // Una búsqueda más nueva ya está en camino: este resultado está viejo.
     if (mounted && query == _query) {
       setState(() {
@@ -143,18 +155,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _openVisit(VisitSummary visit) async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => VisitDetailScreen(visitId: visit.id)));
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VisitDetailScreen(visitId: visit.id),
+      ),
+    );
     await _loadVisits();
   }
 
   Future<void> _openReview() async {
     final authState = ref.read(appDependenciesProvider).authController.state;
     if (authState is! Authenticated) return;
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => ReviewScreen(orgId: authState.user.orgId)));
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReviewScreen(orgId: authState.user.orgId),
+      ),
+    );
     await _loadVisits();
   }
 
@@ -189,7 +205,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ].join(' ')
           : l10n.syncComplete(drainReport.applied, report.attachments.uploaded);
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       // Defensa en profundidad: pase lo que pase arriba, el botón nunca debe
       // quedar deshabilitado permanentemente (hallazgo de revisión Tarea 7).
@@ -225,29 +243,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dependencies = ref.watch(appDependenciesProvider);
     final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.appTitle),
+        title: const AppBrand(),
         actions: [
           IconButton(
             key: const Key('home_settings'),
             tooltip: l10n.settingsTitle,
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+            ),
           ),
         ],
       ),
       body: AppPageBody(
         children: [
-          Text(l10n.homeSessionStarted(dependencies.deviceId), textAlign: TextAlign.center),
+          Text(
+            l10n.brandDescriptor,
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+          const AppGap.sm(),
+          Text(
+            l10n.homeHeading,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const AppGap.sm(),
+          Text(l10n.homeIntro, style: Theme.of(context).textTheme.bodyMedium),
           const AppGap.lg(),
           AppButton(
             key: const Key('home_new_visit_button'),
             label: l10n.homeNewVisit,
+            icon: AppIcons.visit,
             onPressed: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const CaptureScreen()),
@@ -260,6 +288,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           AppButton(
             key: const Key('home_sync_button'),
             label: l10n.homeSync,
+            icon: AppIcons.sync,
+            secondary: true,
             loadingLabel: l10n.homeSyncing,
             isLoading: _isSyncing,
             onPressed: _sync,
@@ -270,13 +300,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // Badge de cuarentena (Paso 23): que el agente no las pierda de vista.
             FilledButton.tonalIcon(
               key: const Key('home_review_button'),
-              icon: const Icon(Icons.report_problem_outlined),
+              icon: const Icon(AppIcons.review),
               label: Text(l10n.homeReviewPending(_toReview)),
               onPressed: _openReview,
             ),
           ],
           const AppGap.lg(),
-          Text(l10n.homeRecentVisits, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            l10n.homeOfflineNote,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const Divider(),
+          Text(
+            l10n.homeRecentVisits,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const AppGap.sm(),
           TextField(
             key: const Key('home_search'),

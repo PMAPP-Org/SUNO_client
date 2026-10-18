@@ -20,12 +20,15 @@ abstract final class AppSpacing {
 
 /// Radios de esquina.
 abstract final class AppRadius {
-  static const double sm = 8;
-  static const double md = 12;
+  static const double sm = 6;
+  static const double md = 8;
 }
 
 /// Tamaños fijos de componentes.
 abstract final class AppSizes {
+  static const double brandMark = 44;
+  static const double brandHero = 88;
+
   /// Objetivo táctil mínimo (Material / WCAG 2.5.8): se trabaja en campo,
   /// a veces con guantes o el teléfono en una mano.
   static const double minTouchTarget = 48;

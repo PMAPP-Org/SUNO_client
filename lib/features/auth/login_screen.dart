@@ -16,6 +16,8 @@ import '../../core/providers.dart';
 import '../../core/security/trust_store.dart';
 import '../../core/session/device_handover.dart';
 import '../../l10n/l10n.dart';
+import '../../ui/theme/app_icons.dart';
+import '../../ui/widgets/app_brand.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../home/home_screen.dart';
@@ -44,7 +46,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final dependencies = ref.read(appDependenciesProvider);
     setState(() => _isSubmitting = true);
 
-    final platform = defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
+    final platform = defaultTargetPlatform == TargetPlatform.iOS
+        ? 'ios'
+        : 'android';
     final result = await dependencies.authController.login(
       username: _usernameController.text,
       password: _passwordController.text,
@@ -93,13 +97,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       },
       err: (error) async {
-        if (error case AuthCertificateError(:final rejection) when rejection.approvable) {
+        if (error case AuthCertificateError(
+          :final rejection,
+        ) when rejection.approvable) {
           await _offerTrust(rejection);
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_messageFor(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_messageFor(error))));
       },
     );
   }
@@ -110,11 +116,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _offerTrust(CertificateRejection rejection) async {
     final trusted = await TrustCertificateScreen.show(context, rejection);
     if (!trusted || !mounted) return;
-    await ref.read(appDependenciesProvider).trustStore.approve(
-      rejection.host,
-      rejection.port,
-      rejection.certificate!,
-    );
+    await ref
+        .read(appDependenciesProvider)
+        .trustStore
+        .approve(rejection.host, rejection.port, rejection.certificate!);
     if (mounted) await _submit();
   }
 
@@ -124,7 +129,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       network: (message) => l10n.authErrorNetwork,
       invalidCredentials: () => l10n.authErrorInvalidCredentials,
       unauthorized: () => l10n.authErrorUnauthorized,
-      unexpectedStatus: (statusCode, body) => l10n.authErrorUnexpectedStatus(statusCode),
+      unexpectedStatus: (statusCode, body) =>
+          l10n.authErrorUnexpectedStatus(statusCode),
       malformedResponse: (details) => l10n.authErrorMalformedResponse,
       certificate: (rejection) => rejection is PinMismatch
           ? l10n.authErrorPinMismatch
@@ -137,21 +143,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.loginTitle)),
       body: AutofillGroup(
         child: AppPageBody(
           centerVertically: true,
           children: [
+            const AppBrand(large: true),
+            const AppGap.sm(),
             Text(
-              l10n.appTitle,
-              style: Theme.of(context).textTheme.headlineMedium,
+              l10n.brandDescriptor,
+              style: Theme.of(context).textTheme.labelSmall,
               textAlign: TextAlign.center,
+            ),
+            const AppGap.lg(),
+            Text(
+              l10n.loginWelcome,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const AppGap.sm(),
+            Text(
+              l10n.loginIntro,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const AppGap.lg(),
             TextField(
               key: const Key('login_username_field'),
               controller: _usernameController,
-              decoration: InputDecoration(labelText: l10n.loginUsernameLabel),
+              decoration: InputDecoration(
+                labelText: l10n.loginUsernameLabel,
+                prefixIcon: const Icon(AppIcons.user),
+              ),
               autofillHints: const [AutofillHints.username],
               textInputAction: TextInputAction.next,
               autocorrect: false,
@@ -161,7 +181,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               key: const Key('login_password_field'),
               controller: _passwordController,
               obscureText: true,
-              decoration: InputDecoration(labelText: l10n.loginPasswordLabel),
+              decoration: InputDecoration(
+                labelText: l10n.loginPasswordLabel,
+                prefixIcon: const Icon(AppIcons.password),
+              ),
               autofillHints: const [AutofillHints.password],
               textInputAction: TextInputAction.done,
               onSubmitted: (_) {
@@ -175,6 +198,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               loadingLabel: l10n.loginSubmitting,
               isLoading: _isSubmitting,
               onPressed: _submit,
+            ),
+            const AppGap.lg(),
+            Text(
+              l10n.loginFieldNote,
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
             ),
           ],
         ),

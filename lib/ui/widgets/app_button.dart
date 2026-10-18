@@ -15,28 +15,50 @@ class AppButton extends StatelessWidget {
     required this.onPressed,
     this.isLoading = false,
     this.loadingLabel,
+    this.icon,
+    this.secondary = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
+  final IconData? icon;
+  final bool secondary;
 
   /// Texto para lectores de pantalla mientras carga (por defecto, `label`).
   final String? loadingLabel;
 
   @override
   Widget build(BuildContext context) {
+    final child = isLoading
+        ? Semantics(
+            label: loadingLabel ?? label,
+            child: const SizedBox.square(
+              dimension: AppSizes.buttonProgress,
+              child: CircularProgressIndicator(
+                strokeWidth: AppSizes.buttonProgressStroke,
+              ),
+            ),
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: AppSizes.buttonProgress),
+                const SizedBox(width: AppSpacing.xs),
+              ],
+              Flexible(child: Text(label, textAlign: TextAlign.center)),
+            ],
+          );
+    if (secondary) {
+      return OutlinedButton(
+        onPressed: isLoading ? null : onPressed,
+        child: child,
+      );
+    }
     return ElevatedButton(
       onPressed: isLoading ? null : onPressed,
-      child: isLoading
-          ? Semantics(
-              label: loadingLabel ?? label,
-              child: const SizedBox.square(
-                dimension: AppSizes.buttonProgress,
-                child: CircularProgressIndicator(strokeWidth: AppSizes.buttonProgressStroke),
-              ),
-            )
-          : Text(label),
+      child: child,
     );
   }
 }
