@@ -145,4 +145,44 @@ void main() {
       expect(transport.fetches, 0);
     });
   });
+
+  group('descarga reanudable', () {
+    test('si la red se corta, el siguiente intento continúa donde quedó', () async {
+      final a = info('a', bytes);
+      transport
+        ..offered = [a]
+        ..contents['a'] = bytes
+        ..cutAfter = 1000;
+
+      expect(await manager.download(a), isA<BasemapUnavailable>());
+      expect(await manager.download(a), isA<BasemapUnavailable>(), reason: 'otro corte');
+      transport.cutAfter = null;
+      expect(await manager.download(a), isA<BasemapDownloaded>());
+
+      expect(transport.froms, [0, 1000, 2000], reason: 'nunca vuelve a empezar de cero');
+      expect(File((await manager.downloaded()).single.localPath!).readAsBytesSync(), bytes);
+    });
+
+    test('una parte ya completa solo se verifica, sin volver a bajar nada', () async {
+      final a = info('a', bytes);
+      transport
+        ..offered = [a]
+        ..contents['a'] = bytes;
+      File('${dir.path}/${a.sha256}.mbtiles.part').writeAsBytesSync(bytes);
+
+      expect(await manager.download(a), isA<BasemapDownloaded>());
+      expect(transport.fetches, 0);
+    });
+
+    test('una parte más grande que el paquete se descarta y empieza de cero', () async {
+      final a = info('a', bytes);
+      transport
+        ..offered = [a]
+        ..contents['a'] = bytes;
+      File('${dir.path}/${a.sha256}.mbtiles.part').writeAsBytesSync([...bytes, 1, 2]);
+
+      expect(await manager.download(a), isA<BasemapDownloaded>());
+      expect(transport.froms, [0]);
+    });
+  });
 }
