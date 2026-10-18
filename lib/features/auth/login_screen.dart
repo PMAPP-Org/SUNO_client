@@ -58,6 +58,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     await result.when(
       ok: (_) async {
+        // Ley 1581: con sesión ya se puede enviar la prueba de la autorización
+        // que el agente dio en el aviso. Si falla, se reintenta en el inicio.
+        unawaited(dependencies.consent.syncPending());
         unawaited(
           Navigator.of(context).pushReplacement(
             MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
