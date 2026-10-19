@@ -26,6 +26,7 @@ abstract final class AppRadius {
 
 /// Tamaños fijos de componentes.
 abstract final class AppSizes {
+  static const double navigationArrow = 72;
   static const double brandMark = 44;
   static const double brandHero = 88;
 

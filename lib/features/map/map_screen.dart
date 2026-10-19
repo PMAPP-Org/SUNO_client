@@ -34,6 +34,7 @@ import '../../ui/theme/app_theme.dart';
 import '../../ui/theme/app_tokens.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../capture/capture_screen.dart';
+import '../assignments/assignment_navigation_screen.dart';
 import '../visits/visit_detail_screen.dart';
 
 /// Centro por defecto sin ningún punto: Bogotá.
@@ -59,6 +60,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   List<LayerFeature> _features = const [];
   final _layerHits = LayerHitNotifier<LayerFeature>(null);
   StreamSubscription<LocationFix>? _position;
+  int _gpsGeneration = 0;
 
   @override
   void initState() {
@@ -69,6 +71,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   void dispose() {
+    ++_gpsGeneration;
     unawaited(_position?.cancel());
     _controller.dispose();
     _layerHits.dispose();
@@ -109,15 +112,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (!mounted) return;
     setState(() {
       _visits = visits;
-      _assignments = [for (final a in assignments) if (a.hasPoint) a];
+      _assignments = [
+        for (final a in assignments)
+          if (a.hasPoint) a,
+      ];
     });
   }
 
   /// Mi posición en vivo. Sin permiso o con el GPS apagado, el mapa funciona
   /// igual sin ella.
   Future<void> _follow() async {
+    final generation = ++_gpsGeneration;
     final source = ref.read(appDependenciesProvider).locationSource;
-    if (await source.ensureReady() != LocationStatus.ready || !mounted) return;
+    if (await source.ensureReady() != LocationStatus.ready || !mounted || generation != _gpsGeneration) return;
     _position = source.watch().listen((fix) {
       if (mounted) setState(() => _me = fix);
     });
@@ -154,7 +161,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       subtitle: item.done ? l10n.assignmentDone : l10n.assignmentPending,
       action: item.done ? l10n.mapOpenVisit : l10n.mapStartVisit,
       onAction: () => _openAssignment(item),
+      onNavigate: item.navigationTarget == null ? null : () => _navigate(item),
     );
+  }
+
+  Future<void> _navigate(AssignmentItem item) async {
+    // La pantalla de navegación toma el GPS; al volver lo recupera el mapa.
+    ++_gpsGeneration;
+    await _position?.cancel();
+    _position = null;
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => AssignmentNavigationScreen(
+          target: item.navigationTarget!,
+          title: item.title ?? item.templateName ?? context.l10n.homeVisitUntitled,
+        ),
+      ),
+    );
+    if (mounted) await _follow();
   }
 
   Future<void> _showFeature(LayerFeature feature) {
@@ -175,7 +200,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               Text(feature.layerName, style: Theme.of(sheetContext).textTheme.bodySmall),
               const AppGap.sm(),
               for (final p in properties)
-                ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(p.key), subtitle: Text(p.value.toString())),
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(p.key),
+                  subtitle: Text(p.value.toString()),
+                ),
             ],
           ),
         ),
@@ -185,7 +215,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _onLayerTap() {
     final hit = _layerHits.value;
-    if (hit != null && hit.hitValues.isNotEmpty) unawaited(_showFeature(hit.hitValues.first));
+    if (hit != null && hit.hitValues.isNotEmpty) {
+      unawaited(_showFeature(hit.hitValues.first));
+    }
   }
 
   Future<void> _sheet({
@@ -193,6 +225,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     required String subtitle,
     required String action,
     required Future<void> Function() onAction,
+    Future<void> Function()? onNavigate,
   }) => showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -214,6 +247,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               },
               child: Text(action),
             ),
+            if (onNavigate != null)
+              OutlinedButton.icon(
+                key: const Key('map_navigate'),
+                onPressed: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(onNavigate());
+                },
+                icon: const Icon(Icons.directions),
+                label: Text(context.l10n.navigationTitle),
+              ),
           ],
         ),
       ),
@@ -246,10 +289,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       );
     }
 
-    final points = [
-      for (final v in visits) LatLng(v.lat, v.lon),
-      for (final a in _assignments) LatLng(a.lat!, a.lon!),
-    ];
+    final points = [for (final v in visits) LatLng(v.lat, v.lon), for (final a in _assignments) LatLng(a.lat!, a.lon!)];
     final me = _me;
 
     return Scaffold(
