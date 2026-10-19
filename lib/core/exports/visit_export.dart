@@ -168,7 +168,17 @@ Future<Uint8List> visitPdf(
 Iterable<String> _chunks(String text) sync* {
   // Code points, so an emoji cannot be split into malformed UTF-16.
   final runes = text.runes.toList();
-  for (var start = 0; start < runes.length; start += 700) {
-    yield String.fromCharCodes(runes.sublist(start, (start + 700).clamp(0, runes.length)));
+  var start = 0;
+  while (start < runes.length) {
+    var end = (start + 700).clamp(0, runes.length);
+    if (end < runes.length) {
+      var boundary = end;
+      while (boundary > start && ![32, 9, 10, 13].contains(runes[boundary - 1])) {
+        boundary--;
+      }
+      if (boundary > start) end = boundary;
+    }
+    yield String.fromCharCodes(runes.sublist(start, end));
+    start = end;
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -14,6 +16,7 @@ class QrCaptureScreen extends StatefulWidget {
 class _QrCaptureScreenState extends State<QrCaptureScreen> with WidgetsBindingObserver {
   final _camera = MobileScannerController(formats: [BarcodeFormat.qrCode]);
   bool _returned = false;
+  bool _unavailable = false;
 
   @override
   void initState() {
@@ -25,9 +28,17 @@ class _QrCaptureScreenState extends State<QrCaptureScreen> with WidgetsBindingOb
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_camera.value.hasCameraPermission || _returned) return;
     if (state == AppLifecycleState.resumed) {
-      _camera.start();
+      unawaited(_resumeCamera());
     } else {
       _camera.stop();
+    }
+  }
+
+  Future<void> _resumeCamera() async {
+    try {
+      await _camera.start();
+    } on MobileScannerException {
+      if (mounted) setState(() => _unavailable = true);
     }
   }
 
@@ -41,15 +52,17 @@ class _QrCaptureScreenState extends State<QrCaptureScreen> with WidgetsBindingOb
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(context.l10n.formScanQr)),
-    body: MobileScanner(
-      controller: _camera,
-      errorBuilder: (_, _) => Center(child: Text(context.l10n.formQrUnavailable)),
-      onDetect: (capture) {
-        final text = capture.barcodes.firstOrNull?.rawValue;
-        if (_returned || text == null || text.isEmpty || !mounted) return;
-        _returned = true;
-        Navigator.of(context).pop(text);
-      },
-    ),
+    body: _unavailable
+        ? Center(child: Text(context.l10n.formQrUnavailable))
+        : MobileScanner(
+            controller: _camera,
+            errorBuilder: (_, _) => Center(child: Text(context.l10n.formQrUnavailable)),
+            onDetect: (capture) {
+              final text = capture.barcodes.firstOrNull?.rawValue;
+              if (_returned || text == null || text.isEmpty || !mounted) return;
+              _returned = true;
+              Navigator.of(context).pop(text);
+            },
+          ),
   );
 }

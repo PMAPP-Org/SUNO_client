@@ -48,6 +48,52 @@ FormDefinition definition() =>
         .definition;
 
 void main() {
+  test('literal defaults survive parsing for every supported field type', () {
+    final values = <String, Object?>{
+      'text': 'initial',
+      'number': 2.5,
+      'integer': 2,
+      'boolean': true,
+      'date': '2026-10-19',
+      'datetime': '2026-10-19T08:00:00Z',
+      'qr': 'QR-1',
+      'location': {'lat': 4.6, 'lon': -74.0},
+      'line': {
+        'type': 'LineString',
+        'coordinates': [
+          [-74.0, 4.6],
+          [-74.1, 4.7],
+        ],
+      },
+      'polygon': {
+        'type': 'Polygon',
+        'coordinates': [
+          [
+            [-74.0, 4.6],
+            [-74.1, 4.6],
+            [-74.1, 4.7],
+            [-74.0, 4.6],
+          ],
+        ],
+      },
+    };
+    for (final entry in values.entries) {
+      final parsed = parseFormDefinition({
+        'fields': [
+          {
+            'key': 'x',
+            'type': entry.key,
+            'label': {'es': 'X'},
+            'default': entry.value,
+          },
+        ],
+      });
+      expect(parsed, isA<DefinitionOk>(), reason: entry.key);
+      final controller = FormController((parsed as DefinitionOk).definition);
+      expect(controller.valueOf('x'), entry.value, reason: entry.key);
+      controller.dispose();
+    }
+  });
   test('defaults only initialize new forms, cleared and edited values stay empty', () {
     final fresh = FormController(definition());
     expect(fresh.valueOf('site'), 'Bogotá');

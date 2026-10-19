@@ -747,11 +747,32 @@ FormFieldDef _parseFieldShape(Object? raw, String path) {
         max: max,
       );
     case 'boolean':
-      return BooleanFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
+      return BooleanFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+      );
     case 'date':
-      return DateFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
+      return DateFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+      );
     case 'datetime':
-      return DateTimeFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
+      return DateTimeFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+      );
     case 'single_choice':
       return SingleChoiceFieldDef(
         key: key,
@@ -780,15 +801,50 @@ FormFieldDef _parseFieldShape(Object? raw, String path) {
         maxSelected: maxSelected,
       );
     case 'photo':
-      return PhotoFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
+      return PhotoFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+      );
     case 'signature':
-      return SignatureFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
+      return SignatureFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+      );
     case 'line':
-      return LineFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
+      return LineFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+      );
     case 'polygon':
-      return PolygonFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
+      return PolygonFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+      );
     default: // 'location' (el catálogo ya se comprobó arriba)
-      return LocationFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
+      return LocationFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+      );
   }
 }
 
