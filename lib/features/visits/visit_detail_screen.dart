@@ -9,10 +9,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/auth/auth_state.dart';
 import '../../core/capture/visit_capture.dart';
+import '../../core/exports/visit_export.dart';
 import '../../core/forms/form_definition.dart';
 import '../../core/forms/geometry.dart';
 import '../../core/location/coordinate_system.dart';
@@ -35,6 +38,54 @@ class VisitDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
+  bool _exporting = false;
+
+  Future<void> _export(String format) async {
+    final loaded = _loaded;
+    final detail = loaded?.detail;
+    final identity = _identity;
+    if (detail == null || identity == null || !canExportVisits(identity.roles) || _exporting) return;
+    final l10n = context.l10n;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final origin = renderBox == null ? null : renderBox.localToGlobal(Offset.zero) & renderBox.size;
+    setState(() => _exporting = true);
+    try {
+      final bytes = format == 'pdf'
+          ? await visitPdf(
+              detail,
+              loaded!.definition,
+              roles: identity.roles,
+              fontBytes: await rootBundle.load('assets/fonts/Inter-Regular.ttf'),
+              locale: locale,
+              title: l10n.visitExportPdf,
+              sourceNote: l10n.visitExportLocal(switch (detail.summary.status) {
+                VisitSyncStatus.pending => l10n.visitExportPending,
+                VisitSyncStatus.synced => l10n.visitExportSynced,
+                VisitSyncStatus.rejected => l10n.visitExportRejected,
+              }),
+              locationLabel: l10n.captureVisitLocation,
+              answersLabel: l10n.visitAnswers,
+              attachmentsNote: l10n.visitExportAttachments,
+              authorLabel: l10n.visitExportAuthor,
+              versionLabel: l10n.visitExportVersion,
+            )
+          : visitGeoJson(detail, loaded!.definition, roles: identity.roles);
+      if (!mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile.fromData(bytes, mimeType: format == 'pdf' ? 'application/pdf' : 'application/geo+json')],
+          fileNameOverrides: ['visita-${detail.visit.id}.$format'],
+          sharePositionOrigin: origin,
+        ),
+      );
+    } on Exception {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.visitExportFailed)));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
   /// `null` mientras carga.
   ({VisitDetail? detail, FormDefinition? definition})? _loaded;
 
@@ -132,6 +183,18 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
       appBar: AppBar(
         title: Text(detail?.summary.templateName ?? l10n.homeVisitUntitled),
         actions: [
+          if (detail != null && identity != null && canExportVisits(identity.roles))
+            PopupMenuButton<String>(
+              key: const Key('visit_export'),
+              tooltip: l10n.visitExport,
+              enabled: !_exporting,
+              icon: const Icon(Icons.ios_share),
+              onSelected: _export,
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'pdf', child: Text(l10n.visitExportPdf)),
+                PopupMenuItem(value: 'geojson', child: Text(l10n.visitExportGeoJson)),
+              ],
+            ),
           if (editable) ...[
             IconButton(
               key: const Key('visit_edit'),
@@ -240,8 +303,25 @@ class _Body extends StatelessWidget {
     Map<String, dynamic> answers,
     Map<String, VisitAttachmentView> attachments,
   ) {
-    final referenced = answers.values.whereType<String>().toSet();
-    return [for (final a in attachments.values) if (!referenced.contains(a.id)) a];
+    Iterable<String> references(Object? node) sync* {
+      if (node is String) yield node;
+      if (node is Map<String, Object?>) {
+        for (final value in node.values) {
+          yield* references(value);
+        }
+      }
+      if (node is List<Object?>) {
+        for (final value in node) {
+          yield* references(value);
+        }
+      }
+    }
+
+    final referenced = references(answers).toSet();
+    return [
+      for (final a in attachments.values)
+        if (!referenced.contains(a.id)) a,
+    ];
   }
 
   Widget _value(
@@ -254,6 +334,27 @@ class _Body extends StatelessWidget {
     final l10n = context.l10n;
     final localizations = MaterialLocalizations.of(context);
     return switch (field) {
+      RepeatFieldDef(:final definition) when value is List<Object?> => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final (index, row) in value.indexed)
+            if (row is Map<String, Object?>)
+              _Answer(
+                label: l10n.formRepeatRow(index + 1),
+                value: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final child in definition.fields)
+                      if (row.containsKey(child.key))
+                        _Answer(
+                          label: child.label.resolve(locale),
+                          value: _value(context, child, row[child.key], attachments, locale),
+                        ),
+                  ],
+                ),
+              ),
+        ],
+      ),
       AttachmentRefFieldDef() when value is String && attachments[value] != null => Align(
         alignment: Alignment.centerLeft,
         child: _Thumbnail(attachment: attachments[value]!),
@@ -293,7 +394,10 @@ class _Body extends StatelessWidget {
     true => l10n.reviewYes,
     false => l10n.reviewNo,
     final List<Object?> list => list.join(', '),
-    final Map<Object?, Object?> map when map.containsKey('lat') => l10n.captureLocation('${map['lat']}', '${map['lon']}'),
+    final Map<Object?, Object?> map when map.containsKey('lat') => l10n.captureLocation(
+      '${map['lat']}',
+      '${map['lon']}',
+    ),
     _ => '$value',
   };
 }
@@ -348,10 +452,8 @@ class _Thumbnail extends StatelessWidget {
               height: AppSizes.thumbnail,
               fit: BoxFit.cover,
               // El archivo pudo borrarse tras subirse: no es un error.
-              errorBuilder: (_, _, _) => const SizedBox.square(
-                dimension: AppSizes.thumbnail,
-                child: Icon(Icons.image_not_supported_outlined),
-              ),
+              errorBuilder: (_, _, _) =>
+                  const SizedBox.square(dimension: AppSizes.thumbnail, child: Icon(Icons.image_not_supported_outlined)),
             ),
           ),
         Text(state, style: Theme.of(context).textTheme.bodySmall),

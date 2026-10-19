@@ -102,10 +102,7 @@ class VisitStatusRepository {
 
     final templateNames = await _templateNames(visits);
     if (needle.isNotEmpty) {
-      visits = visits
-          .where((v) => _matches(v, templateNames[v.templateVersionId], needle))
-          .take(limit)
-          .toList();
+      visits = visits.where((v) => _matches(v, templateNames[v.templateVersionId], needle)).take(limit).toList();
     }
     return _summarize(visits, templateNames);
   }
@@ -116,10 +113,7 @@ class VisitStatusRepository {
   ///
   /// Con cada visita, las líneas y polígonos de sus respuestas (Fase C), para
   /// dibujarlos.
-  Future<List<MapVisit>> mapVisits({
-    required String orgId,
-    int limit = 2000,
-  }) async {
+  Future<List<MapVisit>> mapVisits({required String orgId, int limit = 2000}) async {
     final visits =
         await (db.select(db.visits)
               ..where((t) => t.orgId.equals(orgId) & t.deletedAt.isNull() & t.lat.isNotNull() & t.lon.isNotNull())
@@ -141,19 +135,31 @@ class VisitStatusRepository {
       return const [];
     }
     if (answers is! Map) return const [];
-    return [
-      for (final value in answers.values)
-        if (value is Map<String, Object?> && kindOf(value) != null) value,
-    ];
+    Iterable<Map<String, Object?>> collect(Object? value) sync* {
+      if (value is Map<String, Object?>) {
+        if (kindOf(value) != null) {
+          yield value;
+        } else {
+          for (final child in value.values) {
+            yield* collect(child);
+          }
+        }
+      } else if (value is List<Object?>) {
+        for (final child in value) {
+          yield* collect(child);
+        }
+      }
+    }
+
+    return collect(answers).toList();
   }
 
   /// Una visita con su estado y sus adjuntos; `null` si no existe en [orgId]
   /// o está borrada.
   Future<VisitDetail?> detail({required String orgId, required String visitId}) async {
-    final visit =
-        await (db.select(db.visits)
-              ..where((t) => t.orgId.equals(orgId) & t.id.equals(visitId) & t.deletedAt.isNull()))
-            .getSingleOrNull();
+    final visit = await (db.select(
+      db.visits,
+    )..where((t) => t.orgId.equals(orgId) & t.id.equals(visitId) & t.deletedAt.isNull())).getSingleOrNull();
     if (visit == null) return null;
     final summary = (await _summarize([visit], await _templateNames([visit]))).single;
 
@@ -163,10 +169,9 @@ class VisitStatusRepository {
               ..orderBy([(t) => OrderingTerm.asc(t.position)]))
             .get();
     final queue = {
-      for (final row
-          in await (db.select(
-            db.attachmentQueue,
-          )..where((t) => t.sha256.isIn({for (final a in attachments) a.sha256}))).get())
+      for (final row in await (db.select(
+        db.attachmentQueue,
+      )..where((t) => t.sha256.isIn({for (final a in attachments) a.sha256}))).get())
         row.sha256: row,
     };
     return VisitDetail(
@@ -185,10 +190,9 @@ class VisitStatusRepository {
   }
 
   Future<Map<String, String?>> _templateNames(List<Visit> visits) async => {
-    for (final row
-        in await (db.select(
-          db.formTemplateVersions,
-        )..where((t) => t.id.isIn({for (final v in visits) v.templateVersionId}))).get())
+    for (final row in await (db.select(
+      db.formTemplateVersions,
+    )..where((t) => t.id.isIn({for (final v in visits) v.templateVersionId}))).get())
       row.id: row.name,
   };
 
@@ -203,10 +207,9 @@ class VisitStatusRepository {
     }
     final visitOfAttachment = {for (final a in attachments) a.id: a.visitId};
 
-    final ops =
-        await (db.select(db.outboxOps)
-              ..where((t) => t.entityId.isIn([...visitIds, ...visitOfAttachment.keys])))
-            .get();
+    final ops = await (db.select(
+      db.outboxOps,
+    )..where((t) => t.entityId.isIn([...visitIds, ...visitOfAttachment.keys]))).get();
     final opStatesByVisit = <String, Set<String>>{};
     for (final op in ops) {
       final visitId = op.entity == 'visit' ? op.entityId : visitOfAttachment[op.entityId];

@@ -34,6 +34,7 @@ import '../../ui/widgets/app_page_body.dart';
 import 'geometry_capture_screen.dart';
 import 'location_capture_sheet.dart';
 import 'signature_screen.dart';
+import 'qr_capture_screen.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key, this.editVisitId, this.assignmentId})
@@ -51,7 +52,10 @@ class CaptureScreen extends ConsumerStatefulWidget {
   ConsumerState<CaptureScreen> createState() => _CaptureScreenState();
 }
 
-class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMediaDelegate {
+class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMediaDelegate, FormQrDelegate {
+  @override
+  Future<String?> scanQr() =>
+      Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const QrCaptureScreen()));
   List<TemplateVersionInfo>? _templates;
   String? _templateId;
   TemplateLookup? _lookup;
@@ -230,7 +234,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     final locale = Localizations.localeOf(context).toLanguageTag();
     return Navigator.of(context).push<Map<String, Object?>>(
       MaterialPageRoute(
-        builder: (_) => GeometryCaptureScreen(kind: kind, title: field.label.resolve(locale), initial: verticesOf(current)),
+        builder: (_) =>
+            GeometryCaptureScreen(kind: kind, title: field.label.resolve(locale), initial: verticesOf(current)),
       ),
     );
   }
@@ -384,10 +389,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
               DynamicForm(controller: form, mediaDelegate: this, formatLocation: _crs.format),
               const AppGap.sm(),
               Text(l10n.captureVisitLocation, style: Theme.of(context).textTheme.titleSmall),
-              if (fix != null)
-                Text(
-                  l10n.coordinatesWithAccuracy(_crs.format(fix.lat, fix.lon), fix.accuracyM.round()),
-                ),
+              if (fix != null) Text(l10n.coordinatesWithAccuracy(_crs.format(fix.lat, fix.lon), fix.accuracyM.round())),
               if (fix != null && fix.accuracyM > ref.read(appDependenciesProvider).gpsPolicy.targetAccuracyM)
                 Text(l10n.captureLocationLowAccuracy, key: const Key('capture_location_low_accuracy')),
               AppButton(

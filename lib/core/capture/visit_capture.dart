@@ -55,12 +55,7 @@ class PendingAttachment {
 /// Quién captura, desde qué dispositivo y para qué organización.
 @immutable
 class CaptureIdentity {
-  const CaptureIdentity({
-    required this.orgId,
-    required this.userId,
-    required this.deviceId,
-    this.roles = const [],
-  });
+  const CaptureIdentity({required this.orgId, required this.userId, required this.deviceId, this.roles = const []});
   final String orgId;
   final String userId;
   final String deviceId;
@@ -99,8 +94,8 @@ class VisitCapture {
 
     final kept = keptAnswers(definition, answers);
     final attachments = [
-      for (final field in definition.fields)
-        if (field is AttachmentRefFieldDef && captured[kept[field.key]] != null) captured[kept[field.key]]!,
+      for (final (field, value) in answeredFields(definition, kept))
+        if (field is AttachmentRefFieldDef && captured[value] != null) captured[value]!,
       ...extraPhotos,
     ];
 
@@ -193,16 +188,11 @@ class VisitCapture {
     final kept = keptAnswers(definition, answers);
     final changed = <String, Object?>{
       if (jsonEncode(kept) != visit.answersJson) 'answers': kept,
-      if (fix != null) ...{
-        'lat': fix.lat,
-        'lon': fix.lon,
-        'accuracy_m': fix.accuracyM,
-        'altitude_m': fix.altitudeM,
-      },
+      if (fix != null) ...{'lat': fix.lat, 'lon': fix.lon, 'accuracy_m': fix.accuracyM, 'altitude_m': fix.altitudeM},
     };
     final attachments = [
-      for (final field in definition.fields)
-        if (field is AttachmentRefFieldDef && captured[kept[field.key]] != null) captured[kept[field.key]]!,
+      for (final (field, value) in answeredFields(definition, kept))
+        if (field is AttachmentRefFieldDef && captured[value] != null) captured[value]!,
       ...extraPhotos,
     ];
     if (changed.isEmpty && attachments.isEmpty) return VisitChange.unchanged;
@@ -268,35 +258,31 @@ class VisitCapture {
   /// Borra una visita (Fase A): sale de la lista ya y viaja como `delete`.
   /// Si su alta aún no se envió, viajan las dos en orden: el servidor la crea
   /// y la borra, y queda constancia (borrado lógico, `deleted_at`).
-  Future<VisitChange> delete({required CaptureIdentity identity, required String visitId}) =>
-      db.transaction(() async {
-        final visit = await _editable(identity, visitId);
-        if (visit is! Visit) return visit as VisitChange;
-        final now = _now().toUtc();
-        await (db.update(db.visits)..where((t) => t.id.equals(visitId))).write(
-          VisitsCompanion(deletedAt: Value(now)),
+  Future<VisitChange> delete({required CaptureIdentity identity, required String visitId}) => db.transaction(() async {
+    final visit = await _editable(identity, visitId);
+    if (visit is! Visit) return visit as VisitChange;
+    final now = _now().toUtc();
+    await (db.update(db.visits)..where((t) => t.id.equals(visitId))).write(VisitsCompanion(deletedAt: Value(now)));
+    await db
+        .into(db.outboxOps)
+        .insert(
+          _op(
+            entity: 'visit',
+            entityId: visitId,
+            opType: 'delete',
+            baseVersion: await _baseVersion(visit),
+            payload: {'id': visitId},
+            now: now,
+          ),
         );
-        await db
-            .into(db.outboxOps)
-            .insert(
-              _op(
-                entity: 'visit',
-                entityId: visitId,
-                opType: 'delete',
-                baseVersion: await _baseVersion(visit),
-                payload: {'id': visitId},
-                now: now,
-              ),
-            );
-        return VisitChange.saved;
-      });
+    return VisitChange.saved;
+  });
 
   /// La visita, si [identity] puede editarla; si no, el motivo.
   Future<Object> _editable(CaptureIdentity identity, String visitId) async {
-    final visit =
-        await (db.select(db.visits)
-              ..where((t) => t.id.equals(visitId) & t.orgId.equals(identity.orgId) & t.deletedAt.isNull()))
-            .getSingleOrNull();
+    final visit = await (db.select(
+      db.visits,
+    )..where((t) => t.id.equals(visitId) & t.orgId.equals(identity.orgId) & t.deletedAt.isNull())).getSingleOrNull();
     if (visit == null) return VisitChange.notFound;
     if (!canEdit(visit, userId: identity.userId, roles: identity.roles)) return VisitChange.notAllowed;
     final quarantined =
@@ -382,5 +368,11 @@ const supervisionRoles = {'OWNER', 'ADMIN', 'SUPERVISOR'};
 /// Las respuestas que se guardan: solo las de campos visibles.
 Map<String, Object?> keptAnswers(FormDefinition definition, Map<String, Object?> answers) => {
   for (final field in visibleFields(definition, answers))
-    if (answers.containsKey(field.key)) field.key: answers[field.key],
+    if (answers.containsKey(field.key))
+      field.key: field is RepeatFieldDef && answers[field.key] is List<Object?>
+          ? [
+              for (final row in answers[field.key]! as List<Object?>)
+                if (row is Map<String, Object?>) keptAnswers(field.definition, row),
+            ]
+          : answers[field.key],
 };

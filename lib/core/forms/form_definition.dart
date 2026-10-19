@@ -77,6 +77,7 @@ sealed class FormFieldDef {
     required this.help,
     required this.required,
     required this.visibleIf,
+    this.defaultValue,
   });
 
   final String key;
@@ -84,6 +85,7 @@ sealed class FormFieldDef {
   final I18nText? help;
   final bool required;
   final VisibilityExpr? visibleIf;
+  final Object? defaultValue;
 
   /// El `type` del contrato (`text`, `number`, …).
   String get type;
@@ -98,6 +100,7 @@ final class TextFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
     required this.multiline,
     required this.minLength,
     required this.maxLength,
@@ -121,6 +124,61 @@ final class TextFieldDef extends FormFieldDef {
   }
 }
 
+final class QrFieldDef extends FormFieldDef {
+  const QrFieldDef({
+    required super.key,
+    required super.label,
+    required super.help,
+    required super.required,
+    required super.visibleIf,
+    super.defaultValue,
+    this.minLength,
+    this.maxLength,
+  });
+  final int? minLength;
+  final int? maxLength;
+  @override
+  String get type => 'qr';
+  @override
+  String? checkAnswer(Object? value) => TextFieldDef(
+    key: key,
+    label: label,
+    help: help,
+    required: this.required,
+    visibleIf: visibleIf,
+    multiline: false,
+    minLength: minLength,
+    maxLength: maxLength,
+  ).checkAnswer(value);
+}
+
+final class RepeatFieldDef extends FormFieldDef {
+  const RepeatFieldDef({
+    required super.key,
+    required super.label,
+    required super.help,
+    required super.required,
+    required super.visibleIf,
+    super.defaultValue,
+    required this.definition,
+    required this.minRows,
+    required this.maxRows,
+  });
+  final FormDefinition definition;
+  final int minRows;
+  final int maxRows;
+  @override
+  String get type => 'repeat';
+  @override
+  String? checkAnswer(Object? value) {
+    if (value is! List<Object?>) return 'not_a_list';
+    if (value.length < minRows) return 'too_few_rows';
+    if (value.length > maxRows) return 'too_many_rows';
+    if (value.any((row) => row is! Map<String, Object?>)) return 'not_an_object';
+    return null;
+  }
+}
+
 final class NumberFieldDef extends FormFieldDef {
   const NumberFieldDef({
     required super.key,
@@ -128,6 +186,7 @@ final class NumberFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
     required this.min,
     required this.max,
   });
@@ -153,6 +212,7 @@ final class IntegerFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
     required this.min,
     required this.max,
   });
@@ -177,6 +237,7 @@ final class BooleanFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
   });
 
   @override
@@ -193,6 +254,7 @@ final class DateFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
   });
 
   @override
@@ -212,6 +274,7 @@ final class DateTimeFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
   });
 
   @override
@@ -232,6 +295,7 @@ sealed class ChoiceFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
     required this.options,
   });
   final List<ChoiceOption> options;
@@ -246,6 +310,7 @@ final class SingleChoiceFieldDef extends ChoiceFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
     required super.options,
   });
 
@@ -266,6 +331,7 @@ final class MultiChoiceFieldDef extends ChoiceFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
     required super.options,
     required this.minSelected,
     required this.maxSelected,
@@ -300,6 +366,7 @@ sealed class AttachmentRefFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
   });
 
   @override
@@ -316,6 +383,7 @@ final class PhotoFieldDef extends AttachmentRefFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
   });
 
   @override
@@ -329,6 +397,7 @@ final class SignatureFieldDef extends AttachmentRefFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
   });
 
   @override
@@ -342,6 +411,7 @@ final class LocationFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
   });
 
   @override
@@ -388,6 +458,7 @@ final class LineFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
   });
 
   @override
@@ -412,6 +483,7 @@ final class PolygonFieldDef extends FormFieldDef {
     required super.help,
     required super.required,
     required super.visibleIf,
+    super.defaultValue,
   });
 
   @override
@@ -490,22 +562,35 @@ void checkJsonDepth(Object? value, {int limit = maxJsonDepth}) {
 /// Valida [raw] contra el meta-schema. Nunca lanza.
 DefinitionResult parseFormDefinition(Object? raw) {
   try {
-    return DefinitionOk(_parseDefinition(raw));
+    checkJsonDepth(raw);
+    final definition = _parseDefinition(raw);
+    var count = 0;
+    var expanded = 0;
+    final stack = <(List<FormFieldDef>, int, int)>[(definition.fields, 0, 1)];
+    while (stack.isNotEmpty) {
+      final (fields, depth, multiplier) = stack.removeLast();
+      if (depth > 3) throw const InvalidDefinition('fields', 'repeat_too_deep');
+      for (final field in fields) {
+        if (++count > maxFields) throw const InvalidDefinition('fields', 'too_many_fields');
+        expanded += multiplier;
+        if (expanded > 10000) throw const InvalidDefinition('fields', 'repeat_capacity');
+        if (field is RepeatFieldDef) stack.add((field.definition.fields, depth + 1, multiplier * field.maxRows));
+      }
+    }
+    return DefinitionOk(definition);
   } on InvalidDefinition catch (error) {
-    return DefinitionInvalid(
-      error.path,
-      error.reason,
-      unsupportedDialect: error.reason == 'unsupported_dialect',
-    );
+    return DefinitionInvalid(error.path, error.reason, unsupportedDialect: error.reason == 'unsupported_dialect');
   }
 }
 
 // --- Implementación --------------------------------------------------------
 
-const _commonKeys = {'key', 'type', 'label', 'help', 'required', 'visible_if'};
+const _commonKeys = {'key', 'type', 'label', 'help', 'required', 'visible_if', 'default'};
 
 const _typeKeys = <String, Set<String>>{
   'text': {'multiline', 'min_length', 'max_length'},
+  'qr': {'multiline', 'min_length', 'max_length'},
+  'repeat': {'fields', 'min_rows', 'max_rows'},
   'number': {'min', 'max'},
   'integer': {'min', 'max'},
   'boolean': {},
@@ -523,7 +608,7 @@ const _typeKeys = <String, Set<String>>{
 /// Tipos del catálogo cerrado.
 final fieldTypes = _typeKeys.keys.toSet();
 
-const _equalityTypes = {'text', 'number', 'integer', 'boolean', 'date', 'datetime', 'single_choice'};
+const _equalityTypes = {'text', 'qr', 'number', 'integer', 'boolean', 'date', 'datetime', 'single_choice'};
 const _orderTypes = {'number', 'integer', 'date', 'datetime'};
 
 FormDefinition _parseDefinition(Object? raw) {
@@ -554,6 +639,15 @@ FormDefinition _parseDefinition(Object? raw) {
 }
 
 FormFieldDef _parseField(Object? raw, String path) {
+  final field = _parseFieldShape(raw, path);
+  if (field.defaultValue != null &&
+      (field is AttachmentRefFieldDef || field is RepeatFieldDef || field.checkAnswer(field.defaultValue) != null)) {
+    throw InvalidDefinition('$path.default', 'invalid_default');
+  }
+  return field;
+}
+
+FormFieldDef _parseFieldShape(Object? raw, String path) {
   if (raw is! Map<String, Object?>) throw InvalidDefinition(path, 'not_an_object');
   final type = raw['type'];
   final extraKeys = _typeKeys[type];
@@ -572,6 +666,41 @@ FormFieldDef _parseField(Object? raw, String path) {
   final visibleIf = raw['visible_if'] == null ? null : parseVisibility(raw['visible_if'], '$path.visible_if');
 
   switch (type) {
+    case 'qr':
+      final minLength = _int(raw, 'min_length', path, min: 0, max: maxTextLength);
+      final maxLength = _int(raw, 'max_length', path, min: 1, max: maxTextLength);
+      if (minLength != null && maxLength != null && minLength > maxLength) {
+        throw InvalidDefinition('$path.min_length', 'min_greater_than_max');
+      }
+      _bool(raw, 'multiline', path);
+      return QrFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+        minLength: minLength,
+        maxLength: maxLength,
+      );
+    case 'repeat':
+      final minRows = _int(raw, 'min_rows', path, min: 0, max: 100) ?? 0;
+      final maxRows = _int(raw, 'max_rows', path, min: 1, max: 100) ?? 100;
+      if (minRows > maxRows) throw InvalidDefinition('$path.min_rows', 'min_greater_than_max');
+      final children = _parseDefinition({'fields': raw['fields']});
+      if (children.fields.isEmpty) throw InvalidDefinition('$path.fields', 'empty_group');
+      return RepeatFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+        definition: children,
+        minRows: minRows,
+        maxRows: maxRows,
+      );
+
     case 'text':
       final minLength = _int(raw, 'min_length', path, min: 0, max: maxTextLength);
       final maxLength = _int(raw, 'max_length', path, min: 1, max: maxTextLength);
@@ -584,6 +713,7 @@ FormFieldDef _parseField(Object? raw, String path) {
         help: help,
         required: required,
         visibleIf: visibleIf,
+        defaultValue: raw['default'],
         multiline: _bool(raw, 'multiline', path) ?? false,
         minLength: minLength,
         maxLength: maxLength,
@@ -592,12 +722,30 @@ FormFieldDef _parseField(Object? raw, String path) {
       final min = _num(raw, 'min', path);
       final max = _num(raw, 'max', path);
       if (min != null && max != null && min > max) throw InvalidDefinition('$path.min', 'min_greater_than_max');
-      return NumberFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf, min: min, max: max);
+      return NumberFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+        min: min,
+        max: max,
+      );
     case 'integer':
       final min = _int(raw, 'min', path);
       final max = _int(raw, 'max', path);
       if (min != null && max != null && min > max) throw InvalidDefinition('$path.min', 'min_greater_than_max');
-      return IntegerFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf, min: min, max: max);
+      return IntegerFieldDef(
+        key: key,
+        label: label,
+        help: help,
+        required: required,
+        visibleIf: visibleIf,
+        defaultValue: raw['default'],
+        min: min,
+        max: max,
+      );
     case 'boolean':
       return BooleanFieldDef(key: key, label: label, help: help, required: required, visibleIf: visibleIf);
     case 'date':
@@ -611,6 +759,7 @@ FormFieldDef _parseField(Object? raw, String path) {
         help: help,
         required: required,
         visibleIf: visibleIf,
+        defaultValue: raw['default'],
         options: _options(raw['options'], '$path.options'),
       );
     case 'multi_choice':
@@ -625,6 +774,7 @@ FormFieldDef _parseField(Object? raw, String path) {
         help: help,
         required: required,
         visibleIf: visibleIf,
+        defaultValue: raw['default'],
         options: _options(raw['options'], '$path.options'),
         minSelected: minSelected,
         maxSelected: maxSelected,
@@ -665,7 +815,9 @@ List<ChoiceOption> _options(Object? raw, String path) {
       if (key != 'value' && key != 'label') throw InvalidDefinition('$optionPath.$key', 'extra_forbidden');
     }
     final value = rawOption['value'];
-    if (value is! String || !_optionValue.hasMatch(value)) throw InvalidDefinition('$optionPath.value', 'invalid_option_value');
+    if (value is! String || !_optionValue.hasMatch(value)) {
+      throw InvalidDefinition('$optionPath.value', 'invalid_option_value');
+    }
     options.add(ChoiceOption(value, _i18n(rawOption['label'], '$optionPath.label')));
   }
   if (options.map((option) => option.value).toSet().length != options.length) {
@@ -685,7 +837,9 @@ int? _int(Map<String, Object?> raw, String key, String path, {int? min, int? max
   final value = raw[key];
   if (value == null) return null;
   if (value is! int) throw InvalidDefinition('$path.$key', 'not_an_integer');
-  if ((min != null && value < min) || (max != null && value > max)) throw InvalidDefinition('$path.$key', 'out_of_range');
+  if ((min != null && value < min) || (max != null && value > max)) {
+    throw InvalidDefinition('$path.$key', 'out_of_range');
+  }
   return value;
 }
 

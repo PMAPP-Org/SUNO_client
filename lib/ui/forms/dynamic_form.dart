@@ -34,11 +34,22 @@ abstract interface class FormMediaDelegate {
   Future<Map<String, Object?>?> captureGeometry(FormFieldDef field, GeometryKind kind, Object? current);
 }
 
+abstract interface class FormQrDelegate {
+  Future<String?> scanQr();
+}
+
 class DynamicForm extends StatelessWidget {
-  const DynamicForm({super.key, required this.controller, this.mediaDelegate, this.formatLocation});
+  const DynamicForm({
+    super.key,
+    required this.controller,
+    this.mediaDelegate,
+    this.formatLocation,
+    this.errors = const {},
+  });
 
   final FormController controller;
   final FormMediaDelegate? mediaDelegate;
+  final Map<String, String> errors;
 
   /// Cómo mostrar una ubicación respondida (Fase C: en el sistema de
   /// coordenadas elegido). Por defecto, grados WGS84.
@@ -70,6 +81,7 @@ class DynamicForm extends StatelessWidget {
                   controller: controller,
                   mediaDelegate: mediaDelegate,
                   formatLocation: formatLocation,
+                  errors: {...controller.displayedErrors, ...errors},
                 ),
               ),
           ],
@@ -89,6 +101,8 @@ String formErrorMessage(AppLocalizations l10n, String reason) => switch (reason)
   'out_of_range' => l10n.formErrorOutOfRange,
   'too_few_selected' => l10n.formErrorTooFewSelected,
   'too_many_selected' => l10n.formErrorTooManySelected,
+  'too_few_rows' => l10n.formErrorTooFewRows,
+  'too_many_rows' => l10n.formErrorTooManyRows,
   _ => l10n.formErrorInvalid,
 };
 
@@ -99,12 +113,14 @@ class _FieldInput extends StatelessWidget {
     required this.controller,
     required this.mediaDelegate,
     required this.formatLocation,
+    required this.errors,
   });
 
   final FormFieldDef field;
   final String locale;
   final FormController controller;
   final FormMediaDelegate? mediaDelegate;
+  final Map<String, String> errors;
   final String Function(double lat, double lon)? formatLocation;
 
   @override
@@ -113,13 +129,52 @@ class _FieldInput extends StatelessWidget {
     final label = field.label.resolve(locale);
     final shownLabel = field.required ? l10n.formFieldRequired(label) : label;
     final help = field.help?.resolve(locale);
-    final reason = controller.errorFor(field.key);
+    final reason = errors[field.key];
     final error = reason == null ? null : formErrorMessage(l10n, reason);
     final value = controller.valueOf(field.key);
     void set(Object? newValue) => controller.setAnswer(field.key, newValue);
 
     // Exhaustivo sobre la clase sellada: el catálogo cerrado (ADR-012).
     return switch (field) {
+      RepeatFieldDef() => _RepeatAnswer(
+        field: field as RepeatFieldDef,
+        label: shownLabel,
+        help: help,
+        error: error,
+        value: value,
+        onChanged: set,
+        mediaDelegate: mediaDelegate,
+        formatLocation: formatLocation,
+        errors: {
+          for (final e in errors.entries)
+            if (e.key.startsWith('${field.key}.')) e.key.substring(field.key.length + 1): e.value,
+        },
+      ),
+      QrFieldDef(:final maxLength) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _TextAnswer(
+            label: shownLabel,
+            help: help,
+            error: error,
+            initial: value is String ? value : '',
+            keyboardType: TextInputType.text,
+            maxLength: maxLength,
+            parse: (text) => text,
+            onChanged: set,
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.qr_code_scanner),
+            label: Text(l10n.formScanQr),
+            onPressed: mediaDelegate is! FormQrDelegate
+                ? null
+                : () async {
+                    final scanned = await (mediaDelegate! as FormQrDelegate).scanQr();
+                    if (context.mounted && scanned != null) set(scanned);
+                  },
+          ),
+        ],
+      ),
       TextFieldDef(:final multiline, :final maxLength) => _TextAnswer(
         label: shownLabel,
         help: help,
@@ -328,6 +383,120 @@ String isoDateTimeWithOffset(DateTime local) {
 }
 
 /// Etiqueta, ayuda y error alrededor de un control que no es un `TextField`.
+class _RepeatAnswer extends StatefulWidget {
+  const _RepeatAnswer({
+    required this.field,
+    required this.label,
+    required this.help,
+    required this.error,
+    required this.value,
+    required this.onChanged,
+    required this.mediaDelegate,
+    required this.formatLocation,
+    required this.errors,
+  });
+  final RepeatFieldDef field;
+  final String label;
+  final String? help;
+  final String? error;
+  final Object? value;
+  final ValueChanged<Object?> onChanged;
+  final FormMediaDelegate? mediaDelegate;
+  final String Function(double, double)? formatLocation;
+  final Map<String, String> errors;
+
+  @override
+  State<_RepeatAnswer> createState() => _RepeatAnswerState();
+}
+
+class _RepeatAnswerState extends State<_RepeatAnswer> {
+  final _rows = <FormController>[];
+
+  @override
+  void initState() {
+    super.initState();
+    final value = widget.value;
+    if (value is List) {
+      for (final row in value.whereType<Map<Object?, Object?>>()) {
+        _add(Map<String, Object?>.from(row));
+      }
+    }
+  }
+
+  void _add([Map<String, Object?>? answers]) {
+    final row = FormController(widget.field.definition, initialAnswers: answers);
+    row.addListener(_changed);
+    _rows.add(row);
+  }
+
+  void _changed() => widget.onChanged([for (final row in _rows) row.answers]);
+
+  @override
+  void dispose() {
+    for (final row in _rows) {
+      row.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _Labeled(
+    label: widget.label,
+    help: widget.help,
+    error: widget.error,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (index, row) in _rows.indexed)
+          Card(
+            key: ObjectKey(row),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: Text(context.l10n.formRepeatRow(index + 1))),
+                      IconButton(
+                        tooltip: context.l10n.formRemoveRow,
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () {
+                          setState(() => _rows.remove(row));
+                          row.dispose();
+                          _changed();
+                        },
+                      ),
+                    ],
+                  ),
+                  DynamicForm(
+                    controller: row,
+                    mediaDelegate: widget.mediaDelegate,
+                    formatLocation: widget.formatLocation,
+                    errors: {
+                      for (final e in widget.errors.entries)
+                        if (e.key.startsWith('$index.')) e.key.substring('$index.'.length): e.value,
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.add),
+          label: Text(context.l10n.formAddRow),
+          onPressed: _rows.length >= widget.field.maxRows
+              ? null
+              : () {
+                  setState(_add);
+                  _changed();
+                },
+        ),
+      ],
+    ),
+  );
+}
+
 class _Labeled extends StatelessWidget {
   const _Labeled({required this.label, required this.help, required this.error, required this.child});
 
@@ -385,6 +554,17 @@ class _TextAnswer extends StatefulWidget {
 
 class _TextAnswerState extends State<_TextAnswer> {
   late final TextEditingController _text = TextEditingController(text: widget.initial);
+
+  @override
+  void didUpdateWidget(covariant _TextAnswer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // QR capture changes the value externally. Preserve partially typed numbers.
+    if (oldWidget.initial != widget.initial &&
+        _text.text != widget.initial &&
+        widget.parse(_text.text)?.toString() != widget.initial) {
+      _text.text = widget.initial;
+    }
+  }
 
   @override
   void dispose() {
