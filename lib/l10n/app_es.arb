@@ -414,5 +414,38 @@
   "privacyVersion": "Versión del aviso: {version}",
   "@privacyVersion": {
     "placeholders": { "version": { "type": "String" } }
-  }
+  },
+  "formScanQr": "Escanear QR",
+  "formQrUnavailable": "No se pudo abrir la cámara. Revisa el permiso o escribe el código manualmente.",
+  "formAddRow": "Añadir registro",
+  "formRemoveRow": "Eliminar registro",
+  "formRepeatRow": "Registro {number}",
+  "@formRepeatRow": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "visitExport": "Exportar visita",
+  "visitExportPdf": "Informe PDF",
+  "visitExportGeoJson": "GeoJSON",
+  "visitExportFailed": "No se pudo exportar la visita. Inténtalo de nuevo.",
+  "visitExportLocal": "Informe del dispositivo. Estado de sincronización: {status}",
+  "@visitExportLocal": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "visitExportPending": "pendiente",
+  "visitExportSynced": "sincronizada",
+  "visitExportRejected": "rechazada",
+  "visitExportAttachments": "Las referencias de fotos y firmas identifican los adjuntos. Este informe no incorpora sus archivos.",
+  "formErrorTooFewRows": "Añade los registros mínimos requeridos.",
+  "formErrorTooManyRows": "Hay más registros de los permitidos.",
+  "visitExportAuthor": "Autor",
+  "visitExportVersion": "Versión del formulario"
+
 }
