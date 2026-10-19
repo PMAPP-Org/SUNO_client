@@ -12,6 +12,7 @@ import '../../ui/theme/app_theme.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../capture/capture_screen.dart';
 import '../visits/visit_detail_screen.dart';
+import 'assignment_navigation_screen.dart';
 
 class AssignmentsScreen extends ConsumerStatefulWidget {
   const AssignmentsScreen({super.key});
@@ -78,6 +79,21 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                       ].join(' · '),
                     ),
                     onTap: () => _open(item),
+                    trailing: item.navigationTarget == null
+                        ? null
+                        : IconButton(
+                            key: ValueKey('navigate-${item.id}'),
+                            tooltip: l10n.navigationTitle,
+                            icon: const Icon(Icons.directions),
+                            onPressed: () => Navigator.of(context).push<void>(
+                              MaterialPageRoute(
+                                builder: (_) => AssignmentNavigationScreen(
+                                  target: item.navigationTarget!,
+                                  title: item.title ?? item.templateName ?? l10n.homeVisitUntitled,
+                                ),
+                              ),
+                            ),
+                          ),
                   ),
               ],
             ),

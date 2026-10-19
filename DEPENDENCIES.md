@@ -26,6 +26,7 @@ mismo principio que "ningún paso se considera cerrado sin su CI en verde"
 | `flutter_secure_storage` | Guarda la clave de cifrado de SQLCipher (`EncryptionKeyStore`, Paso 11) en Keychain/Keystore — el mismo mecanismo que Paso 13/16 reutilizará para tokens de sesión (ADR-002/ADR-008). | Paquete de referencia del ecosistema, >1k likes, mantenimiento activo. |
 | `path_provider` | Ubica el directorio de datos de la app donde vive el archivo `.sqlite` (`AppDatabase`, Paso 11). | Paquete oficial de flutter.dev. |
 | `path` | Construcción de rutas de archivo independiente de plataforma. | Paquete oficial de dart.dev. |
+| `url_launcher` | C4: abrir la ruta al punto asignado en Google Maps o el navegador del sistema, solo por acción del usuario. El rumbo y la distancia se calculan localmente. | Plugin oficial de flutter.dev, licencia BSD-3-Clause; incluye sus implementaciones federadas de plataforma. |
 | `meta` | `@visibleForTesting` en `AppDatabase.forTesting` (Paso 11) — documenta en el propio tipo que ese factory nunca debe usarse fuera de tests. | Paquete oficial de dart.dev. |
 
 **Nota sobre `sqlcipher_flutter_libs`/`sqlite3_flutter_libs`** (Paso 11): ADR-002
