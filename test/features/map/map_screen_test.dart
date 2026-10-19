@@ -180,7 +180,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('map-assignment-asg-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map_navigate')));
-    // La cancelaci?n del stream creado en scenario corre fuera del reloj simulado.
+    // La cancelación del stream creado en scenario corre fuera del reloj simulado.
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpAndSettle();
     expect(find.byType(AssignmentNavigationScreen), findsOneWidget);
