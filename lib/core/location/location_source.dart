@@ -40,6 +40,12 @@ enum LocationStatus {
   permissionDeniedForever,
 }
 
+/// El servicio de ubicación se apagó con una suscripción de [LocationSource.watch]
+/// abierta. Se distingue de una pérdida de señal: esperar no lo arregla.
+class LocationServiceDisabledError implements Exception {
+  const LocationServiceDisabledError();
+}
+
 abstract class LocationSource {
   /// Comprueba el servicio y pide el permiso si hace falta.
   ///

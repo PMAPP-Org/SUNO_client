@@ -22,6 +22,8 @@ import 'package:visitacampo/core/location/location_source.dart';
 import 'package:visitacampo/core/providers.dart';
 import 'package:visitacampo/data/local/database.dart';
 import 'package:visitacampo/features/capture/capture_screen.dart';
+import 'package:visitacampo/features/assignments/assignment_navigation_screen.dart';
+import 'package:visitacampo/features/assignments/assignments_screen.dart';
 import 'package:visitacampo/features/map/map_screen.dart';
 import 'package:visitacampo/features/visits/visit_detail_screen.dart';
 
@@ -35,11 +37,15 @@ class _Gps implements LocationSource {
   _Gps(this.status);
   final LocationStatus status;
   final controller = StreamController<LocationFix>.broadcast();
+  int checks = 0;
 
   Future<void> close() => controller.close();
 
   @override
-  Future<LocationStatus> ensureReady() async => status;
+  Future<LocationStatus> ensureReady() async {
+    checks++;
+    return status;
+  }
 
   @override
   Stream<LocationFix> watch() => controller.stream;
@@ -170,6 +176,66 @@ void main() {
     expect(find.byKey(const ValueKey('map-me')), findsOneWidget);
     await tester.tap(find.byKey(const Key('map_center_me')));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('desde el mapa se orienta a la asignación y al volver recupera el GPS', (tester) async {
+    final (dependencies, _) = await scenario(gpsStatus: LocationStatus.ready);
+    await pump(tester, dependencies);
+    await tester.tap(find.byKey(const ValueKey('map-assignment-asg-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map_navigate')));
+    // La cancelación del stream creado en scenario corre fuera del reloj simulado.
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
+    expect(find.byType(AssignmentNavigationScreen), findsOneWidget);
+    gps.controller.add(const LocationFix(lat: 4.60, lon: -74.07, accuracyM: 3));
+    await tester.pumpAndSettle();
+    expect(find.text('Rumbo 0° desde el norte'), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapScreen), findsOneWidget);
+    expect(gps.controller.hasListener, isTrue);
+  });
+
+  testWidgets('sin permiso, volver de la navegación no vuelve a pedirlo desde el mapa', (tester) async {
+    final (dependencies, _) = await scenario(gpsStatus: LocationStatus.permissionDenied);
+    await pump(tester, dependencies);
+    await tester.tap(find.byKey(const ValueKey('map-assignment-asg-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map_navigate')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AssignmentNavigationScreen), findsOneWidget);
+    final checksBeforeBack = gps.checks;
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapScreen), findsOneWidget);
+    expect(gps.checks, checksBeforeBack);
+  });
+
+  testWidgets('lista: solo ofrece navegar con un punto; mantiene el acceso a captura', (tester) async {
+    final (dependencies, _) = await scenario();
+    await db.into(db.assignments).insert(
+      AssignmentsCompanion.insert(
+        id: 'no-point', orgId: 'org-1', version: 1,
+        templateVersionId: 'tv-1', assignedTo: 'user-1', title: const Value('Sin punto'),
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDependenciesProvider.overrideWithValue(dependencies)],
+        child: testApp(const AssignmentsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('navigate-no-point')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('navigate-asg-1')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AssignmentNavigationScreen), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Finca El Roble'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CaptureScreen), findsOneWidget);
   });
 
   testWidgets('con un mapa base descargado, se dibuja como capa y lo nombra el aviso', (tester) async {

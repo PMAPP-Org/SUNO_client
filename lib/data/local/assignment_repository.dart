@@ -6,6 +6,8 @@
 import 'package:drift/drift.dart';
 import 'package:meta/meta.dart';
 
+import '../../core/location/navigation_target.dart';
+
 import 'database.dart';
 
 @immutable
@@ -35,7 +37,8 @@ class AssignmentItem {
   final String? visitId;
 
   bool get done => visitId != null;
-  bool get hasPoint => lat != null && lon != null;
+  NavigationTarget? get navigationTarget => NavigationTarget.tryCreate(lat, lon);
+  bool get hasPoint => navigationTarget != null;
 }
 
 class AssignmentRepository {

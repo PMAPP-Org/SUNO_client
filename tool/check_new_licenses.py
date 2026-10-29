@@ -71,6 +71,13 @@ REVIEWED = {
     "simple_sparse_list": "bsd-3-clause",
     "unicode": "bsd-3-clause",
     "wkt_parser": "mit",
+    # C4: GitHub omite la licencia de estos componentes de url_launcher.
+    # BSD de 3 cláusulas verificada en LICENSE de los paquetes publicados
+    # (pub-cache), 2026-10-18: 6.3.3 / 2.3.2 / 2.4.3 / 3.1.6.
+    "url_launcher": "bsd-3-clause",
+    "url_launcher_platform_interface": "bsd-3-clause",
+    "url_launcher_web": "bsd-3-clause",
+    "url_launcher_windows": "bsd-3-clause",
 }
 
 _OR = re.compile(r"\s+or\s+", re.IGNORECASE)

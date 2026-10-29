@@ -34,6 +34,9 @@ Ni el código generado (`*.g.dart`, `*.freezed.dart`) ni los textos generados (`
 
 ## Calidad y seguridad
 
+La navegación a asignaciones (C4), sus límites y las pruebas pendientes en
+dispositivo se documentan en [Navegación a la asignación](docs/c4-navegacion.md).
+
 Cada PR pasa, entre otros:
 - `dart analyze` en modo estricto;
 - `flutter test` con un suelo de cobertura del 75 %;

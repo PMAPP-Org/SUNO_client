@@ -31,6 +31,7 @@ import 'location/gps_sampler.dart';
 import 'location/coordinate_settings.dart';
 import 'location/gps_settings.dart';
 import 'location/location_source.dart';
+import 'location/navigation_target.dart';
 import 'privacy/consent.dart';
 import 'security/pin_store.dart';
 import 'session/device_handover.dart';
@@ -54,6 +55,7 @@ import '../data/local/encryption_key_store.dart';
 import '../data/local/form_template_repository.dart';
 import '../data/local/visit_status_repository.dart';
 import '../data/location/geolocator_location_source.dart';
+import '../data/location/external_route_launcher.dart';
 
 class AppDependencies {
   AppDependencies({
@@ -62,6 +64,7 @@ class AppDependencies {
     required this.authController,
     required this.deviceId,
     LocationSource? locationSource,
+    RouteLauncher? routeLauncher,
     PhotoCapture? photoCapture,
     SyncEngine? syncEngine,
     AttachmentUploadService? attachmentUploadService,
@@ -108,6 +111,7 @@ class AppDependencies {
              deviceId: deviceId,
            ),
        locationSource = locationSource ?? const GeolocatorLocationSource(),
+       routeLauncher = routeLauncher ?? const ExternalRouteLauncher(),
        photoCapture = photoCapture ?? ImagePickerPhotoCapture(),
        signatureStore = signatureStore ?? const FileSignatureStore(),
        visitCapture = visitCapture ?? VisitCapture(db: database),
@@ -144,6 +148,7 @@ class AppDependencies {
   final AuthController authController;
   final String deviceId;
   final LocationSource locationSource;
+  final RouteLauncher routeLauncher;
 
   /// Cuándo una posición GPS es buena (Fase A), ajustable en Ajustes.
   final GpsSettings gpsSettings;
