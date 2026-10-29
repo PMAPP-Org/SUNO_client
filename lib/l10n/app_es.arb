@@ -417,6 +417,7 @@
   },
   "formScanQr": "Escanear QR",
   "formQrUnavailable": "No se pudo abrir la cámara. Revisa el permiso o escribe el código manualmente.",
+  "formQrRetry": "Reintentar",
   "formAddRow": "Añadir registro",
   "formRemoveRow": "Eliminar registro",
   "formRepeatRow": "Registro {number}",

@@ -120,6 +120,7 @@ Future<Uint8List> visitPdf(
   required String title,
   required String sourceNote,
   required String locationLabel,
+  required String noLocation,
   required String answersLabel,
   required String attachmentsNote,
   required String authorLabel,
@@ -134,7 +135,9 @@ Future<Uint8List> visitPdf(
     pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(36),
-      maxPages: 200,
+      // Geometrías largas (polígonos de hasta 2000 vértices en filas
+      // repetidas) ocupan decenas de páginas; 200 no alcanzaba.
+      maxPages: 1000,
       theme: pw.ThemeData.withFont(base: font, bold: font),
       footer: (ctx) =>
           pw.Text('${visit.id} · ${ctx.pageNumber}/${ctx.pagesCount}', style: const pw.TextStyle(fontSize: 8)),
@@ -148,7 +151,12 @@ Future<Uint8List> visitPdf(
         pw.Text('$versionLabel: ${visit.templateVersionId}'),
         pw.Text(sourceNote, style: const pw.TextStyle(fontSize: 9)),
         pw.SizedBox(height: 12),
-        pw.Text('$locationLabel · EPSG:4326: ${visit.lat}, ${visit.lon} (±${visit.accuracyM ?? 0} m)'),
+        pw.Text(
+          visit.lat != null && visit.lon != null
+              ? '$locationLabel · EPSG:4326: ${visit.lat}, ${visit.lon}'
+                    '${visit.accuracyM != null ? ' (±${visit.accuracyM} m)' : ''}'
+              : '$locationLabel: $noLocation',
+        ),
         pw.SizedBox(height: 12),
         pw.Text(answersLabel, style: const pw.TextStyle(fontSize: 14)),
         for (final (label, value) in lines) ...[

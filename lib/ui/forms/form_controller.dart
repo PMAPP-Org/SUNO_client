@@ -37,7 +37,9 @@ class FormController extends ChangeNotifier {
       if (evaluate(field.visibleIf, _answers)) field,
   ];
 
-  List<AnswerViolation> get violations => validateAnswers(definition, _answers);
+  /// Se valida lo que se guardará ([keptAnswers]): un grupo oculto que aún
+  /// tiene filas no viaja, así que no puede bloquear el guardado.
+  List<AnswerViolation> get violations => validateAnswers(definition, keptAnswers(definition, _answers));
 
   Map<String, String> get displayedErrors => {
     if (_showErrors)
@@ -76,9 +78,24 @@ class FormController extends ChangeNotifier {
     // Un error del servidor sobre un campo que no se ve (oculto, o una clave
     // que la plantilla no declara) no lo puede arreglar el agente, y su
     // respuesta tampoco viajará: al guardar solo van los campos visibles.
-    final visible = {for (final field in visibleFields) field.key};
-    _serverErrors.removeWhere((key, _) => !visible.contains(key.split('.').first));
+    // Dentro de un grupo, lo mismo por fila: `rows.0.note` se descarta si la
+    // fila 0 ya no existe o si `note` está oculto en ella.
+    final kept = keptAnswers(definition, _answers);
+    _serverErrors.removeWhere((key, _) => !_reachable(definition, kept, key.split('.')));
     notifyListeners();
     return violations.isEmpty && _serverErrors.isEmpty;
+  }
+
+  /// ¿Señala [path] un campo visible en lo que se guardará?
+  static bool _reachable(FormDefinition definition, Map<String, Object?> kept, List<String> path) {
+    final field = definition.fields.where((f) => f.key == path.first && evaluate(f.visibleIf, kept)).firstOrNull;
+    if (field == null) return false;
+    if (path.length == 1) return true;
+    if (field is! RepeatFieldDef || path.length < 3) return false;
+    final rows = kept[field.key];
+    final index = int.tryParse(path[1]);
+    if (rows is! List<Object?> || index == null || index < 0 || index >= rows.length) return false;
+    final row = rows[index];
+    return row is Map<String, Object?> && _reachable(field.definition, row, path.sublist(2));
   }
 }

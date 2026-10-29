@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -18,6 +16,10 @@ class _QrCaptureScreenState extends State<QrCaptureScreen> with WidgetsBindingOb
   bool _returned = false;
   bool _unavailable = false;
 
+  /// Paradas y arranques en cola: un `start` al volver no puede adelantarse
+  /// al `stop` de un paso breve a inactiva (cortina de notificaciones).
+  Future<void> _lifecycle = Future.value();
+
   @override
   void initState() {
     super.initState();
@@ -27,16 +29,23 @@ class _QrCaptureScreenState extends State<QrCaptureScreen> with WidgetsBindingOb
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_camera.value.hasCameraPermission || _returned) return;
-    if (state == AppLifecycleState.resumed) {
-      unawaited(_resumeCamera());
-    } else {
-      _camera.stop();
+    _enqueue(state == AppLifecycleState.resumed ? _resumeCamera : _stopCamera);
+  }
+
+  void _enqueue(Future<void> Function() step) => _lifecycle = _lifecycle.then((_) => step());
+
+  Future<void> _stopCamera() async {
+    try {
+      await _camera.stop();
+    } on MobileScannerException {
+      // Ya parada o sin cámara: no hay nada que liberar.
     }
   }
 
   Future<void> _resumeCamera() async {
     try {
       await _camera.start();
+      if (mounted && _unavailable) setState(() => _unavailable = false);
     } on MobileScannerException {
       if (mounted) setState(() => _unavailable = true);
     }
@@ -53,7 +62,15 @@ class _QrCaptureScreenState extends State<QrCaptureScreen> with WidgetsBindingOb
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(context.l10n.formScanQr)),
     body: _unavailable
-        ? Center(child: Text(context.l10n.formQrUnavailable))
+        ? Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(context.l10n.formQrUnavailable, textAlign: TextAlign.center),
+                TextButton(onPressed: () => _enqueue(_resumeCamera), child: Text(context.l10n.formQrRetry)),
+              ],
+            ),
+          )
         : MobileScanner(
             controller: _camera,
             errorBuilder: (_, _) => Center(child: Text(context.l10n.formQrUnavailable)),

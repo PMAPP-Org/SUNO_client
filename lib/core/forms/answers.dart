@@ -102,6 +102,19 @@ Iterable<(FormFieldDef, Object?)> answeredFields(FormDefinition definition, Map<
   }
 }
 
+/// Las respuestas que se guardan: solo las de campos visibles, también dentro
+/// de cada fila de un grupo repetible.
+Map<String, Object?> keptAnswers(FormDefinition definition, Map<String, Object?> answers) => {
+  for (final field in visibleFields(definition, answers))
+    if (answers.containsKey(field.key))
+      field.key: field is RepeatFieldDef && answers[field.key] is List<Object?>
+          ? [
+              for (final row in answers[field.key]! as List<Object?>)
+                if (row is Map<String, Object?>) keptAnswers(field.definition, row),
+            ]
+          : answers[field.key],
+};
+
 /// Los campos visibles con estas respuestas, en el orden de la plantilla.
 List<FormFieldDef> visibleFields(FormDefinition definition, Map<String, Object?> answers) => [
   for (final field in definition.fields)

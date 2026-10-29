@@ -134,19 +134,18 @@ class VisitStatusRepository {
     } on FormatException {
       return const [];
     }
-    if (answers is! Map) return const [];
-    Iterable<Map<String, Object?>> collect(Object? value) sync* {
-      if (value is Map<String, Object?>) {
-        if (kindOf(value) != null) {
-          yield value;
-        } else {
-          for (final child in value.values) {
-            yield* collect(child);
+    if (answers is! Map<String, Object?>) return const [];
+    // Las respuestas y cada fila de un grupo son contenedores de campos, no
+    // geometrías: un campo de texto llamado `type` con valor "Polygon" no
+    // convierte toda la fila en un polígono.
+    Iterable<Map<String, Object?>> collect(Map<String, Object?> fields) sync* {
+      for (final value in fields.values) {
+        if (value is Map<String, Object?>) {
+          if (kindOf(value) != null) yield value;
+        } else if (value is List<Object?>) {
+          for (final row in value) {
+            if (row is Map<String, Object?>) yield* collect(row);
           }
-        }
-      } else if (value is List<Object?>) {
-        for (final child in value) {
-          yield* collect(child);
         }
       }
     }

@@ -123,6 +123,7 @@ void main() {
       title: 'Informe de visita',
       sourceNote: 'Pendiente de sincronizar',
       locationLabel: 'Ubicación',
+      noLocation: 'Sin ubicación.',
       answersLabel: 'Respuestas',
       attachmentsNote: 'Adjuntos por referencia',
       authorLabel: 'Autor',
@@ -132,6 +133,35 @@ void main() {
     // Disposable QA artifact; parsed and rendered by the verification workflow.
     Directory('.git/c56-qa').createSync(recursive: true);
     File('.git/c56-qa/app-visit.pdf').writeAsBytesSync(pdf);
+  });
+
+  test('a field named type does not turn the answers into one geometry on the map', () async {
+    final typed =
+        (parseFormDefinition({
+                  'fields': [
+                    {
+                      'key': 'type',
+                      'type': 'text',
+                      'label': {'es': 'Tipo'},
+                    },
+                    {
+                      'key': 'shape',
+                      'type': 'line',
+                      'label': {'es': 'Trazo'},
+                    },
+                  ],
+                })
+                as DefinitionOk)
+            .definition;
+    await capture.save(
+      identity: identity,
+      templateVersionId: 'tv',
+      definition: typed,
+      answers: {'type': 'Polygon', 'shape': line},
+      captured: const {},
+      fix: const LocationFix(lat: 4.6, lon: -74.08, accuracyM: 3),
+    );
+    expect((await repository.mapVisits(orgId: 'org')).single.geometries, [line]);
   });
 
   test('a visit without GPS is preserved with null geometry, defaults do not rewrite it', () async {

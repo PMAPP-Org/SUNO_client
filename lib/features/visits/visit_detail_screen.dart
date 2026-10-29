@@ -65,6 +65,7 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
                 VisitSyncStatus.rejected => l10n.visitExportRejected,
               }),
               locationLabel: l10n.captureVisitLocation,
+              noLocation: l10n.visitNoLocation,
               answersLabel: l10n.visitAnswers,
               attachmentsNote: l10n.visitExportAttachments,
               authorLabel: l10n.visitExportAuthor,

@@ -62,6 +62,8 @@ class DynamicForm extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         final title = controller.definition.title;
+        // Una validación completa por reconstrucción, no una por campo.
+        final fieldErrors = {...controller.displayedErrors, ...errors};
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -81,7 +83,7 @@ class DynamicForm extends StatelessWidget {
                   controller: controller,
                   mediaDelegate: mediaDelegate,
                   formatLocation: formatLocation,
-                  errors: {...controller.displayedErrors, ...errors},
+                  errors: fieldErrors,
                 ),
               ),
           ],

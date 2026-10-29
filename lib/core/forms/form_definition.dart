@@ -611,9 +611,9 @@ final fieldTypes = _typeKeys.keys.toSet();
 const _equalityTypes = {'text', 'qr', 'number', 'integer', 'boolean', 'date', 'datetime', 'single_choice'};
 const _orderTypes = {'number', 'integer', 'date', 'datetime'};
 
+/// La profundidad JSON ya la comprobó [parseFormDefinition], una sola vez.
 FormDefinition _parseDefinition(Object? raw) {
   if (raw is! Map<String, Object?>) throw const InvalidDefinition('definition', 'not_an_object');
-  checkJsonDepth(raw);
   for (final key in raw.keys) {
     if (!const {'dsl', 'title', 'fields'}.contains(key)) throw InvalidDefinition(key, 'extra_forbidden');
   }
@@ -623,19 +623,23 @@ FormDefinition _parseDefinition(Object? raw) {
   if (!supportedDslVersions.contains(dsl)) throw const InvalidDefinition('dsl', 'unsupported_dialect');
 
   final title = raw['title'] == null ? null : _i18n(raw['title'], 'title');
+  return FormDefinition(dsl: dsl, title: title, fields: _parseFields(raw['fields'], 'fields'));
+}
 
-  final rawFields = raw['fields'];
-  if (rawFields is! List<Object?>) throw const InvalidDefinition('fields', 'not_a_list');
-  if (rawFields.length > maxFields) throw const InvalidDefinition('fields', 'too_many_fields');
+/// Una lista de campos en [path] (`fields`, o `fields.3.fields` dentro de un
+/// grupo), para que los errores señalen el campo real.
+List<FormFieldDef> _parseFields(Object? rawFields, String path) {
+  if (rawFields is! List<Object?>) throw InvalidDefinition(path, 'not_a_list');
+  if (rawFields.length > maxFields) throw InvalidDefinition(path, 'too_many_fields');
 
   final declared = <String, FormFieldDef>{};
   for (final (index, rawField) in rawFields.indexed) {
-    final field = _parseField(rawField, 'fields.$index');
-    if (declared.containsKey(field.key)) throw InvalidDefinition('fields.$index.key', 'duplicate_key');
-    if (field.visibleIf != null) _checkVisibility(field.visibleIf!, declared, 'fields.$index.visible_if');
+    final field = _parseField(rawField, '$path.$index');
+    if (declared.containsKey(field.key)) throw InvalidDefinition('$path.$index.key', 'duplicate_key');
+    if (field.visibleIf != null) _checkVisibility(field.visibleIf!, declared, '$path.$index.visible_if');
     declared[field.key] = field;
   }
-  return FormDefinition(dsl: dsl, title: title, fields: List.unmodifiable(declared.values));
+  return List.unmodifiable(declared.values);
 }
 
 FormFieldDef _parseField(Object? raw, String path) {
@@ -687,7 +691,7 @@ FormFieldDef _parseFieldShape(Object? raw, String path) {
       final minRows = _int(raw, 'min_rows', path, min: 0, max: 100) ?? 0;
       final maxRows = _int(raw, 'max_rows', path, min: 1, max: 100) ?? 100;
       if (minRows > maxRows) throw InvalidDefinition('$path.min_rows', 'min_greater_than_max');
-      final children = _parseDefinition({'fields': raw['fields']});
+      final children = FormDefinition(dsl: dslVersion, title: null, fields: _parseFields(raw['fields'], '$path.fields'));
       if (children.fields.isEmpty) throw InvalidDefinition('$path.fields', 'empty_group');
       return RepeatFieldDef(
         key: key,

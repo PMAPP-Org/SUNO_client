@@ -28,6 +28,8 @@ import '../forms/answers.dart';
 import '../forms/form_definition.dart';
 import '../location/location_source.dart';
 
+export '../forms/answers.dart' show keptAnswers;
+
 /// Un archivo capturado en esta visita y todavía no guardado.
 @immutable
 class PendingAttachment {
@@ -364,15 +366,3 @@ bool canEdit(Visit visit, {required String userId, required List<String> roles})
 
 /// Roles que supervisan el trabajo de campo (`SUPERVISION_ROLES` del servidor).
 const supervisionRoles = {'OWNER', 'ADMIN', 'SUPERVISOR'};
-
-/// Las respuestas que se guardan: solo las de campos visibles.
-Map<String, Object?> keptAnswers(FormDefinition definition, Map<String, Object?> answers) => {
-  for (final field in visibleFields(definition, answers))
-    if (answers.containsKey(field.key))
-      field.key: field is RepeatFieldDef && answers[field.key] is List<Object?>
-          ? [
-              for (final row in answers[field.key]! as List<Object?>)
-                if (row is Map<String, Object?>) keptAnswers(field.definition, row),
-            ]
-          : answers[field.key],
-};
