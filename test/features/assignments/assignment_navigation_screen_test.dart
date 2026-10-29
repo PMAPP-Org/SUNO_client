@@ -70,7 +70,8 @@ void main() {
     expect(launcher.opened, isEmpty, reason: 'abrir la pantalla no comparte el destino');
     gps.controller.add(const LocationFix(lat: 4.60, lon: -74.08, accuracyM: 3));
     await tester.pumpAndSettle();
-    expect(find.text('1112 m en línea recta'), findsOneWidget);
+    // Desde 1 km se muestra en km con un decimal (1112 m).
+    expect(find.text('1,1 km en línea recta'), findsOneWidget);
     expect(find.text('Rumbo 0° desde el norte'), findsOneWidget);
     gps.controller.add(const LocationFix(lat: 4.61, lon: -74.08, accuracyM: 3));
     await tester.pumpAndSettle();
