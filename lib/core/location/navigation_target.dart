@@ -33,7 +33,17 @@ class NavigationTarget {
 
   /// URL universal: app de Google Maps si está instalada o navegador.
   /// Sin origen, identidad, título de la asignación ni datos de la visita.
-  Uri get directionsUri => Uri.https('www.google.com', '/maps/dir/', {'api': '1', 'destination': '$lat,$lon'});
+  /// Decimales fijos: `toString` daría `5e-7` o `-0.0` cerca del ecuador o
+  /// del meridiano. Siete decimales son ~1 cm.
+  Uri get directionsUri => Uri.https('www.google.com', '/maps/dir/', {
+    'api': '1',
+    'destination': '${_coordinate(lat)},${_coordinate(lon)}',
+  });
+
+  static String _coordinate(double value) {
+    if (value.abs() < 5e-8) return '0';
+    return value.toStringAsFixed(7).replaceFirst(RegExp(r'\.?0+$'), '');
+  }
 }
 
 abstract interface class RouteLauncher {

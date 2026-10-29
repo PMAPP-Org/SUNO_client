@@ -29,9 +29,11 @@ class NavigationTracker extends ChangeNotifier {
     fix = null;
     status = NavigationStatus.checking;
     notifyListeners();
-    await previous?.cancel();
-    if (!_current(generation)) return;
     try {
+      // Dentro del try: si cancelar o comprobar falla, la pantalla sale de
+      // "Comprobando" y vuelve a ofrecer Reintentar.
+      await previous?.cancel();
+      if (!_current(generation)) return;
       final ready = await source.ensureReady();
       if (!_current(generation)) return;
       status = switch (ready) {
@@ -56,7 +58,10 @@ class NavigationTracker extends ChangeNotifier {
           _armExpiry(generation);
           notifyListeners();
         },
-        onError: (Object error, StackTrace stack) => _lost(generation),
+        onError: (Object error, StackTrace stack) => _lost(
+          generation,
+          error is LocationServiceDisabledError ? NavigationStatus.serviceDisabled : NavigationStatus.noSignal,
+        ),
         onDone: () => _lost(generation),
       );
     } on Object {
@@ -76,10 +81,10 @@ class NavigationTracker extends ChangeNotifier {
     });
   }
 
-  void _lost(int generation) {
+  void _lost(int generation, [NavigationStatus reason = NavigationStatus.noSignal]) {
     if (!_current(generation)) return;
     stop();
-    status = NavigationStatus.noSignal;
+    status = reason;
     notifyListeners();
   }
 

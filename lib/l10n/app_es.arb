@@ -131,6 +131,8 @@
   "navigationDestination": "Punto de destino",
   "navigationDistance": "{meters} m en línea recta",
   "@navigationDistance": {"placeholders": {"meters": {"type": "int"}}},
+  "navigationDistanceKm": "{km} km en línea recta",
+  "@navigationDistanceKm": {"placeholders": {"km": {"type": "double", "format": "decimalPatternDigits", "optionalParameters": {"decimalDigits": 1}}}},
   "navigationBearing": "Rumbo {degrees}° desde el norte",
   "@navigationBearing": {"placeholders": {"degrees": {"type": "int"}}},
   "navigationNorthHint": "La parte superior de la pantalla representa el norte; la flecha no gira al rotar el teléfono. La distancia y el rumbo orientan en línea recta, sin seguir caminos.",

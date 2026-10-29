@@ -80,6 +80,17 @@ void main() {
     expect(tracker.fix, isNull);
   });
 
+  test('apagar el GPS durante la sesión se informa como servicio apagado, no como falta de señal', () async {
+    await tracker.start();
+    gps.controller.add(fix);
+    await Future<void>.delayed(Duration.zero);
+    gps.controller.addError(const LocationServiceDisabledError());
+    await Future<void>.delayed(Duration.zero);
+    expect(tracker.status, NavigationStatus.serviceDisabled);
+    expect(tracker.fix, isNull);
+    expect(gps.controller.hasListener, isFalse);
+  });
+
   testWidgets('un permiso que termina después de salir no vuelve a encender el GPS', (tester) async {
     final permission = Completer<LocationStatus>();
     gps.pendingPermission = permission.future;

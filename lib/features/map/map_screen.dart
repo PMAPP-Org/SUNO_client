@@ -166,7 +166,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Future<void> _navigate(AssignmentItem item) async {
-    // La pantalla de navegación toma el GPS; al volver lo recupera el mapa.
+    // La pantalla de navegación toma el GPS; al volver lo recupera el mapa,
+    // solo si ya lo tenía: sin permiso, volver no repite la pregunta.
+    final wasFollowing = _position != null;
     ++_gpsGeneration;
     await _position?.cancel();
     _position = null;
@@ -179,7 +181,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ),
       ),
     );
-    if (mounted) await _follow();
+    if (mounted && wasFollowing) await _follow();
   }
 
   Future<void> _showFeature(LayerFeature feature) {

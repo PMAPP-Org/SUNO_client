@@ -37,11 +37,15 @@ class _Gps implements LocationSource {
   _Gps(this.status);
   final LocationStatus status;
   final controller = StreamController<LocationFix>.broadcast();
+  int checks = 0;
 
   Future<void> close() => controller.close();
 
   @override
-  Future<LocationStatus> ensureReady() async => status;
+  Future<LocationStatus> ensureReady() async {
+    checks++;
+    return status;
+  }
 
   @override
   Stream<LocationFix> watch() => controller.stream;
@@ -191,6 +195,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(MapScreen), findsOneWidget);
     expect(gps.controller.hasListener, isTrue);
+  });
+
+  testWidgets('sin permiso, volver de la navegación no vuelve a pedirlo desde el mapa', (tester) async {
+    final (dependencies, _) = await scenario(gpsStatus: LocationStatus.permissionDenied);
+    await pump(tester, dependencies);
+    await tester.tap(find.byKey(const ValueKey('map-assignment-asg-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map_navigate')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AssignmentNavigationScreen), findsOneWidget);
+    final checksBeforeBack = gps.checks;
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapScreen), findsOneWidget);
+    expect(gps.checks, checksBeforeBack);
   });
 
   testWidgets('lista: solo ofrece navegar con un punto; mantiene el acceso a captura', (tester) async {

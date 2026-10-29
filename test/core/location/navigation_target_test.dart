@@ -43,4 +43,12 @@ void main() {
     expect(uri.path, '/maps/dir/');
     expect(uri.queryParameters, {'api': '1', 'destination': '4.6097,-74.0817'});
   });
+
+  test('URL de ruta sin notación exponencial ni cero negativo', () {
+    String destination(double lat, double lon) =>
+        NavigationTarget.tryCreate(lat, lon)!.directionsUri.queryParameters['destination']!;
+    expect(destination(0.0000005, -78.5), '0.0000005,-78.5');
+    expect(destination(-0.0, 10), '0,10');
+    expect(destination(1e-9, -1e-9), '0,0');
+  });
 }

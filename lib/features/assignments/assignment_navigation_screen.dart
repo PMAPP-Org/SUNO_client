@@ -118,7 +118,7 @@ class _AssignmentNavigationScreenState extends ConsumerState<AssignmentNavigatio
           const AppGap.lg(),
           if (fix != null) ...[
             Text(
-              l10n.navigationDistance(distance!.round()),
+              distance! < 1000 ? l10n.navigationDistance(distance.round()) : l10n.navigationDistanceKm(distance / 1000),
               key: const Key('navigation_distance'),
               style: textTheme.headlineSmall,
             ),
@@ -163,7 +163,10 @@ class _AssignmentNavigationScreenState extends ConsumerState<AssignmentNavigatio
               onPressed: _openSettings,
               child: Text(l10n.gpsOpenSettings),
             ),
-          if (_settingsFailed) Text(l10n.navigationSettingsFailed),
+          // Solo junto a su botón: si el GPS se recupera, el aviso sobra.
+          if (_settingsFailed &&
+              (status == NavigationStatus.serviceDisabled || status == NavigationStatus.permissionDeniedForever))
+            Text(l10n.navigationSettingsFailed),
           if (status != NavigationStatus.checking && status != NavigationStatus.tracking)
             OutlinedButton(key: const Key('navigation_retry'), onPressed: _tracker.start, child: Text(l10n.gpsRetry)),
           const AppGap.lg(),
