@@ -130,9 +130,6 @@ void main() {
       versionLabel: 'Versión del formulario',
     );
     expect(ascii.decode(pdf.take(5).toList()), '%PDF-');
-    // Disposable QA artifact; parsed and rendered by the verification workflow.
-    Directory('.git/c56-qa').createSync(recursive: true);
-    File('.git/c56-qa/app-visit.pdf').writeAsBytesSync(pdf);
   });
 
   test('a field named type does not turn the answers into one geometry on the map', () async {
