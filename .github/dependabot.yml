@@ -38,6 +38,12 @@ updates:
       # entradas existentes se revisan con cada versión mayor.
       - dependency-name: "flutter_secure_storage"
         update-types: ["version-update:semver-major"]
+      # Fijados por el SDK de Flutter (flutter_test y flutter_localizations
+      # exigen versiones exactas): cualquier subida da un lockfile que
+      # `flutter pub get --enforce-lockfile` rechaza. Suben con Flutter.
+      - dependency-name: "intl"
+      - dependency-name: "meta"
+      - dependency-name: "test"
 
   # Semgrep (tool/requirements-sast.txt). Dependabot sube la versión en el
   # .txt pero NO regenera el .lock: quien revise el PR lo regenera con el
