@@ -2,4 +2,4 @@
 # instala `requirements-sast.lock` (con hashes), nunca este archivo.
 # Regenerar el lock tras cambiarlo:
 #   uv pip compile --universal --generate-hashes --python-version 3.12 requirements-sast.txt -o requirements-sast.lock
-semgrep==1.181.0
+semgrep==1.182.1
