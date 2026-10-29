@@ -44,6 +44,20 @@ DENY = {
 #: pub.dev (`/api/packages/<nombre>/score`, etiqueta `license:`). Revisar si
 #: cambia la versión mayor.
 REVIEWED = {
+    # C5/C6: LICENSE del paquete publicado, verificado el 2026-10-19.
+    "mobile_scanner": "bsd-3-clause",
+    "pdf": "apache-2.0",
+    "share_plus": "bsd-3-clause",
+    "share_plus_platform_interface": "bsd-3-clause",
+    "barcode": "apache-2.0",
+    "bidi": "mit",
+    "image": "mit",
+    "path_parsing": "mit",
+    "qr": "bsd-3-clause",
+    "url_launcher_linux": "bsd-3-clause",
+    "url_launcher_platform_interface": "bsd-3-clause",
+    "url_launcher_web": "bsd-3-clause",
+    "url_launcher_windows": "bsd-3-clause",
     "frontend_server_client": "bsd-3-clause",  # dart-lang; build_runner
     "package_info_plus": "bsd-3-clause",  # fluttercommunity; vía dependencias
     # Fase B (mapa): flutter_map y su árbol. Comprobadas en el LICENSE de cada

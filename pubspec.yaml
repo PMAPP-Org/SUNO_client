@@ -56,6 +56,9 @@ dependencies:
   # Ya en el árbol (Drift + SQLCipher); directa porque el mapa offline lee los
   # MBTiles con ella (`data/map/mbtiles_tile_provider.dart`).
   sqlite3: ^3.5.0
+  mobile_scanner: ^7.4.2
+  pdf: ^3.13.1
+  share_plus: ^13.3.1
   url_launcher: ^6.3.3
 
 dev_dependencies:
