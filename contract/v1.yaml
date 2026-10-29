@@ -858,16 +858,20 @@ components:
         os_version:
           type: [string, 'null']
           maxLength: 64
+          pattern: '^[^\u0000]*$'
         model:
           type: [string, 'null']
           maxLength: 128
+          pattern: '^[^\u0000]*$'
         app_version:
           type: string
           maxLength: 32
+          pattern: '^[^\u0000]*$'
           description: Versión de la app Flutter (semver).
         display_name:
           type: [string, 'null']
           maxLength: 128
+          pattern: '^[^\u0000]*$'
           description: Nombre visible del dispositivo en el back-office ("Tablet campo 3").
 
     LoginRequest:
@@ -878,10 +882,12 @@ components:
           type: string
           minLength: 1
           maxLength: 254
+          pattern: '^[^\u0000]*$'
         password:
           type: string
           minLength: 1
           maxLength: 256
+          pattern: '^[^\u0000]*$'
           format: password
         device_info:
           $ref: '#/components/schemas/DeviceInfo'
@@ -1279,7 +1285,16 @@ components:
         definition:
           type: object
           additionalProperties: true
-          description: Definición declarativa del formulario. Nunca contiene código ejecutable.
+          description: |
+            Definición declarativa del formulario (visitacampo/form@1). Nunca contiene código ejecutable.
+            C5 añade `qr` (texto capturado o escaneado), `default` (literal validado al publicar,
+            aplicado solo al crear un formulario o fila) y `repeat` (lista de objetos de respuestas).
+            Un grupo declara `fields`, `min_rows` (0 por defecto) y `max_rows` (100 por defecto).
+            Máximo 3 niveles de repetición, 300 campos declarados y capacidad total de 10000 campos
+            expandidos. Las condiciones solo referencian campos hermanos anteriores.
+            Los errores de hijos usan rutas como `answers.predios.0.codigo`.
+            La fuente normativa del catálogo y sus restricciones es el meta-schema de forms/definition.py;
+            los vectores de paridad están en openapi/fixtures/forms_parity.json.
         published_at:
           oneOf:
             - $ref: '#/components/schemas/Timestamp'

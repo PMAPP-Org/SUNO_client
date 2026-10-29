@@ -54,6 +54,14 @@ estables mutuamente compatibles) antes de reconsiderar `riverpod_generator`.
 
 ## Desarrollo (`dev_dependencies:`)
 
+C5/C6 añade `mobile_scanner` 7.4.2 (BSD-3-Clause, escaneo QR nativo con ML Kit
+incluido en Android para funcionar sin red), `pdf` 3.13.1 (Apache-2.0, informes
+locales sin servicios externos) y `share_plus` 13.3.1 (BSD-3-Clause,
+fluttercommunity.dev, diálogo nativo para guardar o compartir). Los tres tienen
+mantenimiento activo y más de 1000 likes en pub.dev. Se conserva la fuente Inter
+incluida en la app: el PDF no descarga tipografías. Las licencias del árbol nuevo
+se comprobaron en los archivos LICENSE publicados, el 2026-10-19.
+
 | Paquete | Por qué | Cumple la regla |
 |---|---|---|
 | `flutter_lints` | Generado por `flutter create`; base de `analysis_options.yaml`, extendida con reglas más estrictas en este mismo paso. | Paquete oficial de flutter.dev. |
