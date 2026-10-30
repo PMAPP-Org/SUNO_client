@@ -64,7 +64,8 @@ command -v flutter >/dev/null || die "Falta flutter en el PATH."
 command -v adb >/dev/null || die "Falta adb en el PATH (Android SDK platform-tools)."
 command -v openssl >/dev/null || die "Falta openssl (Windows: añade C:\\Program Files\\Git\\usr\\bin al PATH)."
 [[ -f "$SERVER_DIR/infra/docker-compose.yml" ]] || die "No encuentro SUNO_server en $SERVER_DIR (usa SUNO_SERVER_DIR)."
-adb get-state >/dev/null 2>&1 || die "No hay emulador conectado: emulator -avd suno_api36"
+adb get-state >/dev/null 2>&1 ||
+  die "No hay un único dispositivo conectado: arranca el emulador (emulator -avd suno_api36) o elige uno con ANDROID_SERIAL."
 DEVICE="${ANDROID_SERIAL:-$(adb get-serialno | tr -d '\r')}"
 
 # --- Servidor ----------------------------------------------------------------

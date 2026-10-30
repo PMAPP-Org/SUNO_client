@@ -50,7 +50,6 @@ void main() {
     await _tapVisible(tester, find.byKey(const Key('login_submit_button')));
     await _pumpUntil(tester, find.byKey(const Key('tofu_trust_button')));
     await _tapVisible(tester, find.byKey(const Key('tofu_compared_check')));
-    await tester.pump();
     await _tapVisible(tester, find.byKey(const Key('tofu_trust_button')));
     await _pumpUntil(tester, find.byKey(const Key('home_new_visit_button')), timeout: const Duration(seconds: 60));
 
@@ -85,7 +84,9 @@ void main() {
 
 Finder _chip(String label) => find.descendant(of: find.byType(VisitStatusChip), matching: find.text(label));
 
-/// Las casillas del aviso y el botón de guardar pueden quedar fuera de pantalla.
+/// Hace visible el widget antes de tocarlo: en la pantalla del emulador el
+/// botón de confiar del TOFU, las casillas del aviso y el de guardar quedan
+/// por debajo del borde.
 Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await tester.pump();
