@@ -78,6 +78,12 @@ REVIEWED = {
     "url_launcher_platform_interface": "bsd-3-clause",
     "url_launcher_web": "bsd-3-clause",
     "url_launcher_windows": "bsd-3-clause",
+    # integration_test (E2E): paquetes que fija el SDK de Flutter. Licencia
+    # comprobada en pub.dev (`/score`, etiqueta `license:`), verificado el
+    # 2026-10-29.
+    "process": "bsd-3-clause",
+    "sync_http": "bsd-3-clause",
+    "webdriver": "apache-2.0",
 }
 
 _OR = re.compile(r"\s+or\s+", re.IGNORECASE)
