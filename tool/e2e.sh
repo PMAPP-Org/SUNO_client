@@ -16,12 +16,13 @@ export MSYS_NO_PATHCONV=1
 unset CURL_CA_BUNDLE
 
 CLIENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVER_DIR="$(cd "${SUNO_SERVER_DIR:-$CLIENT_DIR/../SUNO_server}" && pwd)"
+# `pwd -W` (solo Git Bash) da C:/...: docker lo entiende sin conversión.
+SERVER_DIR="$(cd "${SUNO_SERVER_DIR:-$CLIENT_DIR/../SUNO_server}" && { pwd -W 2>/dev/null || pwd; })"
 PACKAGE=com.visitacampo.visitacampo
 HOST=10.0.2.2
 RUN_ID="e2e-$(date +%Y%m%d%H%M%S)"
 ENV_FILE="$SERVER_DIR/infra/.env.e2e"
-WORK="$(mktemp -d)"
+WORK="$(cd "$(mktemp -d)" && { pwd -W 2>/dev/null || pwd; })"
 COMPOSE=(docker compose -p suno-e2e --project-directory "$SERVER_DIR/infra"
   --env-file "$ENV_FILE" -f "$SERVER_DIR/infra/docker-compose.yml")
 
