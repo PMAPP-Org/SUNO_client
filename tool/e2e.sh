@@ -65,6 +65,7 @@ command -v adb >/dev/null || die "Falta adb en el PATH (Android SDK platform-too
 command -v openssl >/dev/null || die "Falta openssl (Windows: añade C:\\Program Files\\Git\\usr\\bin al PATH)."
 [[ -f "$SERVER_DIR/infra/docker-compose.yml" ]] || die "No encuentro SUNO_server en $SERVER_DIR (usa SUNO_SERVER_DIR)."
 adb get-state >/dev/null 2>&1 || die "No hay emulador conectado: emulator -avd suno_api36"
+DEVICE="${ANDROID_SERIAL:-$(adb get-serialno | tr -d '\r')}"
 
 # --- Servidor ----------------------------------------------------------------
 log "Generando $ENV_FILE"
@@ -97,7 +98,12 @@ adb logcat -c
 log "Lanzando la prueba de integración"
 (
   cd "$CLIENT_DIR"
-  flutter test integration_test/e2e_fase0_test.dart \
+  # `flutter drive --no-dds` y no `flutter test`: con el emulador API 36 el
+  # DDS se cuelga al conectarse justo cuando la app publica su VM service, y
+  # `flutter test --no-dds` falla al no poder registrar el stream de goldens.
+  flutter drive --no-dds -d "$DEVICE" \
+    --driver=test_driver/integration_test.dart \
+    --target=integration_test/e2e_fase0_test.dart \
     --dart-define=VISITACAMPO_API_BASE_URL="https://$HOST" \
     --dart-define=E2E_HOST="$HOST" \
     --dart-define=E2E_USERNAME="$RUN_ID" \

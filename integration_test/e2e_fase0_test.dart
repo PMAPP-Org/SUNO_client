@@ -47,15 +47,15 @@ void main() {
     // Login. El primer intento choca con la CA interna de Caddy: TOFU.
     await tester.enterText(find.byKey(const Key('login_username_field')), _username);
     await tester.enterText(find.byKey(const Key('login_password_field')), _password);
-    await tester.tap(find.byKey(const Key('login_submit_button')));
+    await _tapVisible(tester, find.byKey(const Key('login_submit_button')));
     await _pumpUntil(tester, find.byKey(const Key('tofu_trust_button')));
-    await tester.tap(find.byKey(const Key('tofu_compared_check')));
+    await _tapVisible(tester, find.byKey(const Key('tofu_compared_check')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('tofu_trust_button')));
+    await _tapVisible(tester, find.byKey(const Key('tofu_trust_button')));
     await _pumpUntil(tester, find.byKey(const Key('home_new_visit_button')), timeout: const Duration(seconds: 60));
 
     // Sincronización inicial: trae la plantilla publicada.
-    await tester.tap(find.byKey(const Key('home_sync_button')));
+    await _tapVisible(tester, find.byKey(const Key('home_sync_button')));
     await _pumpUntil(tester, find.byKey(const Key('home_last_sync')), timeout: const Duration(seconds: 60));
 
     // Sin red.
@@ -63,7 +63,7 @@ void main() {
     await _waitUntilOffline(tester);
 
     // Captura offline.
-    await tester.tap(find.byKey(const Key('home_new_visit_button')));
+    await _tapVisible(tester, find.byKey(const Key('home_new_visit_button')));
     await _pumpUntil(tester, find.byKey(const Key('capture_save_button')));
     final notas = find.descendant(of: find.byKey(const ValueKey('form-field-notas')), matching: find.byType(TextField));
     await tester.enterText(notas, _marker);
@@ -76,7 +76,7 @@ void main() {
     final deadline = DateTime.now().add(const Duration(seconds: 120));
     while (_chip('Sincronizada').evaluate().isEmpty) {
       if (DateTime.now().isAfter(deadline)) fail('La visita no pasó a Sincronizada en 120 s');
-      await tester.tap(find.byKey(const Key('home_sync_button')));
+      await _tapVisible(tester, find.byKey(const Key('home_sync_button')));
       await _pumpFor(tester, const Duration(seconds: 10));
     }
     _mark('SYNCED');
@@ -103,12 +103,17 @@ void _mark(String name) {
 Future<void> _waitUntilOffline(WidgetTester tester) async {
   final deadline = DateTime.now().add(const Duration(seconds: 60));
   while (true) {
-    try {
-      final socket = await tester.runAsync(() => Socket.connect(_host, 443, timeout: const Duration(seconds: 2)));
-      socket?.destroy();
-    } on SocketException {
-      return;
-    }
+    // La excepción se captura dentro: `runAsync` informa al framework de lo
+    // que escapa del callback y la prueba fallaría.
+    final reachable = await tester.runAsync(() async {
+      try {
+        (await Socket.connect(_host, 443, timeout: const Duration(seconds: 2))).destroy();
+        return true;
+      } on SocketException {
+        return false;
+      }
+    });
+    if (reachable == false) return;
     if (DateTime.now().isAfter(deadline)) fail('El host seguía accesible tras 60 s: ¿modo avión?');
     await _pumpFor(tester, const Duration(seconds: 1));
   }
