@@ -106,4 +106,46 @@ void main() {
         );
     expect(await handover.prepare(_ana), isA<HandoverBlocked>());
   });
+
+  test('al cambiar de organización también se borran las tareas del cronograma', () async {
+    await db
+        .into(db.visits)
+        .insert(
+          VisitsCompanion.insert(
+            id: 'v-ana',
+            orgId: 'org-1',
+            version: 1,
+            templateVersionId: 'tv-1',
+            answersJson: '{}',
+            capturedAt: DateTime.utc(2026, 11, 1),
+            deviceId: 'device-1',
+            createdBy: 'ana',
+          ),
+        );
+    await db.replaceScheduleTasks(
+      orgId: 'org-1',
+      userId: 'ana',
+      version: 'v1',
+      now: DateTime.utc(2026, 11, 1),
+      rows: [
+        ScheduleTasksCompanion.insert(
+          id: 't-1',
+          orgId: 'org-1',
+          userId: 'ana',
+          projectId: 'p-1',
+          projectName: 'Obra',
+          wbs: '1.1',
+          outlineNumber: '1.1',
+          name: 'Excavación',
+          position: 0,
+        ),
+      ],
+    );
+
+    final result = await handover.prepare(_carla);
+
+    expect(result, isA<HandoverReady>().having((r) => r.wiped, 'wiped', isTrue));
+    expect(await db.select(db.scheduleTasks).get(), isEmpty);
+    expect(await db.readScheduleTaskState(), isNull);
+  });
 }

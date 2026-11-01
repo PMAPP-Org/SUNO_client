@@ -55,6 +55,7 @@ class SyncCoordinator {
     required this.outstandingAttachments,
     required this.pull,
     required this.isAuthenticated,
+    this.refreshTasks,
     this.interval = const Duration(minutes: 5),
     Timer Function(Duration, void Function(Timer))? periodic,
     DateTime Function()? clock,
@@ -68,6 +69,11 @@ class SyncCoordinator {
 
   /// Sin sesión no hay a quién enviar nada: no se intenta.
   final bool Function() isAuthenticated;
+
+  /// Costos, etapa 1: refresca las tareas del cronograma del agente tras el
+  /// pull (`ScheduleTaskSync.refresh`). Es una lista pequeña y la captura la
+  /// necesita al día; por eso va dentro del ciclo y no aparte, como los mapas.
+  final Future<bool> Function()? refreshTasks;
   final Duration interval;
   final Timer Function(Duration, void Function(Timer)) _periodic;
   final DateTime Function() _now;
@@ -156,6 +162,14 @@ class SyncCoordinator {
       pullOk = (await pull()).isOk;
     } on Object {
       pullOk = false;
+    }
+    final refresh = refreshTasks;
+    if (refresh != null) {
+      try {
+        await refresh();
+      } on Object {
+        // Sin red o respuesta rara: queda la lista anterior; el próximo ciclo reintenta.
+      }
     }
     final report = SyncCycleReport(
       drain: drain,
