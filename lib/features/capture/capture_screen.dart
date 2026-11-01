@@ -23,11 +23,14 @@ import '../../core/forms/form_definition.dart';
 import '../../core/forms/geometry.dart';
 import '../../core/location/location_source.dart';
 import '../../core/providers.dart';
+import '../../core/schedule/progress_input.dart';
 import '../../data/local/assignment_repository.dart';
 import '../../data/local/form_template_repository.dart';
+import '../../data/local/schedule_task_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/forms/dynamic_form.dart';
 import '../../ui/forms/form_controller.dart';
+import 'task_progress_section.dart';
 import '../../ui/forms/template_status.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
@@ -79,9 +82,16 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   final Map<String, PendingAttachment> _captured = {};
   final List<PendingAttachment> _extraPhotos = [];
 
+  /// Costos, etapa 1: tareas del cronograma del agente y la elegida.
+  List<ScheduleTaskItem> _tasks = const [];
+  String? _taskId;
+  final _progressController = TextEditingController();
+  String? _progressError;
+
   @override
   void initState() {
     super.initState();
+    _loadTasks();
     if (_editing) {
       _loadForEdit(widget.editVisitId!);
     } else if (widget.assignmentId != null) {
@@ -89,6 +99,32 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     } else {
       _loadTemplates();
     }
+  }
+
+  Future<void> _loadTasks() async {
+    final dependencies = ref.read(appDependenciesProvider);
+    final state = dependencies.authController.state;
+    if (state is! Authenticated) return;
+    final tasks = await dependencies.scheduleTaskRepository.forUser(orgId: state.user.orgId, userId: state.user.id);
+    if (mounted) setState(() => _tasks = tasks);
+  }
+
+  /// Sin tarea: `ok` y nada que enviar. Con tarea: el % leído, o el error en pantalla.
+  ({bool ok, TaskProgress? value}) _readProgress(AppLocalizations l10n) {
+    final taskId = _taskId;
+    if (taskId == null) {
+      setState(() => _progressError = null);
+      return (ok: true, value: null);
+    }
+    final text = _progressController.text.trim();
+    final pct = parseProgressPct(text);
+    final error = text.isEmpty
+        ? l10n.captureProgressRequired
+        : pct == null
+        ? l10n.captureProgressInvalid
+        : null;
+    setState(() => _progressError = error);
+    return error == null ? (ok: true, value: TaskProgress(taskId: taskId, pct: pct!)) : (ok: false, value: null);
   }
 
   Future<void> _loadForAssignment(String assignmentId) async {
@@ -137,12 +173,15 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       _originalFix = visit.lat == null || visit.lon == null
           ? null
           : LocationFix(lat: visit.lat!, lon: visit.lon!, accuracyM: visit.accuracyM ?? 0, altitudeM: visit.altitudeM);
+      _taskId = visit.taskId;
+      if (visit.progressPct != null) _progressController.text = formatProgressPct(visit.progressPct!);
     });
   }
 
   @override
   void dispose() {
     _form?.dispose();
+    _progressController.dispose();
     super.dispose();
   }
 
@@ -281,7 +320,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     if (authState is! Authenticated || form == null || lookup is! TemplateReady) return;
 
     final l10n = context.l10n;
-    if (!form.validate()) {
+    final formOk = form.validate();
+    final progress = _readProgress(l10n);
+    if (!formOk || !progress.ok) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.captureFixErrors)));
       return;
     }
@@ -304,6 +345,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           captured: Map.of(_captured),
           extraPhotos: List.of(_extraPhotos),
           fix: _fix,
+          progress: (value: progress.value),
         );
       } else {
         await dependencies.visitCapture.save(
@@ -315,6 +357,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           extraPhotos: List.of(_extraPhotos),
           fix: _fix,
           assignmentId: _assignment?.id,
+          progress: progress.value,
         );
         change = VisitChange.saved;
       }
@@ -387,6 +430,20 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
             if (form != null) ...[
               const AppGap.lg(),
               DynamicForm(controller: form, mediaDelegate: this, formatLocation: _crs.format),
+              if (_tasks.isNotEmpty || _taskId != null) ...[
+                const AppGap.sm(),
+                TaskProgressSection(
+                  tasks: _tasks,
+                  selectedId: _taskId,
+                  controller: _progressController,
+                  errorText: _progressError,
+                  onSelected: (id) => setState(() {
+                    _taskId = id;
+                    _progressError = null;
+                    if (id == null) _progressController.clear();
+                  }),
+                ),
+              ],
               const AppGap.sm(),
               Text(l10n.captureVisitLocation, style: Theme.of(context).textTheme.titleSmall),
               if (fix != null) Text(l10n.coordinatesWithAccuracy(_crs.format(fix.lat, fix.lon), fix.accuracyM.round())),

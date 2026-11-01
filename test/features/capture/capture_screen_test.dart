@@ -262,4 +262,78 @@ void main() {
     final visit = await db.select(db.visits).getSingle();
     expect(visit.lat, isNull);
   });
+
+  Future<void> addTask({double? lastValidated}) => db.replaceScheduleTasks(
+    orgId: 'org-1',
+    userId: 'user-1',
+    version: 'v1',
+    now: DateTime.utc(2026, 11, 2),
+    rows: [
+      ScheduleTasksCompanion.insert(
+        id: 'task-1',
+        orgId: 'org-1',
+        userId: 'user-1',
+        projectId: 'p-1',
+        projectName: 'Obra Norte',
+        wbs: '1.2',
+        outlineNumber: '1.2',
+        name: 'Descapote',
+        lastValidatedPct: Value(lastValidated),
+        position: 0,
+      ),
+    ],
+  );
+
+  Future<void> pickTask(WidgetTester tester) async {
+    await tester.tap(find.byKey(const Key('capture_task_picker')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task_picker_item-task-1')));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('avance de campo: vincula la visita a una tarea con su % (costos, etapa 1)', (tester) async {
+    final dependencies = await buildDependencies();
+    await addTask(lastValidated: 40);
+    await pumpCapture(tester, dependencies);
+
+    await pickTask(tester);
+    await tester.enterText(find.byKey(const Key('capture_progress_field')), '35,5');
+    await tester.pump();
+    expect(find.byKey(const Key('capture_progress_below')), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'No'));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('capture_save_button')));
+    await tester.pumpAndSettle();
+
+    final visit = await db.select(db.visits).getSingle();
+    expect((visit.taskId, visit.progressPct), ('task-1', 35.5));
+    final payload = jsonDecode((await db.select(db.outboxOps).getSingle()).payloadJson) as Map<String, dynamic>;
+    expect((payload['task_id'], payload['progress_pct']), ('task-1', 35.5));
+  });
+
+  testWidgets('con tarea elegida, sin un % válido no guarda', (tester) async {
+    final dependencies = await buildDependencies();
+    await addTask();
+    await pumpCapture(tester, dependencies);
+
+    await pickTask(tester);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'No'));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('capture_save_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Indica el % de avance acumulado.'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('capture_progress_field')), '120');
+    await tester.tap(find.byKey(const Key('capture_save_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Escribe un número entre 0 y 100, con hasta dos decimales.'), findsOneWidget);
+    expect(await db.select(db.visits).get(), isEmpty);
+  });
+
+  testWidgets('sin tareas asignadas no aparece la sección', (tester) async {
+    final dependencies = await buildDependencies();
+    await pumpCapture(tester, dependencies);
+    expect(find.byKey(const Key('capture_task_picker')), findsNothing);
+  });
 }
