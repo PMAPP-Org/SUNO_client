@@ -24,7 +24,12 @@ void main() {
   });
   tearDown(() => controller.dispose());
 
-  Future<void> pump(WidgetTester tester, {String? errorText}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    String? errorText,
+    List<ScheduleTaskItem> tasks = _tasks,
+    bool tasksLoaded = true,
+  }) async {
     await tester.pumpWidget(
       testApp(
         Scaffold(
@@ -32,7 +37,8 @@ void main() {
             builder: (context, setState) => ListView(
               children: [
                 TaskProgressSection(
-                  tasks: _tasks,
+                  tasks: tasks,
+                  tasksLoaded: tasksLoaded,
                   selectedId: selected,
                   controller: controller,
                   errorText: errorText,
@@ -96,5 +102,49 @@ void main() {
     selected = 't-2';
     await pump(tester, errorText: 'Indica el % de avance acumulado.');
     expect(find.text('Indica el % de avance acumulado.'), findsOneWidget);
+  });
+
+
+  testWidgets('la tarea elegida se marca en la lista', (tester) async {
+    selected = 't-3';
+    await pump(tester);
+    await tester.tap(find.byKey(const Key('capture_task_picker')));
+    await tester.pumpAndSettle();
+    final chosen = tester.widget<ListTile>(find.byKey(const ValueKey('task_picker_item-t-3')));
+    final other = tester.widget<ListTile>(find.byKey(const ValueKey('task_picker_item-t-2')));
+    expect((chosen.selected, other.selected), (true, false));
+    expect(find.descendant(of: find.byKey(const ValueKey('task_picker_item-t-3')), matching: find.byIcon(Icons.check)), findsOneWidget);
+  });
+
+  testWidgets('el selector tiene nombre accesible', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pump(tester);
+    expect(find.bySemanticsLabel(RegExp('Tarea del cronograma')), findsWidgets);
+    handle.dispose();
+  });
+
+  testWidgets('sin tareas asignadas lo dice; con búsqueda sin resultados, no', (tester) async {
+    selected = 't-9';
+    await pump(tester, tasks: const []);
+    await tester.tap(find.byKey(const Key('capture_task_picker')));
+    await tester.pumpAndSettle();
+    expect(find.text('No tienes tareas asignadas en el cronograma.'), findsOneWidget);
+  });
+
+  testWidgets('con tareas y búsqueda sin resultados: "No hay tareas que coincidan."', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const Key('capture_task_picker')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('task_picker_search')), 'zzz');
+    await tester.pumpAndSettle();
+    expect(find.text('No hay tareas que coincidan.'), findsOneWidget);
+  });
+
+  testWidgets('mientras las tareas cargan no dice que la tarea ya no está en la lista', (tester) async {
+    selected = 't-3';
+    await pump(tester, tasks: const [], tasksLoaded: false);
+    expect(find.text('Tarea vinculada (ya no está en tu lista)'), findsNothing);
+    await pump(tester, tasks: const []);
+    expect(find.text('Tarea vinculada (ya no está en tu lista)'), findsOneWidget);
   });
 }

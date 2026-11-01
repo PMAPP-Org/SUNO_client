@@ -30,7 +30,6 @@ import '../../data/local/schedule_task_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/forms/dynamic_form.dart';
 import '../../ui/forms/form_controller.dart';
-import 'task_progress_section.dart';
 import '../../ui/forms/template_status.dart';
 import '../../ui/widgets/app_button.dart';
 import '../../ui/widgets/app_page_body.dart';
@@ -38,6 +37,7 @@ import 'geometry_capture_screen.dart';
 import 'location_capture_sheet.dart';
 import 'signature_screen.dart';
 import 'qr_capture_screen.dart';
+import 'task_progress_section.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key, this.editVisitId, this.assignmentId})
@@ -84,6 +84,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
 
   /// Costos, etapa 1: tareas del cronograma del agente y la elegida.
   List<ScheduleTaskItem> _tasks = const [];
+  bool _tasksLoaded = false;
   String? _taskId;
   final _progressController = TextEditingController();
   String? _progressError;
@@ -106,7 +107,12 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     final state = dependencies.authController.state;
     if (state is! Authenticated) return;
     final tasks = await dependencies.scheduleTaskRepository.forUser(orgId: state.user.orgId, userId: state.user.id);
-    if (mounted) setState(() => _tasks = tasks);
+    if (mounted) {
+      setState(() {
+        _tasks = tasks;
+        _tasksLoaded = true;
+      });
+    }
   }
 
   /// Sin tarea: `ok` y nada que enviar. Con tarea: el % leído, o el error en pantalla.
@@ -434,13 +440,15 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
                 const AppGap.sm(),
                 TaskProgressSection(
                   tasks: _tasks,
+                  tasksLoaded: _tasksLoaded,
                   selectedId: _taskId,
                   controller: _progressController,
                   errorText: _progressError,
                   onSelected: (id) => setState(() {
+                    // Otra tarea, otro avance: el % de la anterior no vale.
+                    if (id != _taskId) _progressController.clear();
                     _taskId = id;
                     _progressError = null;
-                    if (id == null) _progressController.clear();
                   }),
                 ),
               ],

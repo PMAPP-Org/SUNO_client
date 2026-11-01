@@ -13,6 +13,7 @@ class ScheduleTaskItem {
     required this.code,
     required this.name,
     required this.lastValidatedPct,
+    this.searchKey = '',
   });
 
   factory ScheduleTaskItem.fromRow(ScheduleTaskRow row) => ScheduleTaskItem(
@@ -22,6 +23,7 @@ class ScheduleTaskItem {
     code: row.wbs.isEmpty ? row.outlineNumber : row.wbs,
     name: row.name,
     lastValidatedPct: row.lastValidatedPct,
+    searchKey: _keyOf(row.wbs.isEmpty ? row.outlineNumber : row.wbs, row.name, row.projectName),
   );
 
   final String id;
@@ -29,6 +31,10 @@ class ScheduleTaskItem {
   final String code;
   final String name;
   final double? lastValidatedPct;
+
+  /// EDT, nombre y proyecto sin mayúsculas ni tildes, calculado una vez al leer
+  /// la fila; vacío si el ítem se armó a mano (la búsqueda lo calcula entonces).
+  final String searchKey;
 
   String get label => '$code $name';
 }
@@ -55,9 +61,11 @@ List<ScheduleTaskItem> searchScheduleTasks(List<ScheduleTaskItem> items, String 
   if (needle.isEmpty) return items;
   return [
     for (final task in items)
-      if (foldForSearch('${task.code} ${task.name} ${task.projectName}').contains(needle)) task,
+      if ((task.searchKey.isEmpty ? _keyOf(task.code, task.name, task.projectName) : task.searchKey).contains(needle)) task,
   ];
 }
+
+String _keyOf(String code, String name, String project) => foldForSearch('$code $name $project');
 
 String foldForSearch(String text) {
   const from = 'áàäâãéèëêíìïîóòöôõúùüûñç';

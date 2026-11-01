@@ -17,6 +17,7 @@ class TaskProgressSection extends StatelessWidget {
     required this.controller,
     required this.onSelected,
     this.errorText,
+    this.tasksLoaded = true,
   });
 
   final List<ScheduleTaskItem> tasks;
@@ -28,6 +29,10 @@ class TaskProgressSection extends StatelessWidget {
   final ValueChanged<String?> onSelected;
   final String? errorText;
 
+  /// Mientras las tareas se leen de la BD no se puede decir que la elegida
+  /// "ya no está en tu lista".
+  final bool tasksLoaded;
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -37,18 +42,24 @@ class TaskProgressSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(l10n.captureTaskSection, style: theme.textTheme.titleSmall),
-        ListTile(
-          key: const Key('capture_task_picker'),
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            selectedId == null ? l10n.captureTaskNone : selected?.label ?? l10n.captureTaskUnavailable,
+        Semantics(
+          label: l10n.captureTaskLabel,
+          button: true,
+          child: ListTile(
+            key: const Key('capture_task_picker'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              selectedId == null
+                  ? l10n.captureTaskNone
+                  : selected?.label ?? (tasksLoaded ? l10n.captureTaskUnavailable : ''),
+            ),
+            subtitle: selected == null ? null : Text(selected.projectName),
+            trailing: const Icon(Icons.arrow_drop_down),
+            onTap: () async {
+              final pick = await showTaskPicker(context, tasks, selectedId: selectedId);
+              if (pick != null) onSelected(pick.task?.id);
+            },
           ),
-          subtitle: selected == null ? null : Text(selected.projectName),
-          trailing: const Icon(Icons.arrow_drop_down),
-          onTap: () async {
-            final pick = await showTaskPicker(context, tasks);
-            if (pick != null) onSelected(pick.task?.id);
-          },
         ),
         if (selectedId != null)
           ValueListenableBuilder<TextEditingValue>(
@@ -92,17 +103,18 @@ class TaskProgressSection extends StatelessWidget {
 /// `null` si se cerró sin elegir.
 typedef TaskPick = ({ScheduleTaskItem? task});
 
-Future<TaskPick?> showTaskPicker(BuildContext context, List<ScheduleTaskItem> tasks) =>
+Future<TaskPick?> showTaskPicker(BuildContext context, List<ScheduleTaskItem> tasks, {String? selectedId}) =>
     showModalBottomSheet<TaskPick>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _TaskPickerSheet(tasks: tasks),
+      builder: (_) => _TaskPickerSheet(tasks: tasks, selectedId: selectedId),
     );
 
 class _TaskPickerSheet extends StatefulWidget {
-  const _TaskPickerSheet({required this.tasks});
+  const _TaskPickerSheet({required this.tasks, required this.selectedId});
 
   final List<ScheduleTaskItem> tasks;
+  final String? selectedId;
 
   @override
   State<_TaskPickerSheet> createState() => _TaskPickerSheetState();
@@ -139,7 +151,13 @@ class _TaskPickerSheetState extends State<_TaskPickerSheet> {
               const Divider(),
               Expanded(
                 child: visible.isEmpty
-                    ? Center(child: Text(l10n.taskPickerEmpty))
+                    ? Center(
+                        child: Text(
+                          widget.tasks.isEmpty && _query.trim().isEmpty
+                              ? l10n.taskPickerNoneAssigned
+                              : l10n.taskPickerEmpty,
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: visible.length,
                         itemBuilder: (context, index) {
@@ -147,6 +165,8 @@ class _TaskPickerSheetState extends State<_TaskPickerSheet> {
                           final pct = task.lastValidatedPct;
                           return ListTile(
                             key: ValueKey('task_picker_item-${task.id}'),
+                            selected: task.id == widget.selectedId,
+                            trailing: task.id == widget.selectedId ? const Icon(Icons.check) : null,
                             title: Text(task.label),
                             subtitle: Text(
                               pct == null

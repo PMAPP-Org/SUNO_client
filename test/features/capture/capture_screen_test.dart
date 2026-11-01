@@ -16,10 +16,12 @@ import 'package:visitacampo/core/auth/auth_controller.dart';
 import 'package:visitacampo/core/auth/auth_models.dart';
 import 'package:visitacampo/core/auth/auth_result.dart';
 import 'package:visitacampo/core/capture/photo_capture.dart';
+import 'package:visitacampo/core/capture/visit_capture.dart';
 import 'package:visitacampo/core/location/gps_sampler.dart';
 import 'package:visitacampo/core/location/location_source.dart';
 import 'package:visitacampo/core/providers.dart';
 import 'package:visitacampo/data/local/database.dart';
+import 'package:visitacampo/data/local/form_template_repository.dart';
 import 'package:visitacampo/features/capture/capture_screen.dart';
 
 import '../../core/auth/fake_auth_transport.dart';
@@ -335,5 +337,85 @@ void main() {
     final dependencies = await buildDependencies();
     await pumpCapture(tester, dependencies);
     expect(find.byKey(const Key('capture_task_picker')), findsNothing);
+  });
+
+
+  testWidgets('elegir otra tarea borra el % de la anterior', (tester) async {
+    final dependencies = await buildDependencies();
+    await addTask(lastValidated: 40);
+    await db.batch(
+      (b) => b.insert(
+        db.scheduleTasks,
+        ScheduleTasksCompanion.insert(
+          id: 'task-2',
+          orgId: 'org-1',
+          userId: 'user-1',
+          projectId: 'p-1',
+          projectName: 'Obra Norte',
+          wbs: '1.3',
+          outlineNumber: '1.3',
+          name: 'Cerramiento',
+          position: 1,
+        ),
+      ),
+    );
+    await pumpCapture(tester, dependencies);
+    await pickTask(tester);
+    await tester.enterText(find.byKey(const Key('capture_progress_field')), '55');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('capture_task_picker')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task_picker_item-task-2')));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(find.byKey(const Key('capture_progress_field'))).controller!.text, isEmpty);
+  });
+
+  group('editar una visita ya vinculada', () {
+    Future<String> linkedVisit(AppDependencies dependencies) async {
+      await addTask(lastValidated: 40);
+      final lookup = await dependencies.formTemplates.forVisit(orgId: 'org-1', templateVersionId: 'tv-1');
+      return dependencies.visitCapture.save(
+        identity: const CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1', roles: ['agent']),
+        templateVersionId: 'tv-1',
+        definition: (lookup as TemplateReady).definition,
+        answers: {'tiene_planta': false},
+        captured: const {},
+        progress: const TaskProgress(taskId: 'task-1', pct: 35.5),
+      );
+    }
+
+    testWidgets('carga la tarea y el %; guardar sin tocar nada no envía el par', (tester) async {
+      final dependencies = await buildDependencies();
+      final visitId = await linkedVisit(dependencies);
+      await pumpCapture(tester, dependencies, screen: CaptureScreen(editVisitId: visitId));
+
+      expect(find.text('1.2 Descapote'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byKey(const Key('capture_progress_field'))).controller!.text, '35,5');
+      await tester.tap(find.byKey(const Key('capture_save_button')));
+      await tester.pumpAndSettle();
+
+      expect(await db.select(db.outboxOps).get(), hasLength(1)); // solo el alta
+    });
+
+    testWidgets('"Sin tarea" desvincula: viaja el par en null', (tester) async {
+      final dependencies = await buildDependencies();
+      final visitId = await linkedVisit(dependencies);
+      await pumpCapture(tester, dependencies, screen: CaptureScreen(editVisitId: visitId));
+
+      await tester.tap(find.byKey(const Key('capture_task_picker')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('task_picker_none')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('capture_save_button')));
+      await tester.pumpAndSettle();
+
+      final ops = await db.select(db.outboxOps).get();
+      expect(ops, hasLength(2));
+      expect(jsonDecode(ops.last.payloadJson), {'id': visitId, 'task_id': null, 'progress_pct': null});
+      final visit = await db.select(db.visits).getSingle();
+      expect((visit.taskId, visit.progressPct), (null, null));
+    });
   });
 }
