@@ -229,7 +229,10 @@ class _ReviewCard extends StatelessWidget {
               ),
             if (isConflict) ...[
               const AppGap.sm(),
-              _DiffTable(diffs: item.differences, label: label),
+              _DiffTable(
+                diffs: item.differences,
+                label: (key) => key == 'task_id' || key == 'progress_pct' ? violationLabel(key) : label(key),
+              ),
             ],
             const AppGap.sm(),
             Wrap(

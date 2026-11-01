@@ -108,4 +108,16 @@ void main() {
     expect(await sync.refresh(), isFalse);
     expect(transport.versions, isEmpty);
   });
+
+
+  test('"sin cambios" sin versión enviada no reemplaza nada y no da la lista por vigente', () async {
+    transport.responses.add(_page('v1', [_task('t-2', '1.1', 'Localización')]));
+    await sync.refresh();
+    current = _beto; // su versión no es la de Ana: no se envía ninguna
+    transport.responses.add(_unchanged);
+
+    expect(await sync.refresh(), isFalse);
+    expect(transport.versions.last, isNull);
+    expect(await labels(_ana), ['1.1 Localización']);
+  });
 }

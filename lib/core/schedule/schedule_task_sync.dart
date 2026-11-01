@@ -98,7 +98,8 @@ class ScheduleTaskSync {
     final known = state != null && state.userId == user.id && state.orgId == user.orgId ? state.version : null;
     final page = await transport.fetch(version: known);
     if (page == null) return false;
-    if (!page.changed && known != null) return true;
+    // Sin cambios no se toca nada; sin versión enviada no hay nada que dar por vigente.
+    if (!page.changed) return known != null;
     await db.replaceScheduleTasks(
       orgId: user.orgId,
       userId: user.id,

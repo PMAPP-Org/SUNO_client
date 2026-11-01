@@ -21,6 +21,8 @@ import 'package:drift/drift.dart';
 import 'package:meta/meta.dart';
 
 import '../../data/local/database.dart';
+import '../../data/local/schedule_task_repository.dart';
+import '../schedule/progress_input.dart';
 import 'sync_engine.dart';
 import 'sync_transport.dart';
 
@@ -40,6 +42,7 @@ class QuarantinedVisit {
     required this.violations,
     required this.serverData,
     required this.ops,
+    this.taskLabels = const {},
   });
 
   /// La visita tal como está en el teléfono (la versión del agente).
@@ -67,6 +70,17 @@ class QuarantinedVisit {
 
   /// Las operaciones en cuarentena del grupo, en orden de envío.
   final List<OutboxOp> ops;
+
+  /// Etiqueta (EDT y nombre) de las tareas conocidas en el teléfono, por id.
+  final Map<String, String> taskLabels;
+
+  /// ¿El agente editó la tarea o el % de esta visita? Solo entonces su
+  /// versión los lleva; si no, "enviar la mía" respeta lo que tenga el servidor.
+  bool get editedTask => ops.any((op) {
+    if (op.entity != 'visit' || op.opType == 'delete') return false;
+    final payload = jsonDecode(op.payloadJson);
+    return payload is Map && (payload.containsKey('task_id') || payload.containsKey('progress_pct'));
+  });
 
   Map<String, Object?> get localAnswers => (jsonDecode(visit.answersJson) as Map).cast<String, Object?>();
 
@@ -104,6 +118,17 @@ class QuarantinedVisit {
     ];
     for (final (key, mine) in [('lat', visit.lat), ('lon', visit.lon)]) {
       if (!_sameJson(mine, server[key])) diffs.add((field: key, mine: mine, server: server[key]));
+    }
+    if (editedTask) {
+      String? task(Object? id) => id is String ? taskLabels[id] ?? id : null;
+      String? pct(Object? value) => value is num ? '${formatProgressPct(value.toDouble())} %' : null;
+      if (!_sameJson(visit.taskId, server['task_id'])) {
+        diffs.add((field: 'task_id', mine: task(visit.taskId), server: task(server['task_id'])));
+      }
+      final serverPct = server['progress_pct'];
+      if (!_sameJson(visit.progressPct, serverPct is num ? serverPct.toDouble() : serverPct)) {
+        diffs.add((field: 'progress_pct', mine: pct(visit.progressPct), server: pct(serverPct)));
+      }
     }
     return diffs;
   }
@@ -152,8 +177,20 @@ class QuarantineService {
         row.id: row.name,
     };
 
+    final taskIds = <String>{
+      for (final v in visits) ?v.taskId,
+      for (final op in ops) ..._taskIdsOf(op),
+    };
+    final taskLabels = taskIds.isEmpty
+        ? const <String, String>{}
+        : {
+            for (final row in await (db.select(db.scheduleTasks)..where((t) => t.id.isIn(taskIds))).get())
+              row.id: ScheduleTaskItem.fromRow(row).label,
+          };
+
     return [
-      for (final visit in visits) _describe(visit, names[visit.templateVersionId], byVisit[visit.id]!),
+      for (final visit in visits)
+        _describe(visit, names[visit.templateVersionId], byVisit[visit.id]!, taskLabels),
     ];
   }
 
@@ -250,8 +287,8 @@ class QuarantineService {
       ('lon', visit.lon),
       ('accuracy_m', visit.accuracyM),
       ('altitude_m', visit.altitudeM),
-      ('task_id', visit.taskId),
-      ('progress_pct', visit.progressPct),
+      // La tarea solo si el agente la editó: si no, queda la del servidor.
+      if (item.editedTask) ...[('task_id', visit.taskId), ('progress_pct', visit.progressPct)],
     ]) {
       if (!_sameJson(mine, server[key])) changed[key] = mine;
     }
@@ -355,7 +392,19 @@ class QuarantineService {
   Future<void> _deleteOps(List<OutboxOp> ops) =>
       (db.delete(db.outboxOps)..where((t) => t.opUuid.isIn([for (final op in ops) op.opUuid]))).go();
 
-  QuarantinedVisit _describe(Visit visit, String? templateName, List<OutboxOp> ops) {
+  /// Las tareas que cita el servidor en una fila de conflicto (para etiquetarlas).
+  static Iterable<String> _taskIdsOf(OutboxOp op) {
+    final row = op.serverRowJson == null ? null : jsonDecode(op.serverRowJson!);
+    final data = row is Map ? row['data'] : null;
+    return data is Map && data['task_id'] is String ? [data['task_id'] as String] : const [];
+  }
+
+  QuarantinedVisit _describe(
+    Visit visit,
+    String? templateName,
+    List<OutboxOp> ops,
+    Map<String, String> taskLabels,
+  ) {
     final visitOp = ops.where((op) => op.entity == 'visit').firstOrNull;
     final lead = visitOp ?? ops.first;
     final isConflict = lead.errorCode == 'conflict' && lead.serverRowJson != null;
@@ -371,6 +420,7 @@ class QuarantineService {
           ? (serverRecord['data'] as Map).cast<String, dynamic>()
           : null,
       ops: ops,
+      taskLabels: taskLabels,
     );
   }
 

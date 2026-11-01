@@ -171,4 +171,110 @@ void main() {
     expect(op.baseVersion, 3);
     expect(jsonDecode(op.payloadJson), {'id': 'visit-1', 'task_id': 'task-1', 'progress_pct': 50.0});
   });
+
+
+  /// Conflicto sobre una edición del agente: [payload] es lo que editó; la
+  /// visita local lleva task-1 al 50 % y el servidor task-2 al 30 %.
+  Future<QuarantinedVisit> conflictOnEdit(Map<String, Object?> payload) async {
+    await db
+        .into(db.visits)
+        .insert(
+          VisitsCompanion.insert(
+            id: 'visit-1',
+            orgId: 'org-1',
+            version: 1,
+            templateVersionId: 'tv-1',
+            answersJson: '{"notas":"mía"}',
+            capturedAt: DateTime.utc(2026, 11, 1),
+            deviceId: 'device-1',
+            createdBy: 'user-1',
+            taskId: const Value('task-1'),
+            progressPct: const Value(50.0),
+          ),
+        );
+    await engine.enqueueVisitOp(entityId: 'visit-1', opType: 'update', baseVersion: 1, payload: {'id': 'visit-1', ...payload});
+    await pushWith(
+      (op) => PushOpOutcome(
+        opUuid: op.opUuid,
+        status: 'conflict',
+        serverVersion: 3,
+        serverRow: {
+          'entity': 'visit',
+          'data': {
+            'id': 'visit-1',
+            'org_id': 'org-1',
+            'version': 3,
+            'change_seq': 9,
+            'deleted_at': null,
+            'assignment_id': null,
+            'template_version_id': 'tv-1',
+            'answers': {'notas': 'del servidor'},
+            'lat': null,
+            'lon': null,
+            'accuracy_m': null,
+            'altitude_m': null,
+            'captured_at': '2026-11-01T00:00:00.000Z',
+            'device_id': 'device-1',
+            'created_by': 'user-1',
+            'task_id': 'task-2',
+            'progress_pct': 30.0,
+          },
+        },
+      ),
+    );
+    return (await service.list(orgId: 'org-1')).single;
+  }
+
+  test('conflicto: si el agente no tocó la tarea, "enviar la mía" no la manda', () async {
+    final item = await conflictOnEdit({'answers': {'notas': 'mía'}});
+    expect(item.editedTask, isFalse);
+    expect([for (final d in item.differences) d.field], ['notas']);
+
+    await service.resendMine(item);
+
+    final op = await db.select(db.outboxOps).getSingle();
+    expect(jsonDecode(op.payloadJson), {'id': 'visit-1', 'answers': {'notas': 'mía'}});
+  });
+
+  test('conflicto: si el agente editó la tarea, "enviar la mía" la manda con su %', () async {
+    final item = await conflictOnEdit({'task_id': 'task-1', 'progress_pct': 50.0});
+    expect(item.editedTask, isTrue);
+
+    await service.resendMine(item);
+
+    final op = await db.select(db.outboxOps).getSingle();
+    final payload = jsonDecode(op.payloadJson) as Map<String, dynamic>;
+    expect(payload['task_id'], 'task-1');
+    expect(payload['progress_pct'], 50.0);
+  });
+
+  test('conflicto: las diferencias de tarea y % se leen con EDT, nombre y porcentaje', () async {
+    await db.replaceScheduleTasks(
+      orgId: 'org-1',
+      userId: 'user-1',
+      version: 'v1',
+      now: DateTime.utc(2026, 11, 2),
+      rows: [
+        for (final (i, (id, wbs, name)) in [('task-1', '1.1', 'Localización'), ('task-2', '1.2', 'Descapote')].indexed)
+          ScheduleTasksCompanion.insert(
+            id: id,
+            orgId: 'org-1',
+            userId: 'user-1',
+            projectId: 'p-1',
+            projectName: 'Obra Norte',
+            wbs: wbs,
+            outlineNumber: wbs,
+            name: name,
+            position: i,
+          ),
+      ],
+    );
+    final item = await conflictOnEdit({'task_id': 'task-1', 'progress_pct': 50.0});
+
+    final byField = {for (final d in item.differences) d.field: d};
+    expect(byField['task_id']!.mine, '1.1 Localización');
+    expect(byField['task_id']!.server, '1.2 Descapote');
+    expect(byField['progress_pct']!.mine, '50 %');
+    expect(byField['progress_pct']!.server, '30 %');
+  });
 }
