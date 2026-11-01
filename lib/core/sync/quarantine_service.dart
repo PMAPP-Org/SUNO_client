@@ -78,6 +78,11 @@ class QuarantinedVisit {
   /// señaló respuestas concretas.
   bool get canCorrect => kind == QuarantineKind.rejected && answerViolations.isNotEmpty;
 
+  /// El servidor rechazó la tarea del cronograma (retirada, ya no es
+  /// responsable, % fuera de rango…): se puede reenviar sin ella.
+  bool get taskRejected =>
+      kind == QuarantineKind.rejected && violations.any((v) => v.field == 'task_id' || v.field == 'progress_pct');
+
   /// Diferencias campo a campo con el servidor (conflictos): respuestas y
   /// ubicación. Las claves de respuesta van tal cual (`altura_cm`).
   List<FieldDiff> get differences {
@@ -174,6 +179,32 @@ class QuarantineService {
     }
   });
 
+  /// Rechazo por la tarea: la visita se queda sin tarea y se reenvía. En un
+  /// alta los dos campos se quitan; en una edición viajan en `null`
+  /// (desvincular, que no exige ser responsable).
+  Future<void> unlinkTask(QuarantinedVisit item) => db.transaction(() async {
+    await (db.update(db.visits)..where((t) => t.id.equals(item.visit.id))).write(
+      const VisitsCompanion(taskId: Value(null), progressPct: Value(null)),
+    );
+    for (final op in item.ops) {
+      if (op.entity == 'visit' && op.opType != 'delete') {
+        final payload = (jsonDecode(op.payloadJson) as Map).cast<String, Object?>();
+        if (op.opType == 'create') {
+          payload
+            ..remove('task_id')
+            ..remove('progress_pct');
+        } else if (payload.containsKey('task_id') || payload.containsKey('progress_pct')) {
+          payload['task_id'] = null;
+          payload['progress_pct'] = null;
+        }
+        await (db.update(db.outboxOps)..where((t) => t.opUuid.equals(op.opUuid))).write(
+          OutboxOpsCompanion(payloadJson: Value(jsonEncode(payload))),
+        );
+      }
+      await engine.retryQuarantined(op.opUuid);
+    }
+  });
+
   /// Conflicto: la versión del agente gana. Se envía como `update` sobre la
   /// versión **actual** del servidor (su `version` como `base_version`), con
   /// los campos en los que difieren. Si ya no difieren, es lo mismo que
@@ -212,8 +243,15 @@ class QuarantineService {
       ('lon', visit.lon),
       ('accuracy_m', visit.accuracyM),
       ('altitude_m', visit.altitudeM),
+      ('task_id', visit.taskId),
+      ('progress_pct', visit.progressPct),
     ]) {
       if (!_sameJson(mine, server[key])) changed[key] = mine;
+    }
+    // El servidor exige `task_id` y `progress_pct` juntos.
+    if (changed.containsKey('task_id') || changed.containsKey('progress_pct')) {
+      changed['task_id'] = visit.taskId;
+      changed['progress_pct'] = visit.progressPct;
     }
     if (changed.isEmpty) {
       await _acceptServer(item, server);

@@ -66,6 +66,15 @@ class CaptureIdentity {
   final List<String> roles;
 }
 
+/// Costos, etapa 1: la tarea del cronograma y el % acumulado que reporta una
+/// visita. Viajan siempre juntos (`task_id` + `progress_pct`).
+@immutable
+class TaskProgress {
+  const TaskProgress({required this.taskId, required this.pct});
+  final String taskId;
+  final double pct;
+}
+
 class VisitCapture {
   VisitCapture({required this.db, String Function()? idGenerator, DateTime Function()? clock})
     : _newId = idGenerator ?? (() => const Uuid().v7()),
@@ -90,6 +99,7 @@ class VisitCapture {
     List<PendingAttachment> extraPhotos = const [],
     LocationFix? fix,
     String? assignmentId,
+    TaskProgress? progress,
   }) async {
     final visitId = _newId();
     final now = _now().toUtc();
@@ -108,6 +118,8 @@ class VisitCapture {
       'captured_at': now.toIso8601String(),
       'device_id': identity.deviceId,
       'assignment_id': ?assignmentId,
+      // Costos, etapa 1. Sin tarea no se envían: un servidor anterior los rechazaría.
+      if (progress != null) ...{'task_id': progress.taskId, 'progress_pct': progress.pct},
       if (fix != null) ...{
         'lat': fix.lat,
         'lon': fix.lon,
@@ -132,6 +144,8 @@ class VisitCapture {
         deviceId: identity.deviceId,
         createdBy: identity.userId,
         assignmentId: Value(assignmentId),
+        taskId: Value(progress?.taskId),
+        progressPct: Value(progress?.pct),
       ),
       attachments: [
         for (final (order, a) in attachments.indexed)
