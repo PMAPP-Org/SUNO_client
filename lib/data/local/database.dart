@@ -20,7 +20,17 @@ part 'database.g.dart';
 /// instancia (inyectada vía Riverpod desde el Paso 22 en adelante) — nunca
 /// construye la suya propia.
 @DriftDatabase(
-  tables: [Visits, OutboxOps, AttachmentQueue, SyncCursor, FormTemplateVersions, VisitAttachments, Assignments],
+  tables: [
+    Visits,
+    OutboxOps,
+    AttachmentQueue,
+    SyncCursor,
+    FormTemplateVersions,
+    VisitAttachments,
+    Assignments,
+    ScheduleTasks,
+    ScheduleTaskState,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase._(super.executor);
@@ -53,7 +63,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.forTesting(QueryExecutor executor) => AppDatabase._(executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -110,6 +120,16 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(visits, visits.assignmentId);
         await delete(syncCursor).go();
       }
+      // v8 → v9 (costos, etapa 1): tarea y % de cada visita, y la lista de
+      // tareas del cronograma del agente. El cursor se reinicia por lo mismo
+      // que en la v8: las visitas ya bajadas no traían su tarea.
+      if (from < 9) {
+        await migrator.addColumn(visits, visits.taskId);
+        await migrator.addColumn(visits, visits.progressPct);
+        await migrator.createTable(scheduleTasks);
+        await migrator.createTable(scheduleTaskState);
+        await delete(syncCursor).go();
+      }
     },
   );
 
@@ -131,6 +151,28 @@ class AppDatabase extends _$AppDatabase {
   /// la caché de plantillas cuando encuentra una fila corrupta (Paso 21): los
   /// upserts del pull son idempotentes, así que repetirlo solo cuesta datos.
   Future<void> resetCursor() => (delete(syncCursor)..where((t) => t.id.equals(0))).go();
+
+  /// La versión de la última lista de tareas del cronograma, si hay.
+  Future<ScheduleTaskListState?> readScheduleTaskState() =>
+      (select(scheduleTaskState)..where((t) => t.id.equals(0))).getSingleOrNull();
+
+  /// Reemplaza la lista de tareas del cronograma y su versión (costos, etapa
+  /// 1) en una sola transacción: nunca queda media lista.
+  Future<void> replaceScheduleTasks({
+    required String orgId,
+    required String userId,
+    required String version,
+    required List<ScheduleTasksCompanion> rows,
+    required DateTime now,
+  }) {
+    return transaction(() async {
+      await delete(scheduleTasks).go();
+      await batch((b) => b.insertAll(scheduleTasks, rows));
+      await into(scheduleTaskState).insertOnConflictUpdate(
+        ScheduleTaskStateCompanion.insert(orgId: orgId, userId: userId, version: version, updatedAt: now),
+      );
+    });
+  }
 
   /// El outbox es una tabla más del mismo esquema (ADR-002): "guardar
   /// visita + encolar operación" es una única transacción SQLite, no dos

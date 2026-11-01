@@ -450,4 +450,63 @@ void main() {
     expect(await db.select(db.assignments).get(), isEmpty);
     expect(await db.readCursor(), isNull, reason: 'el pull vuelve a traer todo, asignaciones incluidas');
   });
+
+  test('v8 → v9: las visitas siguen sin tarea, nacen las tablas de tareas y el pull vuelve a empezar', () async {
+    final raw = sqlite3.sqlite3.openInMemory();
+    addTearDown(raw.close);
+
+    // Esquema v8 (Fase B): v7 + `visits.assignment_id` y `assignments`.
+    raw.execute('''
+      CREATE TABLE visits (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, version INTEGER NOT NULL,
+        change_seq INTEGER NULL, deleted_at INTEGER NULL, template_version_id TEXT NOT NULL,
+        answers_json TEXT NOT NULL, lat REAL NULL, lon REAL NULL, accuracy_m REAL NULL,
+        altitude_m REAL NULL, captured_at INTEGER NOT NULL, device_id TEXT NOT NULL,
+        created_by TEXT NOT NULL, server_data_json TEXT NULL, assignment_id TEXT NULL
+      );
+      CREATE TABLE outbox_ops (
+        op_uuid TEXT NOT NULL PRIMARY KEY, entity TEXT NOT NULL, entity_id TEXT NOT NULL,
+        op_type TEXT NOT NULL, base_version INTEGER NULL, payload_json TEXT NOT NULL,
+        state TEXT NOT NULL, created_at INTEGER NOT NULL, error_message TEXT NULL,
+        error_code TEXT NULL, error_fields_json TEXT NULL, server_row_json TEXT NULL
+      );
+      CREATE TABLE attachment_queue (
+        sha256 TEXT NOT NULL PRIMARY KEY, local_path TEXT NOT NULL, state TEXT NOT NULL,
+        created_at INTEGER NOT NULL, mime TEXT NOT NULL DEFAULT 'image/jpeg',
+        attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at INTEGER NULL, last_error TEXT NULL
+      );
+      CREATE TABLE sync_cursor (id INTEGER NOT NULL PRIMARY KEY, cursor TEXT NOT NULL, updated_at INTEGER NOT NULL);
+      CREATE TABLE form_template_versions (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, template_id TEXT NOT NULL,
+        version_number INTEGER NOT NULL, name TEXT NULL, definition_json TEXT NOT NULL,
+        published_at INTEGER NULL, deleted_at INTEGER NULL, version INTEGER NOT NULL,
+        change_seq INTEGER NULL
+      );
+      CREATE TABLE visit_attachments (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, visit_id TEXT NOT NULL,
+        sha256 TEXT NOT NULL, role TEXT NOT NULL, caption TEXT NULL, captured_at INTEGER NOT NULL,
+        position INTEGER NOT NULL, version INTEGER NULL, change_seq INTEGER NULL
+      );
+      CREATE TABLE assignments (
+        id TEXT NOT NULL PRIMARY KEY, org_id TEXT NOT NULL, version INTEGER NOT NULL,
+        change_seq INTEGER NULL, template_version_id TEXT NOT NULL, assigned_to TEXT NOT NULL,
+        title TEXT NULL, scheduled_for INTEGER NULL, lat REAL NULL, lon REAL NULL
+      );
+    ''');
+    raw.execute('PRAGMA user_version = 8;');
+    raw.execute(
+      "INSERT INTO visits (id, org_id, version, template_version_id, answers_json, captured_at, device_id, created_by, assignment_id) "
+      "VALUES ('visit-1', 'org-1', 2, 'tv-1', '{}', 1767225600, 'device-1', 'user-1', 'asg-1');",
+    );
+    raw.execute("INSERT INTO sync_cursor (id, cursor, updated_at) VALUES (0, 'c1:00000000000000000099', 1767225600);");
+
+    final db = AppDatabase.forTesting(NativeDatabase.opened(raw));
+    addTearDown(db.close);
+
+    final visit = await db.select(db.visits).getSingle();
+    expect((visit.assignmentId, visit.taskId, visit.progressPct), ('asg-1', null, null));
+    expect(await db.select(db.scheduleTasks).get(), isEmpty);
+    expect(await db.readScheduleTaskState(), isNull);
+    expect(await db.readCursor(), isNull, reason: 'el pull vuelve a traer las visitas, ahora con su tarea');
+  });
 }

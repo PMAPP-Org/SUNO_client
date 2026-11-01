@@ -40,6 +40,12 @@ class Visits extends Table {
   /// Fase B: la asignación que originó la visita, si la hubo.
   TextColumn get assignmentId => text().nullable()();
 
+  /// Costos, etapa 1 (`schemaVersion` 9): la tarea del cronograma cuyo avance
+  /// reporta la visita y el % acumulado. Los dos o ninguno, como en el
+  /// servidor (`visit_task_progress_pair`).
+  TextColumn get taskId => text().nullable()();
+  RealColumn get progressPct => real().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -237,6 +243,49 @@ class Assignments extends Table {
   DateTimeColumn get scheduledFor => dateTime().nullable()();
   RealColumn get lat => real().nullable()();
   RealColumn get lon => real().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Avance de campo (costos, etapa 1): tareas del cronograma de las que el
+/// usuario con sesión es responsable, tal como las entrega
+/// `GET /v1/projects/tasks`. `ScheduleTaskSync` las reemplaza enteras cuando la
+/// lista cambia: lo que deja de venir (tarea retirada, responsabilidad
+/// quitada) desaparece. Añadida en `schemaVersion` 9.
+@DataClassName('ScheduleTaskRow')
+class ScheduleTasks extends Table {
+  TextColumn get id => text()();
+  TextColumn get orgId => text()();
+
+  /// De quién es la lista: en un teléfono compartido solo se ofrecen las del
+  /// usuario con sesión (`ScheduleTaskRepository.forUser`).
+  TextColumn get userId => text()();
+  TextColumn get projectId => text()();
+  TextColumn get projectName => text()();
+  TextColumn get wbs => text()();
+  TextColumn get outlineNumber => text()();
+  TextColumn get name => text()();
+
+  /// % de la última visita validada de la tarea; `null` si no hay.
+  RealColumn get lastValidatedPct => real().nullable()();
+
+  /// Orden en que llegó (proyecto y orden del Project).
+  IntColumn get position => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// `version` de la última lista de tareas descargada (fila única, `id` = 0):
+/// se reenvía para que el servidor conteste "sin cambios". `schemaVersion` 9.
+@DataClassName('ScheduleTaskListState')
+class ScheduleTaskState extends Table {
+  IntColumn get id => integer().clientDefault(() => 0)();
+  TextColumn get orgId => text()();
+  TextColumn get userId => text()();
+  TextColumn get version => text()();
+  DateTimeColumn get updatedAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
