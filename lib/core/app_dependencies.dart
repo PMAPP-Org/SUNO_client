@@ -37,6 +37,7 @@ import 'security/pin_store.dart';
 import 'session/device_handover.dart';
 import 'security/secure_storage.dart';
 import 'security/trust_store.dart';
+import 'schedule/schedule_task_sync.dart';
 import 'sync/quarantine_service.dart';
 import 'sync/sync_coordinator.dart';
 import 'sync/sync_engine.dart';
@@ -47,12 +48,14 @@ import '../data/http/attachment_api_client.dart';
 import '../data/http/auth_interceptor.dart';
 import '../data/http/basemap_api_client.dart';
 import '../data/http/layer_api_client.dart';
+import '../data/http/schedule_task_api_client.dart';
 import '../data/http/consent_api_client.dart';
 import '../data/http/sync_api_client.dart';
 import '../data/local/assignment_repository.dart';
 import '../data/local/database.dart';
 import '../data/local/encryption_key_store.dart';
 import '../data/local/form_template_repository.dart';
+import '../data/local/schedule_task_repository.dart';
 import '../data/local/visit_status_repository.dart';
 import '../data/location/geolocator_location_source.dart';
 import '../data/location/external_route_launcher.dart';
@@ -78,6 +81,7 @@ class AppDependencies {
     VisitCapture? visitCapture,
     TrustStore? trustStore,
     ConsentService? consent,
+    ScheduleTaskSync? scheduleTasks,
   }) : gpsSettings = gpsSettings ?? GpsSettings(HardenedSecureStorage()),
        coordinates = coordinates ?? CoordinateSettings(HardenedSecureStorage()),
        layers =
@@ -109,6 +113,16 @@ class AppDependencies {
              transport: ConsentApiClient(dio),
              accessTokenProvider: () => authController.accessToken ?? '',
              deviceId: deviceId,
+           ),
+       scheduleTasks =
+           scheduleTasks ??
+           ScheduleTaskSync(
+             db: database,
+             transport: ScheduleTaskApiClient(dio: dio, accessTokenProvider: () => authController.accessToken ?? ''),
+             currentUser: () => switch (authController.state) {
+               Authenticated(:final user) => user,
+               _ => null,
+             },
            ),
        locationSource = locationSource ?? const GeolocatorLocationSource(),
        routeLauncher = routeLauncher ?? const ExternalRouteLauncher(),
@@ -145,6 +159,12 @@ class AppDependencies {
   /// Ley 1581: autorización del titular (aviso de privacidad antes del login)
   /// y envío de su prueba al servidor.
   final ConsentService consent;
+
+  /// Avance de campo (costos, etapa 1): descarga de las tareas del cronograma.
+  final ScheduleTaskSync scheduleTasks;
+
+  /// Las tareas guardadas, para la captura.
+  ScheduleTaskRepository get scheduleTaskRepository => ScheduleTaskRepository(database);
   final AuthController authController;
   final String deviceId;
   final LocationSource locationSource;
@@ -185,6 +205,7 @@ class AppDependencies {
     outstandingAttachments: attachmentUploadService.outstanding,
     pull: syncEngine.pull,
     isAuthenticated: () => authController.state is Authenticated,
+    refreshTasks: scheduleTasks.refresh,
   );
 
   /// Paso 22: dónde se guardan las firmas y el guardado de una visita.

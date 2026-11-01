@@ -66,6 +66,15 @@ class CaptureIdentity {
   final List<String> roles;
 }
 
+/// Costos, etapa 1: la tarea del cronograma y el % acumulado que reporta una
+/// visita. Viajan siempre juntos (`task_id` + `progress_pct`).
+@immutable
+class TaskProgress {
+  const TaskProgress({required this.taskId, required this.pct});
+  final String taskId;
+  final double pct;
+}
+
 class VisitCapture {
   VisitCapture({required this.db, String Function()? idGenerator, DateTime Function()? clock})
     : _newId = idGenerator ?? (() => const Uuid().v7()),
@@ -90,6 +99,7 @@ class VisitCapture {
     List<PendingAttachment> extraPhotos = const [],
     LocationFix? fix,
     String? assignmentId,
+    TaskProgress? progress,
   }) async {
     final visitId = _newId();
     final now = _now().toUtc();
@@ -108,6 +118,8 @@ class VisitCapture {
       'captured_at': now.toIso8601String(),
       'device_id': identity.deviceId,
       'assignment_id': ?assignmentId,
+      // Costos, etapa 1. Sin tarea no se envían: un servidor anterior los rechazaría.
+      if (progress != null) ...{'task_id': progress.taskId, 'progress_pct': progress.pct},
       if (fix != null) ...{
         'lat': fix.lat,
         'lon': fix.lon,
@@ -132,6 +144,8 @@ class VisitCapture {
         deviceId: identity.deviceId,
         createdBy: identity.userId,
         assignmentId: Value(assignmentId),
+        taskId: Value(progress?.taskId),
+        progressPct: Value(progress?.pct),
       ),
       attachments: [
         for (final (order, a) in attachments.indexed)
@@ -182,15 +196,23 @@ class VisitCapture {
     required Map<String, PendingAttachment> captured,
     List<PendingAttachment> extraPhotos = const [],
     LocationFix? fix,
+
+    /// Costos, etapa 1. `null`: no se toca. `(value: null)`: desvincular.
+    /// `(value: TaskProgress(...))`: poner o cambiar la tarea y su %.
+    ({TaskProgress? value})? progress,
   }) => db.transaction(() async {
     final visit = await _editable(identity, visitId);
     if (visit is! Visit) return visit as VisitChange;
     final now = _now().toUtc();
 
     final kept = keptAnswers(definition, answers);
+    final link = progress?.value;
+    final progressChanged = progress != null && (link?.taskId != visit.taskId || link?.pct != visit.progressPct);
     final changed = <String, Object?>{
       if (jsonEncode(kept) != visit.answersJson) 'answers': kept,
       if (fix != null) ...{'lat': fix.lat, 'lon': fix.lon, 'accuracy_m': fix.accuracyM, 'altitude_m': fix.altitudeM},
+      // El servidor exige el par completo, también en `update`.
+      if (progressChanged) ...{'task_id': link?.taskId, 'progress_pct': link?.pct},
     };
     final attachments = [
       for (final (field, value) in answeredFields(definition, kept))
@@ -210,6 +232,8 @@ class VisitCapture {
           lon: fix == null ? const Value.absent() : Value(fix.lon),
           accuracyM: fix == null ? const Value.absent() : Value(fix.accuracyM),
           altitudeM: fix == null ? const Value.absent() : Value(fix.altitudeM),
+          taskId: progressChanged ? Value(link?.taskId) : const Value.absent(),
+          progressPct: progressChanged ? Value(link?.pct) : const Value.absent(),
         ),
       );
       await db

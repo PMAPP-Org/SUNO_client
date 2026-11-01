@@ -105,6 +105,13 @@ String formErrorMessage(AppLocalizations l10n, String reason) => switch (reason)
   'too_many_selected' => l10n.formErrorTooManySelected,
   'too_few_rows' => l10n.formErrorTooFewRows,
   'too_many_rows' => l10n.formErrorTooManyRows,
+  // Costos, etapa 1: rechazos del push por la tarea del cronograma.
+  'task_retired' => l10n.formErrorTaskRetired,
+  'task_is_summary' => l10n.formErrorTaskIsSummary,
+  'not_responsible' => l10n.formErrorNotResponsible,
+  'task_progress_pair' => l10n.formErrorTaskProgressPair,
+  'visit_validated' => l10n.formErrorVisitValidated,
+  'greater_than_equal' || 'less_than_equal' => l10n.formErrorOutOfRange,
   _ => l10n.formErrorInvalid,
 };
 

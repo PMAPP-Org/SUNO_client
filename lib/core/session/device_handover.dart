@@ -59,6 +59,9 @@ class DeviceHandover {
       await db.delete(db.visitAttachments).go();
       await db.delete(db.visits).go();
       await db.delete(db.formTemplateVersions).go();
+      // Costos, etapa 1: la lista de tareas también es de la otra organización.
+      await db.delete(db.scheduleTasks).go();
+      await db.delete(db.scheduleTaskState).go();
       await db.delete(db.attachmentQueue).go();
       // El cursor es de la organización anterior: el pull empieza de cero.
       await db.delete(db.syncCursor).go();

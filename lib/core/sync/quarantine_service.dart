@@ -21,6 +21,8 @@ import 'package:drift/drift.dart';
 import 'package:meta/meta.dart';
 
 import '../../data/local/database.dart';
+import '../../data/local/schedule_task_repository.dart';
+import '../schedule/progress_input.dart';
 import 'sync_engine.dart';
 import 'sync_transport.dart';
 
@@ -40,6 +42,7 @@ class QuarantinedVisit {
     required this.violations,
     required this.serverData,
     required this.ops,
+    this.taskLabels = const {},
   });
 
   /// La visita tal como está en el teléfono (la versión del agente).
@@ -68,6 +71,17 @@ class QuarantinedVisit {
   /// Las operaciones en cuarentena del grupo, en orden de envío.
   final List<OutboxOp> ops;
 
+  /// Etiqueta (EDT y nombre) de las tareas conocidas en el teléfono, por id.
+  final Map<String, String> taskLabels;
+
+  /// ¿El agente editó la tarea o el % de esta visita? Solo entonces su
+  /// versión los lleva; si no, "enviar la mía" respeta lo que tenga el servidor.
+  bool get editedTask => ops.any((op) {
+    if (op.entity != 'visit' || op.opType == 'delete') return false;
+    final payload = jsonDecode(op.payloadJson);
+    return payload is Map && (payload.containsKey('task_id') || payload.containsKey('progress_pct'));
+  });
+
   Map<String, Object?> get localAnswers => (jsonDecode(visit.answersJson) as Map).cast<String, Object?>();
 
   /// El servidor ya tiene la visita: lo rechazado es una edición o un
@@ -77,6 +91,18 @@ class QuarantinedVisit {
   /// ¿Tiene sentido abrir el formulario para corregir? Solo si el servidor
   /// señaló respuestas concretas.
   bool get canCorrect => kind == QuarantineKind.rejected && answerViolations.isNotEmpty;
+
+  /// El servidor rechazó el cambio porque la visita ya fue validada
+  /// (`visit_validated`): reenviarlo, también sin tarea, se rechazaría igual.
+  bool get visitValidated => kind == QuarantineKind.rejected && violations.any((v) => v.reason == 'visit_validated');
+
+  /// El servidor rechazó la tarea del cronograma (retirada, ya no es
+  /// responsable, % fuera de rango…): se puede reenviar sin ella. No si la
+  /// visita ya está validada: quitar la tarea sería otro cambio rechazado.
+  bool get taskRejected =>
+      kind == QuarantineKind.rejected &&
+      !visitValidated &&
+      violations.any((v) => v.field == 'task_id' || v.field == 'progress_pct');
 
   /// Diferencias campo a campo con el servidor (conflictos): respuestas y
   /// ubicación. Las claves de respuesta van tal cual (`altura_cm`).
@@ -92,6 +118,17 @@ class QuarantinedVisit {
     ];
     for (final (key, mine) in [('lat', visit.lat), ('lon', visit.lon)]) {
       if (!_sameJson(mine, server[key])) diffs.add((field: key, mine: mine, server: server[key]));
+    }
+    if (editedTask) {
+      String? task(Object? id) => id is String ? taskLabels[id] ?? id : null;
+      String? pct(Object? value) => value is num ? '${formatProgressPct(value.toDouble())} %' : null;
+      if (!_sameJson(visit.taskId, server['task_id'])) {
+        diffs.add((field: 'task_id', mine: task(visit.taskId), server: task(server['task_id'])));
+      }
+      final serverPct = server['progress_pct'];
+      if (!_sameJson(visit.progressPct, serverPct is num ? serverPct.toDouble() : serverPct)) {
+        diffs.add((field: 'progress_pct', mine: pct(visit.progressPct), server: pct(serverPct)));
+      }
     }
     return diffs;
   }
@@ -140,8 +177,20 @@ class QuarantineService {
         row.id: row.name,
     };
 
+    final taskIds = <String>{
+      for (final v in visits) ?v.taskId,
+      for (final op in ops) ..._taskIdsOf(op),
+    };
+    final taskLabels = taskIds.isEmpty
+        ? const <String, String>{}
+        : {
+            for (final row in await (db.select(db.scheduleTasks)..where((t) => t.id.isIn(taskIds))).get())
+              row.id: ScheduleTaskItem.fromRow(row).label,
+          };
+
     return [
-      for (final visit in visits) _describe(visit, names[visit.templateVersionId], byVisit[visit.id]!),
+      for (final visit in visits)
+        _describe(visit, names[visit.templateVersionId], byVisit[visit.id]!, taskLabels),
     ];
   }
 
@@ -171,6 +220,54 @@ class QuarantineService {
         );
       }
       await engine.retryQuarantined(op.opUuid);
+    }
+  });
+
+  /// Rechazo por la tarea: la visita se queda sin tarea y se reenvía. En un
+  /// alta los dos campos se quitan; en una edición viajan en `null`
+  /// (desvincular, que no exige ser responsable).
+  Future<void> unlinkTask(QuarantinedVisit item) => db.transaction(() async {
+    await (db.update(db.visits)..where((t) => t.id.equals(item.visit.id))).write(
+      const VisitsCompanion(taskId: Value(null), progressPct: Value(null)),
+    );
+    for (final op in item.ops) {
+      if (op.entity == 'visit' && op.opType != 'delete') {
+        final payload = (jsonDecode(op.payloadJson) as Map).cast<String, Object?>();
+        if (op.opType == 'create') {
+          payload
+            ..remove('task_id')
+            ..remove('progress_pct');
+        } else if (payload.containsKey('task_id') || payload.containsKey('progress_pct')) {
+          payload['task_id'] = null;
+          payload['progress_pct'] = null;
+        }
+        await (db.update(db.outboxOps)..where((t) => t.opUuid.equals(op.opUuid))).write(
+          OutboxOpsCompanion(payloadJson: Value(jsonEncode(payload))),
+        );
+      }
+      await engine.retryQuarantined(op.opUuid);
+    }
+    // Ediciones posteriores aún sin enviar que llevan la tarea: si salieran,
+    // la volverían a poner. Se quedan con el par en `null`.
+    final quarantined = {for (final op in item.ops) op.opUuid};
+    final later =
+        await (db.select(db.outboxOps)..where(
+              (t) =>
+                  t.entity.equals('visit') &
+                  t.entityId.equals(item.visit.id) &
+                  t.opType.equals('update') &
+                  t.state.equals(_pending),
+            ))
+            .get();
+    for (final op in later) {
+      if (quarantined.contains(op.opUuid)) continue;
+      final payload = (jsonDecode(op.payloadJson) as Map).cast<String, Object?>();
+      if (!payload.containsKey('task_id') && !payload.containsKey('progress_pct')) continue;
+      payload['task_id'] = null;
+      payload['progress_pct'] = null;
+      await (db.update(db.outboxOps)..where((t) => t.opUuid.equals(op.opUuid))).write(
+        OutboxOpsCompanion(payloadJson: Value(jsonEncode(payload))),
+      );
     }
   });
 
@@ -212,8 +309,15 @@ class QuarantineService {
       ('lon', visit.lon),
       ('accuracy_m', visit.accuracyM),
       ('altitude_m', visit.altitudeM),
+      // La tarea solo si el agente la editó: si no, queda la del servidor.
+      if (item.editedTask) ...[('task_id', visit.taskId), ('progress_pct', visit.progressPct)],
     ]) {
       if (!_sameJson(mine, server[key])) changed[key] = mine;
+    }
+    // El servidor exige `task_id` y `progress_pct` juntos.
+    if (changed.containsKey('task_id') || changed.containsKey('progress_pct')) {
+      changed['task_id'] = visit.taskId;
+      changed['progress_pct'] = visit.progressPct;
     }
     if (changed.isEmpty) {
       await _acceptServer(item, server);
@@ -310,7 +414,19 @@ class QuarantineService {
   Future<void> _deleteOps(List<OutboxOp> ops) =>
       (db.delete(db.outboxOps)..where((t) => t.opUuid.isIn([for (final op in ops) op.opUuid]))).go();
 
-  QuarantinedVisit _describe(Visit visit, String? templateName, List<OutboxOp> ops) {
+  /// Las tareas que cita el servidor en una fila de conflicto (para etiquetarlas).
+  static Iterable<String> _taskIdsOf(OutboxOp op) {
+    final row = op.serverRowJson == null ? null : jsonDecode(op.serverRowJson!);
+    final data = row is Map ? row['data'] : null;
+    return data is Map && data['task_id'] is String ? [data['task_id'] as String] : const [];
+  }
+
+  QuarantinedVisit _describe(
+    Visit visit,
+    String? templateName,
+    List<OutboxOp> ops,
+    Map<String, String> taskLabels,
+  ) {
     final visitOp = ops.where((op) => op.entity == 'visit').firstOrNull;
     final lead = visitOp ?? ops.first;
     final isConflict = lead.errorCode == 'conflict' && lead.serverRowJson != null;
@@ -326,6 +442,7 @@ class QuarantineService {
           ? (serverRecord['data'] as Map).cast<String, dynamic>()
           : null,
       ops: ops,
+      taskLabels: taskLabels,
     );
   }
 

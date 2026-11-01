@@ -6,6 +6,7 @@
 //   E2E:READY_FOR_OFFLINE  → el script activa el modo avión
 //   E2E:SAVED_OFFLINE      → el script lo desactiva
 //   E2E:SYNCED             → el script verifica en el servidor
+//   (la visita lleva la tarea 1.1 con 35 % de avance acumulado)
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -66,6 +67,16 @@ void main() {
     await _pumpUntil(tester, find.byKey(const Key('capture_save_button')));
     final notas = find.descendant(of: find.byKey(const ValueKey('form-field-notas')), matching: find.byType(TextField));
     await tester.enterText(notas, _marker);
+    // Avance de campo (costos, etapa 1): la tarea 1.1 que sembró
+    // `bootstrap_demo --with-schedule` llegó en la sincronización inicial.
+    await _tapVisible(tester, find.byKey(const Key('capture_task_picker')));
+    await _pumpUntil(tester, find.byKey(const Key('task_picker_search')));
+    await tester.enterText(find.byKey(const Key('task_picker_search')), 'excav');
+    await tester.pump();
+    await _tapVisible(tester, find.text('1.1 Excavación'));
+    await _pumpUntil(tester, find.byKey(const Key('capture_progress_field')));
+    await tester.enterText(find.byKey(const Key('capture_progress_field')), '35');
+    await tester.pump();
     await _tapVisible(tester, find.byKey(const Key('capture_save_button')));
     await _pumpUntil(tester, find.byKey(const Key('home_new_visit_button')));
     await _pumpUntil(tester, _chip('Pendiente'));

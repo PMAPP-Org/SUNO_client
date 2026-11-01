@@ -452,6 +452,9 @@ class SyncEngine {
       createdBy: serverRow['created_by'] as String,
       serverDataJson: Value(serverDataJson),
       assignmentId: Value(serverRow['assignment_id'] as String?),
+      // Costos, etapa 1. Un servidor anterior no envía las claves: `null`.
+      taskId: Value(serverRow['task_id'] as String?),
+      progressPct: Value((serverRow['progress_pct'] as num?)?.toDouble()),
     );
     if (!overwrite && await _hasLocalChanges(id, except: confirmedBy)) {
       await (db.update(db.visits)..where((t) => t.id.equals(id))).write(

@@ -467,6 +467,54 @@
   "formErrorTooFewRows": "Añade los registros mínimos requeridos.",
   "formErrorTooManyRows": "Hay más registros de los permitidos.",
   "visitExportAuthor": "Autor",
-  "visitExportVersion": "Versión del formulario"
+  "visitExportVersion": "Versión del formulario",
+  "captureTaskSection": "Avance del cronograma",
+  "captureTaskLabel": "Tarea del cronograma",
+  "captureTaskNone": "Sin tarea (opcional)",
+  "captureTaskUnavailable": "Tarea vinculada (ya no está en tu lista)",
+  "captureProgressLabel": "% avance acumulado",
+  "captureProgressSuffix": "%",
+  "captureProgressReference": "Último validado: {pct} %",
+  "@captureProgressReference": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "captureProgressNoReference": "Sin avance validado todavía.",
+  "captureProgressBelowValidated": "Es menor que el último validado ({pct} %). Se guardará y la supervisión lo verá marcado.",
+  "@captureProgressBelowValidated": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "captureProgressRequired": "Indica el % de avance acumulado.",
+  "captureProgressInvalid": "Escribe un número entre 0 y 100, con hasta dos decimales.",
+  "taskPickerSearch": "Buscar por EDT o nombre",
+  "taskPickerNone": "Sin tarea",
+  "taskPickerEmpty": "No hay tareas que coincidan.",
+  "taskPickerNoneAssigned": "No tienes tareas asignadas en el cronograma.",
+  "taskPickerSubtitle": "{project} · último validado {pct} %",
+  "@taskPickerSubtitle": {
+    "placeholders": {
+      "project": {
+        "type": "String"
+      },
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "formErrorTaskRetired": "La tarea fue retirada del cronograma.",
+  "formErrorTaskIsSummary": "Elige una tarea de detalle, no un resumen.",
+  "formErrorNotResponsible": "Ya no eres responsable de esta tarea.",
+  "formErrorTaskProgressPair": "La tarea y el % de avance van juntos.",
+  "formErrorVisitValidated": "La visita ya fue validada: su tarea y % no se pueden cambiar desde el teléfono.",
+  "formErrorVisitValidatedDelete": "La visita ya fue validada: no se puede borrar desde el teléfono.",
+  "formErrorTaskUnknown": "La tarea ya no existe en el cronograma.",
+  "reviewUnlinkTask": "Quitar la tarea y reenviar"
 
 }
