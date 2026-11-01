@@ -222,11 +222,15 @@ class _ReviewCard extends StatelessWidget {
             if (isConflict) Text(l10n.reviewConflictExplain) else if (item.message.isNotEmpty) Text(l10n.reviewServerSays(item.message)),
             for (final v in item.violations)
               // La visita validada no depende de un campo: el mensaje va solo.
-              Text(
-                v.reason == 'visit_validated'
-                    ? formErrorMessage(l10n, v.reason)
-                    : l10n.reviewViolation(violationLabel(v.field), formErrorMessage(l10n, v.reason)),
-              ),
+              Text(switch ((v.reason, v.field)) {
+                ('visit_validated', 'id') => l10n.formErrorVisitValidatedDelete,
+                ('visit_validated', _) => l10n.formErrorVisitValidated,
+                ('unknown_reference', 'task_id') => l10n.reviewViolation(
+                  violationLabel(v.field),
+                  l10n.formErrorTaskUnknown,
+                ),
+                _ => l10n.reviewViolation(violationLabel(v.field), formErrorMessage(l10n, v.reason)),
+              }),
             if (isConflict) ...[
               const AppGap.sm(),
               _DiffTable(
@@ -263,11 +267,13 @@ class _ReviewCard extends StatelessWidget {
                       onPressed: busy ? null : onCorrect,
                       child: Text(l10n.reviewCorrect),
                     ),
-                  OutlinedButton(
-                    key: const Key('review_retry'),
-                    onPressed: busy ? null : onRetry,
-                    child: Text(l10n.reviewRetry),
-                  ),
+                  // Una visita validada rechazaría el reintento igual.
+                  if (!item.visitValidated)
+                    OutlinedButton(
+                      key: const Key('review_retry'),
+                      onPressed: busy ? null : onRetry,
+                      child: Text(l10n.reviewRetry),
+                    ),
                   TextButton(
                     key: const Key('review_discard'),
                     onPressed: busy ? null : onDiscard,

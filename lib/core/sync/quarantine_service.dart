@@ -247,6 +247,28 @@ class QuarantineService {
       }
       await engine.retryQuarantined(op.opUuid);
     }
+    // Ediciones posteriores aún sin enviar que llevan la tarea: si salieran,
+    // la volverían a poner. Se quedan con el par en `null`.
+    final quarantined = {for (final op in item.ops) op.opUuid};
+    final later =
+        await (db.select(db.outboxOps)..where(
+              (t) =>
+                  t.entity.equals('visit') &
+                  t.entityId.equals(item.visit.id) &
+                  t.opType.equals('update') &
+                  t.state.equals(_pending),
+            ))
+            .get();
+    for (final op in later) {
+      if (quarantined.contains(op.opUuid)) continue;
+      final payload = (jsonDecode(op.payloadJson) as Map).cast<String, Object?>();
+      if (!payload.containsKey('task_id') && !payload.containsKey('progress_pct')) continue;
+      payload['task_id'] = null;
+      payload['progress_pct'] = null;
+      await (db.update(db.outboxOps)..where((t) => t.opUuid.equals(op.opUuid))).write(
+        OutboxOpsCompanion(payloadJson: Value(jsonEncode(payload))),
+      );
+    }
   });
 
   /// Conflicto: la versión del agente gana. Se envía como `update` sobre la

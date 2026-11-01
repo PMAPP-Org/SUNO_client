@@ -291,6 +291,45 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('review_unlink_task')), findsNothing);
+    expect(find.byKey(const Key('review_retry')), findsNothing);
     expect(find.byKey(const Key('review_discard')), findsOneWidget);
+  });
+
+
+  testWidgets('borrar una visita validada: lo explica y no ofrece reintentar', (tester) async {
+    await quarantineWith(
+      (opUuid) => PushOpOutcome(
+        opUuid: opUuid,
+        status: 'rejected',
+        error: const PushOpError(
+          code: 'validation_error',
+          message: 'The visit was already validated.',
+          details: {'field': 'id', 'reason': 'visit_validated'},
+        ),
+      ),
+      opType: 'delete',
+    );
+    await pump(tester);
+
+    expect(find.text('La visita ya fue validada: no se puede borrar desde el teléfono.'), findsOneWidget);
+    expect(find.byKey(const Key('review_retry')), findsNothing);
+  });
+
+  testWidgets('tarea inexistente: "La tarea ya no existe en el cronograma."', (tester) async {
+    await quarantineWith(
+      (opUuid) => PushOpOutcome(
+        opUuid: opUuid,
+        status: 'rejected',
+        error: const PushOpError(
+          code: 'not_found',
+          message: 'Unknown task.',
+          details: {'field': 'task_id', 'reason': 'unknown_reference'},
+        ),
+      ),
+    );
+    await pump(tester);
+
+    expect(find.text('Tarea del cronograma: La tarea ya no existe en el cronograma.'), findsOneWidget);
+    expect(find.byKey(const Key('review_unlink_task')), findsOneWidget);
   });
 }

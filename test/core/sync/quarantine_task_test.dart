@@ -277,4 +277,57 @@ void main() {
     expect(byField['progress_pct']!.mine, '50 %');
     expect(byField['progress_pct']!.server, '30 %');
   });
+
+
+  test('rechazo por la tarea: las ediciones posteriores sin enviar también se desvinculan', () async {
+    final capture = VisitCapture(db: db, idGenerator: () => 'cap-${ids++}');
+    const me = CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1');
+    final visitId = await capture.save(
+      identity: me,
+      templateVersionId: 'tv-1',
+      definition: _definition,
+      answers: {'notas': 'x'},
+      captured: const {},
+      progress: const TaskProgress(taskId: 'task-1', pct: 35),
+    );
+    // Solo el alta sale y es rechazada; la edición posterior queda pendiente.
+    await pushWith(
+      (op) => PushOpOutcome(
+        opUuid: op.opUuid,
+        status: 'rejected',
+        error: const PushOpError(
+          code: 'validation_error',
+          message: 'The task was retired from the schedule.',
+          details: {'field': 'task_id', 'reason': 'task_retired'},
+        ),
+      ),
+    );
+    await capture.update(
+      identity: me,
+      visitId: visitId,
+      definition: _definition,
+      answers: {'notas': 'x'},
+      captured: const {},
+      progress: (value: const TaskProgress(taskId: 'task-1', pct: 60)),
+    );
+    // La edición se rehúsa mientras hay algo en revisión: la insertamos a mano.
+    expect(await db.select(db.outboxOps).get(), hasLength(1));
+    await engine.enqueueVisitOp(
+      entityId: visitId,
+      opType: 'update',
+      baseVersion: 2,
+      payload: {'id': visitId, 'task_id': 'task-1', 'progress_pct': 60.0},
+    );
+    final item = (await service.list(orgId: 'org-1')).single;
+
+    await service.unlinkTask(item);
+
+    final ops = await db.select(db.outboxOps).get();
+    expect(ops, hasLength(2));
+    final create = jsonDecode(ops.first.payloadJson) as Map<String, dynamic>;
+    final later = jsonDecode(ops.last.payloadJson) as Map<String, dynamic>;
+    expect(create.containsKey('task_id'), isFalse);
+    expect(later, {'id': visitId, 'task_id': null, 'progress_pct': null});
+    expect(ops.every((op) => op.state == 'pending'), isTrue);
+  });
 }
