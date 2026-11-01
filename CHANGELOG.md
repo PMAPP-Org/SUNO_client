@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.11.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.10.0...v0.11.0) (2026-11-01)
+
+
+### Agregado
+
+* **capture:** avance de tareas del cronograma desde las visitas de campo (app) ([#46](https://github.com/PMAPP-Org/SUNO_client/issues/46)) ([2a95096](https://github.com/PMAPP-Org/SUNO_client/commit/2a950966c6b31ba1cf4e260e13c75325b87991ae))
+
 ## [0.10.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.9.0...v0.10.0) (2026-10-29)
 
 
