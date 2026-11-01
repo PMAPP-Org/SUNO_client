@@ -50,7 +50,7 @@ cleanup() {
   rm -f "$ENV_FILE"
   rm -rf "$WORK"
   if [[ $status -eq 0 ]]; then
-    log "OK: la visita $RUN_ID llegó al servidor."
+    log "OK: la visita $RUN_ID llegó al servidor con su tarea y su avance."
   else
     log "FALLÓ (código $status)."
   fi
@@ -85,10 +85,10 @@ for _ in $(seq 1 60); do
 done
 healthz || die "La API no respondió en https://$HOST/v1/healthz en 120 s."
 
-log "Sembrando organización y usuario $RUN_ID"
+log "Sembrando organización, usuario y tarea del cronograma $RUN_ID"
 "${COMPOSE[@]}" exec -T api python manage.py bootstrap_demo \
   --org-name "E2E $RUN_ID" --username "$RUN_ID" --email "$RUN_ID@example.com" \
-  --password "$PASSWORD" >/dev/null
+  --password "$PASSWORD" --with-schedule >/dev/null
 
 # --- App -----------------------------------------------------------------------
 log "Limpiando los datos de la app en el emulador"
@@ -141,11 +141,20 @@ grep -q 'E2E:SYNCED' "$WORK/logcat.log" || die "La prueba terminó sin la marca 
 log "Verificando la visita en el servidor"
 "${COMPOSE[@]}" exec -T -e E2E_MARKER="$RUN_ID" api python manage.py shell -c '
 import os, sys
+from decimal import Decimal
 from visitacampo.core.models import Visit
 marker = os.environ["E2E_MARKER"]
-visits = list(Visit.objects.filter(answers__notas=marker, deleted_at__isnull=True).select_related("org"))
-ok = len(visits) == 1 and visits[0].org.name == f"E2E {marker}" and visits[0].version >= 1 and visits[0].change_seq
+visits = list(Visit.objects.filter(answers__notas=marker, deleted_at__isnull=True).select_related("org", "task"))
+ok = (
+    len(visits) == 1
+    and visits[0].org.name == f"E2E {marker}"
+    and visits[0].version >= 1
+    and visits[0].change_seq
+    and visits[0].task is not None
+    and visits[0].task.wbs == "1.1"
+    and visits[0].progress_pct == Decimal("35")
+)
 for v in visits:
-    print(f"visita {v.pk} org={v.org.name!r} version={v.version} change_seq={v.change_seq}")
+    print(f"visita {v.pk} org={v.org.name!r} version={v.version} change_seq={v.change_seq} tarea={v.task} avance={v.progress_pct}")
 sys.exit(0 if ok else 1)
-' || die "La visita $RUN_ID no está en el servidor como se esperaba."
+' || die "La visita $RUN_ID no está en el servidor como se esperaba (con la tarea 1.1 al 35 %)."
