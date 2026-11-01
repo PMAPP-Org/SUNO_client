@@ -196,15 +196,23 @@ class VisitCapture {
     required Map<String, PendingAttachment> captured,
     List<PendingAttachment> extraPhotos = const [],
     LocationFix? fix,
+
+    /// Costos, etapa 1. `null`: no se toca. `(value: null)`: desvincular.
+    /// `(value: TaskProgress(...))`: poner o cambiar la tarea y su %.
+    ({TaskProgress? value})? progress,
   }) => db.transaction(() async {
     final visit = await _editable(identity, visitId);
     if (visit is! Visit) return visit as VisitChange;
     final now = _now().toUtc();
 
     final kept = keptAnswers(definition, answers);
+    final link = progress?.value;
+    final progressChanged = progress != null && (link?.taskId != visit.taskId || link?.pct != visit.progressPct);
     final changed = <String, Object?>{
       if (jsonEncode(kept) != visit.answersJson) 'answers': kept,
       if (fix != null) ...{'lat': fix.lat, 'lon': fix.lon, 'accuracy_m': fix.accuracyM, 'altitude_m': fix.altitudeM},
+      // El servidor exige el par completo, también en `update`.
+      if (progressChanged) ...{'task_id': link?.taskId, 'progress_pct': link?.pct},
     };
     final attachments = [
       for (final (field, value) in answeredFields(definition, kept))
@@ -224,6 +232,8 @@ class VisitCapture {
           lon: fix == null ? const Value.absent() : Value(fix.lon),
           accuracyM: fix == null ? const Value.absent() : Value(fix.accuracyM),
           altitudeM: fix == null ? const Value.absent() : Value(fix.altitudeM),
+          taskId: progressChanged ? Value(link?.taskId) : const Value.absent(),
+          progressPct: progressChanged ? Value(link?.pct) : const Value.absent(),
         ),
       );
       await db
