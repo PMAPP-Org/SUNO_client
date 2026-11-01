@@ -248,4 +248,49 @@ void main() {
     final op = await db.select(db.outboxOps).getSingle();
     expect((op.opType, op.baseVersion, op.state), ('update', 3, 'pending'));
   });
+
+  testWidgets('rechazo por la tarea: nombra el campo y ofrece quitarla', (tester) async {
+    await quarantineWith(
+      (opUuid) => PushOpOutcome(
+        opUuid: opUuid,
+        status: 'rejected',
+        error: const PushOpError(
+          code: 'forbidden',
+          message: 'Only a responsible of the task can report its progress.',
+          details: {'field': 'task_id', 'reason': 'not_responsible'},
+        ),
+      ),
+    );
+    await pump(tester);
+
+    expect(find.text('Tarea del cronograma: Ya no eres responsable de esta tarea.'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('review_unlink_task')));
+    await tester.pumpAndSettle();
+
+    expect((await db.select(db.outboxOps).getSingle()).state, 'pending');
+    expect(find.text('Listo: se enviará en la próxima sincronización.'), findsOneWidget);
+  });
+
+  testWidgets('rechazo por visita validada: lo explica y no ofrece quitar la tarea', (tester) async {
+    await quarantineWith(
+      (opUuid) => PushOpOutcome(
+        opUuid: opUuid,
+        status: 'rejected',
+        error: const PushOpError(
+          code: 'validation_error',
+          message: 'The visit was already validated.',
+          details: {'field': 'progress_pct', 'reason': 'visit_validated'},
+        ),
+      ),
+      opType: 'update',
+    );
+    await pump(tester);
+
+    expect(
+      find.text('La visita ya fue validada: su tarea y % no se pueden cambiar desde el teléfono.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('review_unlink_task')), findsNothing);
+    expect(find.byKey(const Key('review_discard')), findsOneWidget);
+  });
 }

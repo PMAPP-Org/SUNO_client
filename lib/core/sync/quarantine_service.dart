@@ -78,10 +78,17 @@ class QuarantinedVisit {
   /// señaló respuestas concretas.
   bool get canCorrect => kind == QuarantineKind.rejected && answerViolations.isNotEmpty;
 
+  /// El servidor rechazó el cambio porque la visita ya fue validada
+  /// (`visit_validated`): reenviarlo, también sin tarea, se rechazaría igual.
+  bool get visitValidated => kind == QuarantineKind.rejected && violations.any((v) => v.reason == 'visit_validated');
+
   /// El servidor rechazó la tarea del cronograma (retirada, ya no es
-  /// responsable, % fuera de rango…): se puede reenviar sin ella.
+  /// responsable, % fuera de rango…): se puede reenviar sin ella. No si la
+  /// visita ya está validada: quitar la tarea sería otro cambio rechazado.
   bool get taskRejected =>
-      kind == QuarantineKind.rejected && violations.any((v) => v.field == 'task_id' || v.field == 'progress_pct');
+      kind == QuarantineKind.rejected &&
+      !visitValidated &&
+      violations.any((v) => v.field == 'task_id' || v.field == 'progress_pct');
 
   /// Diferencias campo a campo con el servidor (conflictos): respuestas y
   /// ubicación. Las claves de respuesta van tal cual (`altura_cm`).

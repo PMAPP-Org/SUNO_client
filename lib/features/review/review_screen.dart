@@ -123,6 +123,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   if (ok) await _run(() => ref.read(appDependenciesProvider).quarantine.acceptServer(item), l10n.reviewResolved);
                 },
                 onRetry: () => _run(() => ref.read(appDependenciesProvider).quarantine.retry(item), l10n.reviewQueued),
+                onUnlinkTask: () => _run(() => ref.read(appDependenciesProvider).quarantine.unlinkTask(item), l10n.reviewQueued),
                 onCorrect: () async {
                   final corrected = await Navigator.of(
                     context,
@@ -168,6 +169,7 @@ class _ReviewCard extends StatelessWidget {
     required this.onRetry,
     required this.onCorrect,
     required this.onDiscard,
+    required this.onUnlinkTask,
   });
 
   final QuarantinedVisit item;
@@ -178,6 +180,7 @@ class _ReviewCard extends StatelessWidget {
   final VoidCallback onRetry;
   final VoidCallback onCorrect;
   final VoidCallback onDiscard;
+  final VoidCallback onUnlinkTask;
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +195,13 @@ class _ReviewCard extends StatelessWidget {
       final field = definition?.fields.where((f) => f.key == key).firstOrNull;
       return field?.label.resolve(locale) ?? key;
     }
+
+    String violationLabel(String field) => switch (field) {
+      'task_id' => l10n.captureTaskLabel,
+      'progress_pct' => l10n.captureProgressLabel,
+      _ when field.startsWith('answers.') => label(field.substring('answers.'.length)),
+      _ => field,
+    };
 
     return Card(
       child: Padding(
@@ -211,11 +221,11 @@ class _ReviewCard extends StatelessWidget {
             ),
             if (isConflict) Text(l10n.reviewConflictExplain) else if (item.message.isNotEmpty) Text(l10n.reviewServerSays(item.message)),
             for (final v in item.violations)
+              // La visita validada no depende de un campo: el mensaje va solo.
               Text(
-                l10n.reviewViolation(
-                  v.field.startsWith('answers.') ? label(v.field.substring('answers.'.length)) : v.field,
-                  formErrorMessage(l10n, v.reason),
-                ),
+                v.reason == 'visit_validated'
+                    ? formErrorMessage(l10n, v.reason)
+                    : l10n.reviewViolation(violationLabel(v.field), formErrorMessage(l10n, v.reason)),
               ),
             if (isConflict) ...[
               const AppGap.sm(),
@@ -238,6 +248,12 @@ class _ReviewCard extends StatelessWidget {
                     child: Text(l10n.reviewAcceptServer),
                   ),
                 ] else ...[
+                  if (item.taskRejected)
+                    FilledButton(
+                      key: const Key('review_unlink_task'),
+                      onPressed: busy ? null : onUnlinkTask,
+                      child: Text(l10n.reviewUnlinkTask),
+                    ),
                   if (item.canCorrect)
                     FilledButton(
                       key: const Key('review_correct'),

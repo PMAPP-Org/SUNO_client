@@ -86,6 +86,31 @@ void main() {
     expect((visit.taskId, visit.progressPct), (null, null));
   });
 
+  test('rechazo por visita validada: no se ofrece quitar la tarea (se rechazaría igual)', () async {
+    await VisitCapture(db: db, idGenerator: () => 'cap-${ids++}').save(
+      identity: const CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1'),
+      templateVersionId: 'tv-1',
+      definition: _definition,
+      answers: {'notas': 'x'},
+      captured: const {},
+      progress: const TaskProgress(taskId: 'task-1', pct: 35),
+    );
+    await pushWith(
+      (op) => PushOpOutcome(
+        opUuid: op.opUuid,
+        status: 'rejected',
+        error: const PushOpError(
+          code: 'validation_error',
+          message: 'The visit was already validated.',
+          details: {'field': 'progress_pct', 'reason': 'visit_validated'},
+        ),
+      ),
+    );
+    final item = (await service.list(orgId: 'org-1')).single;
+    expect(item.visitValidated, isTrue);
+    expect(item.taskRejected, isFalse);
+  });
+
   test('conflicto: "enviar la mía" manda tarea y % juntos aunque solo cambie el %', () async {
     await db
         .into(db.visits)
