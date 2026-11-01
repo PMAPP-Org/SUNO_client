@@ -28,6 +28,7 @@ import 'package:visitacampo/core/auth/auth_result.dart';
 import 'package:visitacampo/core/basemaps/basemap_manager.dart';
 import 'package:visitacampo/core/layers/layer_manager.dart';
 import 'package:visitacampo/core/providers.dart';
+import 'package:visitacampo/core/schedule/schedule_task_sync.dart';
 import 'package:visitacampo/core/sync/result.dart';
 import 'package:visitacampo/core/sync/sync_engine.dart';
 import 'package:visitacampo/core/sync/sync_transport.dart';
@@ -40,6 +41,7 @@ import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
 import '../../core/basemaps/fake_basemap_transport.dart';
 import '../../core/layers/fake_layer_transport.dart';
+import '../../core/schedule/fake_schedule_task_transport.dart';
 import '../../core/sync/fake_sync_transport.dart';
 
 import '../../support/test_app.dart';
@@ -172,6 +174,8 @@ void main() {
       basemaps: BasemapManager(transport: basemaps, directory: dir),
       // Sin capas ofrecidas (sin red para capas): esta prueba es del mapa base.
       layers: LayerManager(transport: FakeLayerTransport()..offered = null, directory: dir),
+      // Tampoco tareas del cronograma (costos, etapa 1): esta prueba es del mapa base.
+      scheduleTasks: ScheduleTaskSync(db: db, transport: FakeScheduleTaskTransport(), currentUser: () => null),
     );
 
     await tester.pumpWidget(
