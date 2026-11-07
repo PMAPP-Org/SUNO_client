@@ -1,9 +1,9 @@
-// Detalle de una visita (Fase A): lo que el agente capturó, con las etiquetas
+// Detalle de un registro (Fase A): lo que el agente capturó, con las etiquetas
 // de la plantilla, su ubicación y precisión, sus fotos y firma, y en qué punto
 // de la sincronización está. Las propias se pueden editar y eliminar.
 //
 // Todo sale de la BD local: funciona sin red. Si la plantilla no está en la
-// caché (visita traída por pull de una plantilla que este teléfono no
+// caché (registro traída por pull de una plantilla que este teléfono no
 // descargó), se muestran las claves tal cual en vez de no mostrar nada.
 import 'dart:async';
 import 'dart:io';
@@ -14,37 +14,37 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/auth/auth_state.dart';
-import '../../core/capture/visit_capture.dart';
-import '../../core/exports/visit_export.dart';
+import '../../core/capture/record_capture.dart';
+import '../../core/exports/record_export.dart';
 import '../../core/forms/form_definition.dart';
 import '../../core/forms/geometry.dart';
 import '../../core/location/coordinate_system.dart';
 import '../../core/providers.dart';
 import '../../data/local/form_template_repository.dart';
-import '../../data/local/visit_status_repository.dart';
+import '../../data/local/record_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_tokens.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../capture/capture_screen.dart';
-import '../home/visit_status_list.dart';
+import '../home/record_status_list.dart';
 
-class VisitDetailScreen extends ConsumerStatefulWidget {
-  const VisitDetailScreen({super.key, required this.visitId});
+class RecordDetailScreen extends ConsumerStatefulWidget {
+  const RecordDetailScreen({super.key, required this.recordId});
 
-  final String visitId;
+  final String recordId;
 
   @override
-  ConsumerState<VisitDetailScreen> createState() => _VisitDetailScreenState();
+  ConsumerState<RecordDetailScreen> createState() => _RecordDetailScreenState();
 }
 
-class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
+class _RecordDetailScreenState extends ConsumerState<RecordDetailScreen> {
   bool _exporting = false;
 
   Future<void> _export(String format) async {
     final loaded = _loaded;
     final detail = loaded?.detail;
     final identity = _identity;
-    if (detail == null || identity == null || !canExportVisits(identity.roles) || _exporting) return;
+    if (detail == null || identity == null || !canExportRecords(identity.roles) || _exporting) return;
     final l10n = context.l10n;
     final locale = Localizations.localeOf(context).toLanguageTag();
     final renderBox = context.findRenderObject() as RenderBox?;
@@ -52,43 +52,43 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
     setState(() => _exporting = true);
     try {
       final bytes = format == 'pdf'
-          ? await visitPdf(
+          ? await recordPdf(
               detail,
               loaded!.definition,
               roles: identity.roles,
               fontBytes: await rootBundle.load('assets/fonts/Inter-Regular.ttf'),
               locale: locale,
-              title: l10n.visitExportPdf,
-              sourceNote: l10n.visitExportLocal(switch (detail.summary.status) {
-                VisitSyncStatus.pending => l10n.visitExportPending,
-                VisitSyncStatus.synced => l10n.visitExportSynced,
-                VisitSyncStatus.rejected => l10n.visitExportRejected,
+              title: l10n.recordExportPdf,
+              sourceNote: l10n.recordExportLocal(switch (detail.summary.status) {
+                RecordSyncStatus.pending => l10n.recordExportPending,
+                RecordSyncStatus.synced => l10n.recordExportSynced,
+                RecordSyncStatus.rejected => l10n.recordExportRejected,
               }),
-              locationLabel: l10n.captureVisitLocation,
-              noLocation: l10n.visitNoLocation,
-              answersLabel: l10n.visitAnswers,
-              attachmentsNote: l10n.visitExportAttachments,
-              authorLabel: l10n.visitExportAuthor,
-              versionLabel: l10n.visitExportVersion,
+              locationLabel: l10n.captureRecordLocation,
+              noLocation: l10n.recordNoLocation,
+              answersLabel: l10n.recordAnswers,
+              attachmentsNote: l10n.recordExportAttachments,
+              authorLabel: l10n.recordExportAuthor,
+              versionLabel: l10n.recordExportVersion,
             )
-          : visitGeoJson(detail, loaded!.definition, roles: identity.roles);
+          : recordGeoJson(detail, loaded!.definition, roles: identity.roles);
       if (!mounted) return;
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile.fromData(bytes, mimeType: format == 'pdf' ? 'application/pdf' : 'application/geo+json')],
-          fileNameOverrides: ['visita-${detail.visit.id}.$format'],
+          fileNameOverrides: ['registro-${detail.record.id}.$format'],
           sharePositionOrigin: origin,
         ),
       );
     } on Exception {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.visitExportFailed)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.recordExportFailed)));
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
   }
 
   /// `null` mientras carga.
-  ({VisitDetail? detail, FormDefinition? definition})? _loaded;
+  ({RecordDetail? detail, FormDefinition? definition})? _loaded;
 
   @override
   void initState() {
@@ -101,12 +101,12 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
     final auth = dependencies.authController.state;
     if (auth is! Authenticated) return;
     final orgId = auth.user.orgId;
-    final detail = await dependencies.visitStatus.detail(orgId: orgId, visitId: widget.visitId);
+    final detail = await dependencies.recordStatus.detail(orgId: orgId, recordId: widget.recordId);
     FormDefinition? definition;
     if (detail != null) {
-      final lookup = await dependencies.formTemplates.forVisit(
+      final lookup = await dependencies.formTemplates.forRecord(
         orgId: orgId,
-        templateVersionId: detail.visit.templateVersionId,
+        templateVersionId: detail.record.templateVersionId,
       );
       if (lookup is TemplateReady) definition = lookup.definition;
     }
@@ -129,7 +129,7 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
   Future<void> _edit() async {
     final saved = await Navigator.of(
       context,
-    ).push<bool>(MaterialPageRoute(builder: (_) => CaptureScreen(editVisitId: widget.visitId)));
+    ).push<bool>(MaterialPageRoute(builder: (_) => CaptureScreen(editRecordId: widget.recordId)));
     if (saved ?? false) await _load();
   }
 
@@ -140,30 +140,30 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.visitDeleteTitle),
-        content: Text(l10n.visitDeleteBody),
+        title: Text(l10n.recordDeleteTitle),
+        content: Text(l10n.recordDeleteBody),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(l10n.reviewConfirmCancel)),
           FilledButton(
-            key: const Key('visit_delete_confirm'),
+            key: const Key('record_delete_confirm'),
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.visitDeleteConfirm),
+            child: Text(l10n.recordDeleteConfirm),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
     final dependencies = ref.read(appDependenciesProvider);
-    final change = await dependencies.visitCapture.delete(identity: identity, visitId: widget.visitId);
+    final change = await dependencies.recordCapture.delete(identity: identity, recordId: widget.recordId);
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    if (change == VisitChange.saved) {
+    if (change == RecordChange.saved) {
       unawaited(dependencies.syncCoordinator.syncNow());
-      messenger.showSnackBar(SnackBar(content: Text(l10n.visitDeleted)));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.recordDeleted)));
       Navigator.of(context).pop();
     } else {
       messenger.showSnackBar(
-        SnackBar(content: Text(change == VisitChange.needsReview ? l10n.visitNeedsReview : l10n.visitNotEditable)),
+        SnackBar(content: Text(change == RecordChange.needsReview ? l10n.recordNeedsReview : l10n.recordNotEditable)),
       );
     }
   }
@@ -174,38 +174,38 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
     final loaded = _loaded;
     final detail = loaded?.detail;
     final identity = _identity;
-    // Solo las propias, y sin nada en revisión (`VisitCapture._editable`).
+    // Solo las propias, y sin nada en revisión (`RecordCapture._editable`).
     final editable =
         detail != null &&
         identity != null &&
-        canEdit(detail.visit, userId: identity.userId, roles: identity.roles) &&
-        detail.summary.status != VisitSyncStatus.rejected;
+        canEdit(detail.record, userId: identity.userId, roles: identity.roles) &&
+        detail.summary.status != RecordSyncStatus.rejected;
     return Scaffold(
       appBar: AppBar(
-        title: Text(detail?.summary.templateName ?? l10n.homeVisitUntitled),
+        title: Text(detail?.summary.templateName ?? l10n.homeRecordUntitled),
         actions: [
-          if (detail != null && identity != null && canExportVisits(identity.roles))
+          if (detail != null && identity != null && canExportRecords(identity.roles))
             PopupMenuButton<String>(
-              key: const Key('visit_export'),
-              tooltip: l10n.visitExport,
+              key: const Key('record_export'),
+              tooltip: l10n.recordExport,
               enabled: !_exporting,
               icon: const Icon(Icons.ios_share),
               onSelected: _export,
               itemBuilder: (_) => [
-                PopupMenuItem(value: 'pdf', child: Text(l10n.visitExportPdf)),
-                PopupMenuItem(value: 'geojson', child: Text(l10n.visitExportGeoJson)),
+                PopupMenuItem(value: 'pdf', child: Text(l10n.recordExportPdf)),
+                PopupMenuItem(value: 'geojson', child: Text(l10n.recordExportGeoJson)),
               ],
             ),
           if (editable) ...[
             IconButton(
-              key: const Key('visit_edit'),
-              tooltip: l10n.visitEdit,
+              key: const Key('record_edit'),
+              tooltip: l10n.recordEdit,
               icon: const Icon(Icons.edit_outlined),
               onPressed: loaded?.definition == null ? null : _edit,
             ),
             IconButton(
-              key: const Key('visit_delete'),
-              tooltip: l10n.visitDelete,
+              key: const Key('record_delete'),
+              tooltip: l10n.recordDelete,
               icon: const Icon(Icons.delete_outline),
               onPressed: _delete,
             ),
@@ -215,7 +215,7 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
       body: loaded == null
           ? const Center(child: CircularProgressIndicator())
           : detail == null
-          ? AppPageBody(children: [Text(l10n.visitNotFound, key: const Key('visit_not_found'))])
+          ? AppPageBody(children: [Text(l10n.recordNotFound, key: const Key('record_not_found'))])
           : _Body(
               detail: detail,
               definition: loaded.definition,
@@ -228,7 +228,7 @@ class _VisitDetailScreenState extends ConsumerState<VisitDetailScreen> {
 class _Body extends StatelessWidget {
   const _Body({required this.detail, required this.definition, required this.crs});
 
-  final VisitDetail detail;
+  final RecordDetail detail;
   final FormDefinition? definition;
 
   /// Sistema en que se muestran las coordenadas (Fase C).
@@ -240,10 +240,10 @@ class _Body extends StatelessWidget {
     final theme = Theme.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final localizations = MaterialLocalizations.of(context);
-    final visit = detail.visit;
+    final record = detail.record;
     final answers = detail.answers;
     final attachments = {for (final a in detail.attachments) a.id: a};
-    final captured = visit.capturedAt.toLocal();
+    final captured = record.capturedAt.toLocal();
 
     return AppPageBody(
       children: [
@@ -255,22 +255,22 @@ class _Body extends StatelessWidget {
                 '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(captured))}',
               ),
             ),
-            VisitStatusChip(status: detail.summary.status),
+            RecordStatusChip(status: detail.summary.status),
           ],
         ),
         const AppGap.lg(),
-        Text(l10n.captureVisitLocation, style: theme.textTheme.titleSmall),
-        if (visit.lat == null || visit.lon == null)
-          Text(l10n.visitNoLocation, key: const Key('visit_no_location'))
+        Text(l10n.captureRecordLocation, style: theme.textTheme.titleSmall),
+        if (record.lat == null || record.lon == null)
+          Text(l10n.recordNoLocation, key: const Key('record_no_location'))
         else ...[
           Text(
-            l10n.coordinatesWithAccuracy(crs.format(visit.lat!, visit.lon!), (visit.accuracyM ?? 0).round()),
-            key: const Key('visit_location'),
+            l10n.coordinatesWithAccuracy(crs.format(record.lat!, record.lon!), (record.accuracyM ?? 0).round()),
+            key: const Key('record_location'),
           ),
-          if (visit.altitudeM != null) Text(l10n.visitAltitude(visit.altitudeM!.round())),
+          if (record.altitudeM != null) Text(l10n.recordAltitude(record.altitudeM!.round())),
         ],
         const AppGap.lg(),
-        Text(l10n.visitAnswers, style: theme.textTheme.titleSmall),
+        Text(l10n.recordAnswers, style: theme.textTheme.titleSmall),
         const AppGap.sm(),
         if (definition == null)
           for (final entry in answers.entries) _Answer(label: entry.key, value: Text(_plain(l10n, entry.value)))
@@ -283,7 +283,7 @@ class _Body extends StatelessWidget {
               ),
         if (_extraPhotos(answers, attachments).isNotEmpty) ...[
           const AppGap.lg(),
-          Text(l10n.visitExtraPhotos, style: theme.textTheme.titleSmall),
+          Text(l10n.recordExtraPhotos, style: theme.textTheme.titleSmall),
           const AppGap.sm(),
           Wrap(
             spacing: AppSpacing.xs,
@@ -292,17 +292,17 @@ class _Body extends StatelessWidget {
           ),
         ],
         const AppGap.lg(),
-        // Para soporte: con este identificador se encuentra la visita en el
+        // Para soporte: con este identificador se encuentra el registro en el
         // servidor.
-        SelectableText(l10n.visitId(visit.id), style: theme.textTheme.bodySmall),
+        SelectableText(l10n.recordId(record.id), style: theme.textTheme.bodySmall),
       ],
     );
   }
 
   /// Adjuntos que no son la respuesta de ningún campo: las fotos adicionales.
-  static List<VisitAttachmentView> _extraPhotos(
+  static List<RecordAttachmentView> _extraPhotos(
     Map<String, dynamic> answers,
-    Map<String, VisitAttachmentView> attachments,
+    Map<String, RecordAttachmentView> attachments,
   ) {
     Iterable<String> references(Object? node) sync* {
       if (node is String) yield node;
@@ -329,7 +329,7 @@ class _Body extends StatelessWidget {
     BuildContext context,
     FormFieldDef field,
     Object? value,
-    Map<String, VisitAttachmentView> attachments,
+    Map<String, RecordAttachmentView> attachments,
     String locale,
   ) {
     final l10n = context.l10n;
@@ -427,17 +427,17 @@ class _Answer extends StatelessWidget {
 class _Thumbnail extends StatelessWidget {
   const _Thumbnail({required this.attachment});
 
-  final VisitAttachmentView attachment;
+  final RecordAttachmentView attachment;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final path = attachment.localPath;
     final state = switch (attachment.uploadState) {
-      'uploaded' => l10n.visitAttachmentUploaded,
-      'failed' => l10n.visitAttachmentFailed,
-      'pending' || 'uploading' => l10n.visitAttachmentPending,
-      _ => l10n.visitAttachmentRemote,
+      'uploaded' => l10n.recordAttachmentUploaded,
+      'failed' => l10n.recordAttachmentFailed,
+      'pending' || 'uploading' => l10n.recordAttachmentPending,
+      _ => l10n.recordAttachmentRemote,
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -448,7 +448,7 @@ class _Thumbnail extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadius.sm),
             child: Image.file(
               File(path),
-              key: ValueKey('visit-attachment-${attachment.id}'),
+              key: ValueKey('record-attachment-${attachment.id}'),
               width: AppSizes.thumbnail,
               height: AppSizes.thumbnail,
               fit: BoxFit.cover,

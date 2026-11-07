@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/location/navigation_target.dart';
-import 'package:visitacampo/data/location/external_route_launcher.dart';
+import 'package:suno/core/location/navigation_target.dart';
+import 'package:suno/data/location/external_route_launcher.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

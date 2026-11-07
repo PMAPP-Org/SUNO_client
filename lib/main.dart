@@ -1,4 +1,4 @@
-// VisitaCampo — punto de entrada real (Tarea 5 del plan de despliegue del
+// SUNO — punto de entrada real (Tarea 5 del plan de despliegue del
 // demo). Reemplaza el demo de `flutter create` (contador) sin modificar.
 // Primera pantalla: el aviso de privacidad si el titular aún no autorizó la
 // versión vigente (Ley 1581: autorización previa); si no, el inicio cuando

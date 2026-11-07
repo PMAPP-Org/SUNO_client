@@ -8,8 +8,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/security/pin_store.dart';
-import 'package:visitacampo/core/security/trust_store.dart';
+import 'package:suno/core/security/pin_store.dart';
+import 'package:suno/core/security/trust_store.dart';
 
 import 'tls_fixtures.dart';
 

@@ -1,5 +1,5 @@
-// Mapa (Fase B): visitas y asignaciones como puntos, y tocar uno lleva a la
-// visita o a iniciar la asignación. Sin red ni teselas.
+// Mapa (Fase B): registros y asignaciones como puntos, y tocar uno lleva a la
+// registro o a iniciar la asignación. Sin red ni teselas.
 import 'dart:async';
 import 'dart:io';
 
@@ -10,22 +10,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
-import 'package:visitacampo/core/app_dependencies.dart';
-import 'package:visitacampo/core/auth/auth_controller.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/core/basemaps/basemap_manager.dart';
-import 'package:visitacampo/core/layers/layer_manager.dart';
-import 'package:visitacampo/core/capture/visit_capture.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/core/location/location_source.dart';
-import 'package:visitacampo/core/providers.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/features/capture/capture_screen.dart';
-import 'package:visitacampo/features/assignments/assignment_navigation_screen.dart';
-import 'package:visitacampo/features/assignments/assignments_screen.dart';
-import 'package:visitacampo/features/map/map_screen.dart';
-import 'package:visitacampo/features/visits/visit_detail_screen.dart';
+import 'package:suno/core/app_dependencies.dart';
+import 'package:suno/core/auth/auth_controller.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/core/basemaps/basemap_manager.dart';
+import 'package:suno/core/layers/layer_manager.dart';
+import 'package:suno/core/capture/record_capture.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/core/location/location_source.dart';
+import 'package:suno/core/providers.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/features/capture/capture_screen.dart';
+import 'package:suno/features/assignments/assignment_navigation_screen.dart';
+import 'package:suno/features/assignments/assignments_screen.dart';
+import 'package:suno/features/map/map_screen.dart';
+import 'package:suno/features/records/record_detail_screen.dart';
 
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
@@ -95,7 +95,7 @@ void main() {
       password: 'x',
       deviceInfo: const DeviceInfo(deviceId: 'device-1', platform: 'android', appVersion: '1.0.0'),
     );
-    final visitId = await VisitCapture(db: db).save(
+    final recordId = await RecordCapture(db: db).save(
       identity: const CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1'),
       templateVersionId: 'tv-1',
       definition: (parseFormDefinition({'fields': <Object>[]}) as DefinitionOk).definition,
@@ -126,7 +126,7 @@ void main() {
       basemaps: basemaps,
       layers: layers,
     );
-    return (dependencies, visitId);
+    return (dependencies, recordId);
   }
 
   Future<void> pump(WidgetTester tester, AppDependencies dependencies) async {
@@ -139,23 +139,23 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('muestra visitas y asignaciones; tocar una visita la abre', (tester) async {
-    final (dependencies, visitId) = await scenario();
+  testWidgets('muestra registros y asignaciones; tocar un registro la abre', (tester) async {
+    final (dependencies, recordId) = await scenario();
     await pump(tester, dependencies);
 
-    expect(find.byKey(ValueKey('map-visit-$visitId')), findsOneWidget);
+    expect(find.byKey(ValueKey('map-record-$recordId')), findsOneWidget);
     expect(find.byKey(const ValueKey('map-assignment-asg-1')), findsOneWidget);
     expect(find.byKey(const Key('map_hint')), findsOneWidget, reason: 'sin mapa base, se avisa');
     expect(find.byKey(const Key('map_center_me')), findsNothing, reason: 'sin GPS no hay "centrar en mí"');
 
-    await tester.tap(find.byKey(ValueKey('map-visit-$visitId')));
+    await tester.tap(find.byKey(ValueKey('map-record-$recordId')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map_sheet_action')));
     await tester.pumpAndSettle();
-    expect(find.byType(VisitDetailScreen), findsOneWidget);
+    expect(find.byType(RecordDetailScreen), findsOneWidget);
   });
 
-  testWidgets('tocar una asignación pendiente inicia su visita', (tester) async {
+  testWidgets('tocar una asignación pendiente inicia su registro', (tester) async {
     final (dependencies, _) = await scenario();
     await pump(tester, dependencies);
 
@@ -297,7 +297,7 @@ void main() {
     }
     expect(pin, findsOneWidget, reason: 'el punto de la capa');
 
-    // El punto de prueba cae bajo el marcador de una visita (las visitas van
+    // El punto de prueba cae bajo el marcador de un registro (los registros van
     // encima a propósito): se toca el marcador de la capa directamente.
     tester.widget<InkResponse>(find.descendant(of: pin, matching: find.byType(InkResponse))).onTap!();
     await tester.pumpAndSettle();

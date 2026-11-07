@@ -3,10 +3,10 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/attachments/attachment_upload_service.dart';
-import 'package:visitacampo/core/sync/result.dart';
-import 'package:visitacampo/core/sync/sync_coordinator.dart';
-import 'package:visitacampo/core/sync/sync_engine.dart';
+import 'package:suno/core/attachments/attachment_upload_service.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_coordinator.dart';
+import 'package:suno/core/sync/sync_engine.dart';
 
 SyncCoordinator _coordinator(List<String> calls, Future<bool> Function() refreshTasks) => SyncCoordinator(
   drainOutbox: () async {

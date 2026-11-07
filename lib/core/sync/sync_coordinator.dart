@@ -1,19 +1,19 @@
 // Cuándo se sincroniza (Fase A, trabajo offline).
 //
-// Antes, las visitas solo se enviaban si el agente pulsaba "Sincronizar": una
+// Antes, los registros solo se enviaban si el agente pulsaba "Sincronizar": una
 // jornada entera podía quedarse en el teléfono aunque hubiera habido cobertura.
 // Ahora el ciclo completo —enviar la outbox, subir adjuntos y traer cambios—
 // se dispara solo:
 // - al abrir la pantalla de inicio (incluida la sesión restaurada sin red),
 // - al volver la app al primer plano,
 // - cada [interval] mientras la app está abierta,
-// - y justo después de guardar una visita.
+// - y justo después de guardar un registro.
 // El botón "Sincronizar" usa este mismo coordinador con `force: true`
 // (reintenta ya lo que estaba en espera).
 //
 // **Un ciclo a la vez** (single-flight), como el planificador de adjuntos: un
 // disparo durante un ciclo deja pedido otro al terminar, en vez de correr dos
-// en paralelo o perder la visita que se acaba de guardar.
+// en paralelo o perder el registro que se acaba de guardar.
 //
 // Sin red no pasa nada malo: la outbox tiene su propio backoff por operación
 // y el pull falla rápido; el siguiente disparo lo intenta de nuevo.

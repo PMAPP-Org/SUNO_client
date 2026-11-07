@@ -1,4 +1,4 @@
-// "Para revisar" (Paso 23): las visitas que el servidor rechazó o que
+// "Para revisar" (Paso 23): los registros que el servidor rechazó o que
 // chocaron con un cambio hecho en el servidor, con lo necesario para decidir.
 //
 // - Conflicto: tabla "tu versión / en el servidor" campo a campo, y elegir
@@ -32,9 +32,9 @@ class ReviewScreen extends ConsumerStatefulWidget {
 }
 
 class _ReviewScreenState extends ConsumerState<ReviewScreen> {
-  List<QuarantinedVisit>? _items;
+  List<QuarantinedRecord>? _items;
 
-  /// Plantilla de cada visita, para mostrar etiquetas en vez de claves.
+  /// Plantilla de cada registro, para mostrar etiquetas en vez de claves.
   final Map<String, FormDefinition?> _definitions = {};
   bool _busy = false;
 
@@ -48,9 +48,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final dependencies = ref.read(appDependenciesProvider);
     final items = await dependencies.quarantine.list(orgId: widget.orgId);
     for (final item in items) {
-      final id = item.visit.templateVersionId;
+      final id = item.record.templateVersionId;
       if (_definitions.containsKey(id)) continue;
-      final lookup = await dependencies.formTemplates.forVisit(orgId: widget.orgId, templateVersionId: id);
+      final lookup = await dependencies.formTemplates.forRecord(orgId: widget.orgId, templateVersionId: id);
       _definitions[id] = lookup is TemplateReady ? lookup.definition : null;
     }
     if (mounted) setState(() => _items = items);
@@ -109,9 +109,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           else
             for (final item in items) ...[
               _ReviewCard(
-                key: ValueKey('review-${item.visit.id}'),
+                key: ValueKey('review-${item.record.id}'),
                 item: item,
-                definition: _definitions[item.visit.templateVersionId],
+                definition: _definitions[item.record.templateVersionId],
                 busy: _busy,
                 onResendMine: () => _run(() => ref.read(appDependenciesProvider).quarantine.resendMine(item), l10n.reviewQueued),
                 onAcceptServer: () async {
@@ -134,8 +134,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   }
                 },
                 onDiscard: () async {
-                  // Una edición rechazada de una visita que el servidor ya
-                  // tiene no borra la visita: vuelve a la del servidor.
+                  // Una edición rechazada de un registro que el servidor ya
+                  // tiene no borra el registro: vuelve a la del servidor.
                   final ok = item.existsOnServer
                       ? await _confirm(
                           title: l10n.reviewDiscardChangesTitle,
@@ -172,7 +172,7 @@ class _ReviewCard extends StatelessWidget {
     required this.onUnlinkTask,
   });
 
-  final QuarantinedVisit item;
+  final QuarantinedRecord item;
   final FormDefinition? definition;
   final bool busy;
   final VoidCallback onResendMine;
@@ -188,7 +188,7 @@ class _ReviewCard extends StatelessWidget {
     final theme = Theme.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final localizations = MaterialLocalizations.of(context);
-    final captured = item.visit.capturedAt.toLocal();
+    final captured = item.record.capturedAt.toLocal();
     final isConflict = item.kind == QuarantineKind.conflict;
 
     String label(String key) {
@@ -209,7 +209,7 @@ class _ReviewCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(item.templateName ?? l10n.homeVisitUntitled, style: theme.textTheme.titleMedium),
+            Text(item.templateName ?? l10n.homeRecordUntitled, style: theme.textTheme.titleMedium),
             Text(
               '${localizations.formatShortDate(captured)} ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(captured))}',
               style: theme.textTheme.bodySmall,
@@ -221,10 +221,10 @@ class _ReviewCard extends StatelessWidget {
             ),
             if (isConflict) Text(l10n.reviewConflictExplain) else if (item.message.isNotEmpty) Text(l10n.reviewServerSays(item.message)),
             for (final v in item.violations)
-              // La visita validada no depende de un campo: el mensaje va solo.
+              // El registro validado no depende de un campo: el mensaje va solo.
               Text(switch ((v.reason, v.field)) {
-                ('visit_validated', 'id') => l10n.formErrorVisitValidatedDelete,
-                ('visit_validated', _) => l10n.formErrorVisitValidated,
+                ('record_validated', 'id') => l10n.formErrorRecordValidatedDelete,
+                ('record_validated', _) => l10n.formErrorRecordValidated,
                 ('unknown_reference', 'task_id') => l10n.reviewViolation(
                   violationLabel(v.field),
                   l10n.formErrorTaskUnknown,
@@ -267,8 +267,8 @@ class _ReviewCard extends StatelessWidget {
                       onPressed: busy ? null : onCorrect,
                       child: Text(l10n.reviewCorrect),
                     ),
-                  // Una visita validada rechazaría el reintento igual.
-                  if (!item.visitValidated)
+                  // Un registro validado rechazaría el reintento igual.
+                  if (!item.recordValidated)
                     OutlinedButton(
                       key: const Key('review_retry'),
                       onPressed: busy ? null : onRetry,

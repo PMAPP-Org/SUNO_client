@@ -1,17 +1,17 @@
-// Costos, etapa 1: una visita rechazada por su tarea (retirada, ya no es
+// Costos, etapa 1: un registro rechazado por su tarea (retirada, ya no es
 // responsable…) se reenvía sin tarea; "enviar la mía" manda el par completo.
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/capture/visit_capture.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/core/sync/quarantine_service.dart';
-import 'package:visitacampo/core/sync/result.dart';
-import 'package:visitacampo/core/sync/sync_engine.dart';
-import 'package:visitacampo/core/sync/sync_transport.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/core/capture/record_capture.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/core/sync/quarantine_service.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_engine.dart';
+import 'package:suno/core/sync/sync_transport.dart';
+import 'package:suno/data/local/database.dart';
 
 import 'fake_sync_transport.dart';
 
@@ -47,13 +47,13 @@ void main() {
   Future<void> pushWith(PushOpOutcome Function(OutboxOp op) outcome) async {
     final pending = await db.select(db.outboxOps).get();
     transport.pushResponses.add(
-      Result.ok(PushResponse(schemaVersion: 1, results: [for (final op in pending) outcome(op)])),
+      Result.ok(PushResponse(schemaVersion: 2, results: [for (final op in pending) outcome(op)])),
     );
     await engine.drainOutbox();
   }
 
   test('rechazo por la tarea: se quita la tarea y se reenvía', () async {
-    final visitId = await VisitCapture(db: db, idGenerator: () => 'cap-${ids++}').save(
+    final recordId = await RecordCapture(db: db, idGenerator: () => 'cap-${ids++}').save(
       identity: const CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1'),
       templateVersionId: 'tv-1',
       definition: _definition,
@@ -82,12 +82,12 @@ void main() {
     final payload = jsonDecode(op.payloadJson) as Map<String, dynamic>;
     expect(payload.containsKey('task_id'), isFalse);
     expect(payload.containsKey('progress_pct'), isFalse);
-    final visit = await (db.select(db.visits)..where((t) => t.id.equals(visitId))).getSingle();
-    expect((visit.taskId, visit.progressPct), (null, null));
+    final record = await (db.select(db.records)..where((t) => t.id.equals(recordId))).getSingle();
+    expect((record.taskId, record.progressPct), (null, null));
   });
 
-  test('rechazo por visita validada: no se ofrece quitar la tarea (se rechazaría igual)', () async {
-    await VisitCapture(db: db, idGenerator: () => 'cap-${ids++}').save(
+  test('rechazo por registro validado: no se ofrece quitar la tarea (se rechazaría igual)', () async {
+    await RecordCapture(db: db, idGenerator: () => 'cap-${ids++}').save(
       identity: const CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1'),
       templateVersionId: 'tv-1',
       definition: _definition,
@@ -101,22 +101,22 @@ void main() {
         status: 'rejected',
         error: const PushOpError(
           code: 'validation_error',
-          message: 'The visit was already validated.',
-          details: {'field': 'progress_pct', 'reason': 'visit_validated'},
+          message: 'The record was already validated.',
+          details: {'field': 'progress_pct', 'reason': 'record_validated'},
         ),
       ),
     );
     final item = (await service.list(orgId: 'org-1')).single;
-    expect(item.visitValidated, isTrue);
+    expect(item.recordValidated, isTrue);
     expect(item.taskRejected, isFalse);
   });
 
   test('conflicto: "enviar la mía" manda tarea y % juntos aunque solo cambie el %', () async {
     await db
-        .into(db.visits)
+        .into(db.records)
         .insert(
-          VisitsCompanion.insert(
-            id: 'visit-1',
+          RecordsCompanion.insert(
+            id: 'record-1',
             orgId: 'org-1',
             version: 1,
             templateVersionId: 'tv-1',
@@ -128,11 +128,11 @@ void main() {
             progressPct: const Value(50.0),
           ),
         );
-    await engine.enqueueVisitOp(
-      entityId: 'visit-1',
+    await engine.enqueueRecordOp(
+      entityId: 'record-1',
       opType: 'update',
       baseVersion: 1,
-      payload: {'id': 'visit-1', 'task_id': 'task-1', 'progress_pct': 50.0},
+      payload: {'id': 'record-1', 'task_id': 'task-1', 'progress_pct': 50.0},
     );
     await pushWith(
       (op) => PushOpOutcome(
@@ -140,9 +140,9 @@ void main() {
         status: 'conflict',
         serverVersion: 3,
         serverRow: {
-          'entity': 'visit',
+          'entity': 'record',
           'data': {
-            'id': 'visit-1',
+            'id': 'record-1',
             'org_id': 'org-1',
             'version': 3,
             'change_seq': 9,
@@ -169,18 +169,18 @@ void main() {
 
     final op = await db.select(db.outboxOps).getSingle();
     expect(op.baseVersion, 3);
-    expect(jsonDecode(op.payloadJson), {'id': 'visit-1', 'task_id': 'task-1', 'progress_pct': 50.0});
+    expect(jsonDecode(op.payloadJson), {'id': 'record-1', 'task_id': 'task-1', 'progress_pct': 50.0});
   });
 
 
   /// Conflicto sobre una edición del agente: [payload] es lo que editó; la
-  /// visita local lleva task-1 al 50 % y el servidor task-2 al 30 %.
-  Future<QuarantinedVisit> conflictOnEdit(Map<String, Object?> payload) async {
+  /// registro local lleva task-1 al 50 % y el servidor task-2 al 30 %.
+  Future<QuarantinedRecord> conflictOnEdit(Map<String, Object?> payload) async {
     await db
-        .into(db.visits)
+        .into(db.records)
         .insert(
-          VisitsCompanion.insert(
-            id: 'visit-1',
+          RecordsCompanion.insert(
+            id: 'record-1',
             orgId: 'org-1',
             version: 1,
             templateVersionId: 'tv-1',
@@ -192,16 +192,16 @@ void main() {
             progressPct: const Value(50.0),
           ),
         );
-    await engine.enqueueVisitOp(entityId: 'visit-1', opType: 'update', baseVersion: 1, payload: {'id': 'visit-1', ...payload});
+    await engine.enqueueRecordOp(entityId: 'record-1', opType: 'update', baseVersion: 1, payload: {'id': 'record-1', ...payload});
     await pushWith(
       (op) => PushOpOutcome(
         opUuid: op.opUuid,
         status: 'conflict',
         serverVersion: 3,
         serverRow: {
-          'entity': 'visit',
+          'entity': 'record',
           'data': {
-            'id': 'visit-1',
+            'id': 'record-1',
             'org_id': 'org-1',
             'version': 3,
             'change_seq': 9,
@@ -233,7 +233,7 @@ void main() {
     await service.resendMine(item);
 
     final op = await db.select(db.outboxOps).getSingle();
-    expect(jsonDecode(op.payloadJson), {'id': 'visit-1', 'answers': {'notas': 'mía'}});
+    expect(jsonDecode(op.payloadJson), {'id': 'record-1', 'answers': {'notas': 'mía'}});
   });
 
   test('conflicto: si el agente editó la tarea, "enviar la mía" la manda con su %', () async {
@@ -280,9 +280,9 @@ void main() {
 
 
   test('rechazo por la tarea: las ediciones posteriores sin enviar también se desvinculan', () async {
-    final capture = VisitCapture(db: db, idGenerator: () => 'cap-${ids++}');
+    final capture = RecordCapture(db: db, idGenerator: () => 'cap-${ids++}');
     const me = CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1');
-    final visitId = await capture.save(
+    final recordId = await capture.save(
       identity: me,
       templateVersionId: 'tv-1',
       definition: _definition,
@@ -304,7 +304,7 @@ void main() {
     );
     await capture.update(
       identity: me,
-      visitId: visitId,
+      recordId: recordId,
       definition: _definition,
       answers: {'notas': 'x'},
       captured: const {},
@@ -312,11 +312,11 @@ void main() {
     );
     // La edición se rehúsa mientras hay algo en revisión: la insertamos a mano.
     expect(await db.select(db.outboxOps).get(), hasLength(1));
-    await engine.enqueueVisitOp(
-      entityId: visitId,
+    await engine.enqueueRecordOp(
+      entityId: recordId,
       opType: 'update',
       baseVersion: 2,
-      payload: {'id': visitId, 'task_id': 'task-1', 'progress_pct': 60.0},
+      payload: {'id': recordId, 'task_id': 'task-1', 'progress_pct': 60.0},
     );
     final item = (await service.list(orgId: 'org-1')).single;
 
@@ -327,7 +327,7 @@ void main() {
     final create = jsonDecode(ops.first.payloadJson) as Map<String, dynamic>;
     final later = jsonDecode(ops.last.payloadJson) as Map<String, dynamic>;
     expect(create.containsKey('task_id'), isFalse);
-    expect(later, {'id': visitId, 'task_id': null, 'progress_pct': null});
+    expect(later, {'id': recordId, 'task_id': null, 'progress_pct': null});
     expect(ops.every((op) => op.state == 'pending'), isTrue);
   });
 }

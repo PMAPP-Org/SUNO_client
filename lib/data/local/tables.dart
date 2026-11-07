@@ -1,14 +1,14 @@
 // Esquema Drift del Paso 11 (ADR-002). Tres tablas, un solo archivo de BD:
-// el outbox es una tabla más del mismo esquema, así que "guardar visita +
+// el outbox es una tabla más del mismo esquema, así que "guardar registro +
 // encolar operación" es una única transacción SQLite (ver
-// `database.dart::saveVisitWithOutboxOp`), no dos pasos con riesgo de
+// `database.dart::saveRecordWithOutboxOp`), no dos pasos con riesgo de
 // divergencia si el proceso muere entre medias.
 import 'package:drift/drift.dart';
 
-/// Espejo local de `Visit` (contrato `server/openapi/v1.yaml`,
-/// `server/visitacampo/core/models/visit.py`). `assignmentId` llegó con la
+/// Espejo local de `Record` (contrato `server/openapi/v1.yaml`,
+/// `server/suno/core/models/record.py`). `assignmentId` llegó con la
 /// versión 8 del esquema (Fase B, asignaciones).
-class Visits extends Table {
+class Records extends Table {
   TextColumn get id => text()();
   TextColumn get orgId => text()();
   IntColumn get version => integer()();
@@ -32,17 +32,17 @@ class Visits extends Table {
 
   /// Fase A (editar y borrar): la última versión **confirmada por el
   /// servidor** (`data` del contrato, JSON). `null` si el servidor todavía no
-  /// la conoce. Mientras la visita tiene cambios locales sin enviar, el pull
+  /// la conoce. Mientras el registro tiene cambios locales sin enviar, el pull
   /// solo actualiza esta copia, sin pisar lo que el agente editó; si el agente
-  /// descarta un cambio rechazado, la visita vuelve a esta versión.
+  /// descarta un cambio rechazado, el registro vuelve a esta versión.
   TextColumn get serverDataJson => text().nullable()();
 
-  /// Fase B: la asignación que originó la visita, si la hubo.
+  /// Fase B: la asignación que originó el registro, si la hubo.
   TextColumn get assignmentId => text().nullable()();
 
-  /// Costos, etapa 1 (`schemaVersion` 9): la tarea del cronograma cuyo avance
-  /// reporta la visita y el % acumulado. Los dos o ninguno, como en el
-  /// servidor (`visit_task_progress_pair`).
+  /// Costos, etapa 1: la tarea del cronograma cuyo avance
+  /// reporta el registro y el % acumulado. Los dos o ninguno, como en el
+  /// servidor (`record_task_progress_pair`).
   TextColumn get taskId => text().nullable()();
   RealColumn get progressPct => real().nullable()();
 
@@ -60,7 +60,7 @@ class OutboxOps extends Table {
   /// valor se genere una sola vez en el dispositivo, nunca en el servidor.
   TextColumn get opUuid => text()();
 
-  /// Contrato `EntityType`: `visit` | `visit_attachment` | `assignment` |
+  /// Contrato `EntityType`: `record` | `record_attachment` | `assignment` |
   /// `form_template_version`. Texto y no un enum Drift a propósito: el
   /// contrato es la fuente de verdad de qué valores son válidos, no el
   /// esquema local — igual que el servidor (`sync/schemas.py::EntityType`).
@@ -81,12 +81,11 @@ class OutboxOps extends Table {
   /// El `message` de `OpErrorSchema` cuando el estado es `quarantine`
   /// (`OutboxOpState.quarantine.reason`) — persistido para que sobreviva un
   /// reinicio de la app; sin esto, el usuario perdería el motivo mostrado en
-  /// la UI de conflictos (Paso 23) cada vez que cierra la app. Columna
-  /// añadida en `schemaVersion` 2 junto con `sync_cursor` (`database.dart`).
+  /// la UI de conflictos (Paso 23) cada vez que cierra la app.
   /// Nunca lleva `details` del error (RD-12: nunca el dato que falló).
   TextColumn get errorMessage => text().nullable()();
 
-  /// Revisión de cuarentena (Paso 23, `schemaVersion` 6):
+  /// Revisión de cuarentena (Paso 23):
   /// - `errorCode`: `code` del contrato (`validation_error`, `not_found`,
   ///   `conflict`…), que decide qué acciones ofrece la pantalla;
   /// - `errorFieldsJson`: los pares `field`/`reason` que señaló el servidor
@@ -112,7 +111,7 @@ class OutboxOps extends Table {
 }
 
 /// Adjuntos pendientes de subir (Paso 18). `sha256` es la misma clave que
-/// `Blob.sha256` en el servidor (`core/models/visit.py`): el adjunto se
+/// `Blob.sha256` en el servidor (`core/models/record.py`): el adjunto se
 /// identifica por contenido, nunca por nombre de archivo — la mitigación de
 /// RD-06 (path traversal) empieza aquí, no solo en el backend.
 class AttachmentQueue extends Table {
@@ -129,12 +128,11 @@ class AttachmentQueue extends Table {
   DateTimeColumn get createdAt => dateTime()();
 
   /// MIME con el que se presigna y confirma la subida (allow-list del
-  /// servidor). Añadida en `schemaVersion` 4: hasta entonces solo había fotos
-  /// JPEG de la cámara; la firma es PNG, y el servidor comprueba los magic
-  /// bytes contra este valor.
+  /// servidor). La cámara produce fotos JPEG y la firma PNG; el servidor
+  /// comprueba los magic bytes contra este valor.
   TextColumn get mime => text().withDefault(const Constant('image/jpeg'))();
 
-  /// Reintento en segundo plano (Paso 18, `schemaVersion` 5). Se persiste, a
+  /// Reintento en segundo plano (Paso 18). Se persiste, a
   /// diferencia del backoff del outbox de datos: una foto que no sube por
   /// mala cobertura no debe reintentarse en ráfaga cada vez que se abre la app.
   IntColumn get attempts => integer().withDefault(const Constant(0))();
@@ -153,9 +151,7 @@ class AttachmentQueue extends Table {
 /// Cursor de pull persistido (Paso 12, `SyncEngine.pull()`). Fila única
 /// (`id` siempre `0`, forzado por el `CHECK`) — no hay "cursor por
 /// dispositivo" que rastrear porque esta tabla ya vive en la BD de un solo
-/// dispositivo. Tabla añadida en `schemaVersion` 2 (`database.dart`): la
-/// primera migración real desde el Paso 11, con su test N-1→N en
-/// `test/data/local/migration_test.dart`.
+/// dispositivo.
 class SyncCursor extends Table {
   // Sin CHECK SQL de "fila única": el único código que escribe esta tabla
   // es `AppDatabase.writeCursor()`, que siempre usa `id=0` — no hay una
@@ -171,15 +167,15 @@ class SyncCursor extends Table {
 }
 
 /// Caché local de `form_template_version` (Paso 21, tareas 5-6), alimentada
-/// por el pull. Añadida en `schemaVersion` 3.
+/// por el pull.
 ///
 /// **La clave es la versión, no la plantilla** (corrige H-11: QField cacheaba
 /// por `layerId` en un `Q_GLOBAL_STATIC` que nunca se invalidaba). Cada fila es
-/// una versión inmutable; una visita histórica sigue leyendo la suya, y una
-/// visita nueva usa la publicada más alta de su plantilla
+/// una versión inmutable; un registro histórico sigue leyendo la suya, y una
+/// registro nuevo usa la publicada más alta de su plantilla
 /// (`FormTemplateRepository`). Un tombstone marca `deletedAt` en vez de borrar,
-/// por la misma razón: la versión deja de ofrecerse para visitas nuevas, pero
-/// las visitas que ya la referencian siguen siendo interpretables.
+/// por la misma razón: la versión deja de ofrecerse para registros nuevos, pero
+/// los registros que ya la referencian siguen siendo interpretables.
 ///
 /// `definitionJson` se guarda tal como llegó y se valida **al usarlo**: la
 /// tabla no interpreta la plantilla.
@@ -199,20 +195,20 @@ class FormTemplateVersions extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Espejo local de `visit_attachment` (Paso 22): qué foto o firma pertenece a
-/// qué visita. Añadida en `schemaVersion` 4.
+/// Espejo local de `record_attachment` (Paso 22): qué foto o firma pertenece a
+/// qué registro.
 ///
-/// La escribe la captura (en la misma transacción que la visita, su
+/// La escribe la captura (en la misma transacción que el registro, su
 /// operación de outbox y la cola de subida) y la actualiza el pull. Es lo que
 /// permite enseñar al agente "con fotos pendientes de subir": el `sha256`
 /// enlaza cada adjunto con su fila en `AttachmentQueue`.
-class VisitAttachments extends Table {
+class RecordAttachments extends Table {
   TextColumn get id => text()();
   TextColumn get orgId => text()();
-  TextColumn get visitId => text()();
+  TextColumn get recordId => text()();
   TextColumn get sha256 => text()();
 
-  /// `foto` | `firma` | `doc` (contrato `VisitAttachment.role`).
+  /// `foto` | `firma` | `doc` (contrato `RecordAttachment.role`).
   TextColumn get role => text()();
   TextColumn get caption => text().nullable()();
   DateTimeColumn get capturedAt => dateTime()();
@@ -229,8 +225,8 @@ class VisitAttachments extends Table {
 }
 
 /// Espejo local de `Assignment` (Fase B): trabajo planificado que origina
-/// visitas. Llega por el pull y el cliente no la modifica. Añadida en
-/// `schemaVersion` 8. Todas las de la organización: la pantalla filtra las del
+/// registros. Llega por el pull y el cliente no la modifica. Todas las de
+/// la organización: la pantalla filtra las del
 /// agente.
 class Assignments extends Table {
   TextColumn get id => text()();
@@ -252,7 +248,7 @@ class Assignments extends Table {
 /// usuario con sesión es responsable, tal como las entrega
 /// `GET /v1/projects/tasks`. `ScheduleTaskSync` las reemplaza enteras cuando la
 /// lista cambia: lo que deja de venir (tarea retirada, responsabilidad
-/// quitada) desaparece. Añadida en `schemaVersion` 9.
+/// quitada) desaparece.
 @DataClassName('ScheduleTaskRow')
 class ScheduleTasks extends Table {
   TextColumn get id => text()();
@@ -267,7 +263,7 @@ class ScheduleTasks extends Table {
   TextColumn get outlineNumber => text()();
   TextColumn get name => text()();
 
-  /// % de la última visita validada de la tarea; `null` si no hay.
+  /// % del último registro validado de la tarea; `null` si no hay.
   RealColumn get lastValidatedPct => real().nullable()();
 
   /// Orden en que llegó (proyecto y orden del Project).
@@ -278,7 +274,7 @@ class ScheduleTasks extends Table {
 }
 
 /// `version` de la última lista de tareas descargada (fila única, `id` = 0):
-/// se reenvía para que el servidor conteste "sin cambios". `schemaVersion` 9.
+/// se reenvía para que el servidor conteste "sin cambios".
 @DataClassName('ScheduleTaskListState')
 class ScheduleTaskState extends Table {
   IntColumn get id => integer().clientDefault(() => 0)();

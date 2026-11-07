@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/location/location_source.dart';
-import 'package:visitacampo/core/location/navigation_tracker.dart';
+import 'package:suno/core/location/location_source.dart';
+import 'package:suno/core/location/navigation_tracker.dart';
 
 import '../../support/fake_navigation.dart';
 

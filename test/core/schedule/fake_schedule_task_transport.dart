@@ -1,4 +1,4 @@
-import 'package:visitacampo/core/schedule/schedule_task_sync.dart';
+import 'package:suno/core/schedule/schedule_task_sync.dart';
 
 class FakeScheduleTaskTransport implements ScheduleTaskTransport {
   /// `null` = sin red.

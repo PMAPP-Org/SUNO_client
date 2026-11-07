@@ -2,7 +2,7 @@
 // valores esperados se calcularon con `pyproj` (PROJ/EPSG oficial), no con
 // la propia implementación.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/location/coordinate_system.dart';
+import 'package:suno/core/location/coordinate_system.dart';
 
 typedef _Case = ({double lat, double lon, double e, double n});
 

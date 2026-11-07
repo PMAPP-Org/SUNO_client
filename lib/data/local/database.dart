@@ -21,12 +21,12 @@ part 'database.g.dart';
 /// construye la suya propia.
 @DriftDatabase(
   tables: [
-    Visits,
+    Records,
     OutboxOps,
     AttachmentQueue,
     SyncCursor,
     FormTemplateVersions,
-    VisitAttachments,
+    RecordAttachments,
     Assignments,
     ScheduleTasks,
     ScheduleTaskState,
@@ -63,74 +63,15 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.forTesting(QueryExecutor executor) => AppDatabase._(executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 1;
 
+  // La app `com.suno.app` empieza en el esquema 1: ningún teléfono actualiza desde
+  // la base de la app anterior (otro applicationId). El historial de migraciones
+  // v1–v9 se reinició con el renombre al concepto "registro"; el próximo cambio
+  // de esquema añade aquí su `onUpgrade` y su test de migración.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (migrator) => migrator.createAll(),
-    // v1 → v2 (Paso 12): añade `sync_cursor` y `outbox_op.error_message`.
-    // Aditiva, no destructiva — ninguna columna existente cambia de tipo ni
-    // se elimina, así que los datos de un usuario que ya tenía la app
-    // instalada en v1 sobreviven intactos. Regla operativa del Paso 11
-    // cumplida: el test hermano de esta migración vive en
-    // `test/data/local/migration_test.dart`.
-    onUpgrade: (migrator, from, to) async {
-      if (from < 2) {
-        await migrator.createTable(syncCursor);
-        await migrator.addColumn(outboxOps, outboxOps.errorMessage);
-      }
-      // v2 → v3 (Paso 21): caché de plantillas. Solo crea una tabla nueva.
-      if (from < 3) {
-        await migrator.createTable(formTemplateVersions);
-      }
-      // v3 → v4 (Paso 22): adjuntos de visita y MIME de cada subida. Aditiva:
-      // las entradas ya encoladas (fotos JPEG) toman el valor por defecto.
-      if (from < 4) {
-        await migrator.createTable(visitAttachments);
-        await migrator.addColumn(attachmentQueue, attachmentQueue.mime);
-      }
-      // v4 → v5 (Paso 18): estado del reintento de cada subida. Aditiva: lo
-      // ya encolado empieza con 0 intentos y se puede intentar de inmediato.
-      if (from < 5) {
-        await migrator.addColumn(attachmentQueue, attachmentQueue.attempts);
-        await migrator.addColumn(attachmentQueue, attachmentQueue.nextAttemptAt);
-        await migrator.addColumn(attachmentQueue, attachmentQueue.lastError);
-      }
-      // v5 → v6 (Paso 23): datos para revisar la cuarentena. Aditiva: una op
-      // ya en cuarentena conserva su motivo y simplemente no tiene detalle.
-      if (from < 6) {
-        await migrator.addColumn(outboxOps, outboxOps.errorCode);
-        await migrator.addColumn(outboxOps, outboxOps.errorFieldsJson);
-        await migrator.addColumn(outboxOps, outboxOps.serverRowJson);
-      }
-      // v6 → v7 (Fase A, editar y borrar): copia confirmada por el servidor.
-      // Aditiva: las visitas existentes empiezan sin copia y la toman en el
-      // siguiente pull que las traiga.
-      if (from < 7) {
-        await migrator.addColumn(visits, visits.serverDataJson);
-      }
-      // v7 → v8 (Fase B, asignaciones): tabla nueva y `visits.assignment_id`.
-      // Hasta aquí el pull **descartaba** las asignaciones y aun así avanzaba
-      // el cursor: sin reiniciarlo, este teléfono nunca recibiría las ya
-      // existentes. Sin cursor, el siguiente pull trae todo desde cero; es
-      // seguro porque no pisa visitas con cambios locales sin enviar
-      // (`SyncEngine._upsertVisitFromServerRow`).
-      if (from < 8) {
-        await migrator.createTable(assignments);
-        await migrator.addColumn(visits, visits.assignmentId);
-        await delete(syncCursor).go();
-      }
-      // v8 → v9 (costos, etapa 1): tarea y % de cada visita, y la lista de
-      // tareas del cronograma del agente. El cursor se reinicia por lo mismo
-      // que en la v8: las visitas ya bajadas no traían su tarea.
-      if (from < 9) {
-        await migrator.addColumn(visits, visits.taskId);
-        await migrator.addColumn(visits, visits.progressPct);
-        await migrator.createTable(scheduleTasks);
-        await migrator.createTable(scheduleTaskState);
-        await delete(syncCursor).go();
-      }
-    },
   );
 
   /// `null`: el dispositivo nunca hizo un pull/bootstrap exitoso todavía —
@@ -175,39 +116,39 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// El outbox es una tabla más del mismo esquema (ADR-002): "guardar
-  /// visita + encolar operación" es una única transacción SQLite, no dos
+  /// registro + encolar operación" es una única transacción SQLite, no dos
   /// pasos con riesgo de divergencia si el proceso muere entre medias.
   /// `test/data/local/database_test.dart` verifica la atomicidad real
   /// forzando un fallo a mitad de una transacción equivalente.
-  Future<void> saveVisitWithOutboxOp({
-    required VisitsCompanion visit,
+  Future<void> saveRecordWithOutboxOp({
+    required RecordsCompanion record,
     required OutboxOpsCompanion outboxOp,
   }) {
     return transaction(() async {
-      await into(visits).insertOnConflictUpdate(visit);
+      await into(records).insertOnConflictUpdate(record);
       await into(outboxOps).insertOnConflictUpdate(outboxOp);
     });
   }
 
-  /// Guarda una visita capturada **entera** en una sola transacción (Paso 22,
-  /// tarea 5): la fila de la visita, sus adjuntos, las operaciones de outbox
-  /// (la de la visita primero; ver `SyncEngine.drainOutbox` sobre el orden) y
+  /// Guarda un registro capturado **entera** en una sola transacción (Paso 22,
+  /// tarea 5): la fila del registro, sus adjuntos, las operaciones de outbox
+  /// (la del registro primero; ver `SyncEngine.drainOutbox` sobre el orden) y
   /// las entradas de la cola de subida. Si algo falla, no queda nada a medias:
-  /// ni una visita sin sus fotos ni una foto encolada sin visita.
+  /// ni un registro sin sus fotos ni una foto encolada sin registro.
   ///
   /// La cola de subida usa `insertOrIgnore`: si ese mismo contenido ya estaba
-  /// encolado o subido (otra visita con la misma foto), no se reinicia su
+  /// encolado o subido (otro registro con la misma foto), no se reinicia su
   /// estado ni se sube dos veces.
-  Future<void> saveVisitCapture({
-    required VisitsCompanion visit,
-    required List<VisitAttachmentsCompanion> attachments,
+  Future<void> saveRecordCapture({
+    required RecordsCompanion record,
+    required List<RecordAttachmentsCompanion> attachments,
     required List<OutboxOpsCompanion> outboxOps,
     required List<AttachmentQueueCompanion> uploads,
   }) {
     return transaction(() async {
-      await into(visits).insert(visit);
+      await into(records).insert(record);
       for (final attachment in attachments) {
-        await into(visitAttachments).insert(attachment);
+        await into(recordAttachments).insert(attachment);
       }
       for (final op in outboxOps) {
         await into(this.outboxOps).insert(op);

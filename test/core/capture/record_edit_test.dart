@@ -1,18 +1,18 @@
-// Fase A: editar y borrar visitas sin red, y que el motor las envíe en orden
+// Fase A: editar y borrar registros sin red, y que el motor las envíe en orden
 // y con el `base_version` correcto (el servidor guarda con CAS sobre él).
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show CustomExpression, OrderingTerm, Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/capture/visit_capture.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/core/location/location_source.dart';
-import 'package:visitacampo/core/sync/quarantine_service.dart';
-import 'package:visitacampo/core/sync/result.dart';
-import 'package:visitacampo/core/sync/sync_engine.dart';
-import 'package:visitacampo/core/sync/sync_transport.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/core/capture/record_capture.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/core/location/location_source.dart';
+import 'package:suno/core/sync/quarantine_service.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_engine.dart';
+import 'package:suno/core/sync/sync_transport.dart';
+import 'package:suno/data/local/database.dart';
 
 import '../sync/fake_sync_transport.dart';
 
@@ -50,18 +50,18 @@ void main() {
   late AppDatabase db;
   late FakeSyncTransport transport;
   late SyncEngine engine;
-  late VisitCapture capture;
+  late RecordCapture capture;
   var ids = 0;
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
     transport = FakeSyncTransport();
     engine = SyncEngine(db: db, transport: transport, deviceId: 'device-1');
-    capture = VisitCapture(db: db, idGenerator: () => 'id-${ids++}');
+    capture = RecordCapture(db: db, idGenerator: () => 'id-${ids++}');
   });
   tearDown(() => db.close());
 
-  Future<String> newVisit({CaptureIdentity identity = _me}) => capture.save(
+  Future<String> newRecord({CaptureIdentity identity = _me}) => capture.save(
     identity: identity,
     templateVersionId: 'tv-1',
     definition: _definition,
@@ -69,8 +69,8 @@ void main() {
     captured: const {},
   );
 
-  Future<VisitChange> edit(String id, Map<String, Object?> answers, {Map<String, PendingAttachment> captured = const {}, LocationFix? fix}) =>
-      capture.update(identity: _me, visitId: id, definition: _definition, answers: answers, captured: captured, fix: fix);
+  Future<RecordChange> edit(String id, Map<String, Object?> answers, {Map<String, PendingAttachment> captured = const {}, LocationFix? fix}) =>
+      capture.update(identity: _me, recordId: id, definition: _definition, answers: answers, captured: captured, fix: fix);
 
   Future<List<OutboxOp>> ops() =>
       (db.select(db.outboxOps)..orderBy([(t) => OrderingTerm.asc(const CustomExpression<int>('rowid'))])).get();
@@ -79,7 +79,7 @@ void main() {
   void serverApplies(Map<String, int> versions) => transport.pushResponses.add(
     Result.ok(
       PushResponse(
-        schemaVersion: 1,
+        schemaVersion: 2,
         results: [
           for (final entry in versions.entries)
             PushOpOutcome(opUuid: entry.key, status: 'applied', serverVersion: entry.value),
@@ -90,8 +90,8 @@ void main() {
 
   group('editar', () {
     test('solo viaja lo que cambió, sobre la versión que el agente veía', () async {
-      final id = await newVisit();
-      expect(await edit(id, {'altura_cm': 35}), VisitChange.saved);
+      final id = await newRecord();
+      expect(await edit(id, {'altura_cm': 35}), RecordChange.saved);
 
       final update = (await ops()).last;
       expect((update.opType, update.baseVersion), ('update', 1));
@@ -99,25 +99,25 @@ void main() {
         'id': id,
         'answers': {'altura_cm': 35},
       });
-      final visit = await (db.select(db.visits)..where((t) => t.id.equals(id))).getSingle();
-      expect(jsonDecode(visit.answersJson), {'altura_cm': 35}, reason: 'la pantalla ya lo ve, sin red');
+      final record = await (db.select(db.records)..where((t) => t.id.equals(id))).getSingle();
+      expect(jsonDecode(record.answersJson), {'altura_cm': 35}, reason: 'la pantalla ya lo ve, sin red');
     });
 
     test('varias ediciones sin red encadenan su base_version', () async {
-      final id = await newVisit();
+      final id = await newRecord();
       await edit(id, {'altura_cm': 20});
       await edit(id, {'altura_cm': 30});
       expect([for (final op in await ops()) op.baseVersion], [null, 1, 2]);
     });
 
     test('sin cambios no encola nada', () async {
-      final id = await newVisit();
-      expect(await edit(id, {'altura_cm': 10}), VisitChange.unchanged);
+      final id = await newRecord();
+      expect(await edit(id, {'altura_cm': 10}), RecordChange.unchanged);
       expect(await ops(), hasLength(1));
     });
 
     test('nueva ubicación y nueva foto: el update y luego el alta del adjunto', () async {
-      final id = await newVisit();
+      final id = await newRecord();
       final photo = _photo('foto-nueva');
       await edit(
         id,
@@ -128,9 +128,9 @@ void main() {
 
       final all = await ops();
       expect([for (final op in all) (op.entity, op.opType)], [
-        ('visit', 'create'),
-        ('visit', 'update'),
-        ('visit_attachment', 'create'),
+        ('record', 'create'),
+        ('record', 'update'),
+        ('record_attachment', 'create'),
       ]);
       final payload = jsonDecode(all[1].payloadJson) as Map<String, dynamic>;
       expect(payload['lat'], 4.6);
@@ -144,41 +144,41 @@ void main() {
         deviceId: 'device-9',
         roles: ['SUPERVISOR'],
       );
-      final id = await newVisit(identity: _other);
+      final id = await newRecord(identity: _other);
       expect(
         await capture.update(
           identity: supervisor,
-          visitId: id,
+          recordId: id,
           definition: _definition,
           answers: {'altura_cm': 77},
           captured: const {},
         ),
-        VisitChange.saved,
+        RecordChange.saved,
       );
-      expect(await capture.delete(identity: supervisor, visitId: id), VisitChange.saved);
+      expect(await capture.delete(identity: supervisor, recordId: id), RecordChange.saved);
     });
 
     test('solo las propias', () async {
-      final id = await newVisit(identity: _other);
-      expect(await edit(id, {'altura_cm': 99}), VisitChange.notAllowed);
-      expect(await capture.delete(identity: _me, visitId: id), VisitChange.notAllowed);
+      final id = await newRecord(identity: _other);
+      expect(await edit(id, {'altura_cm': 99}), RecordChange.notAllowed);
+      expect(await capture.delete(identity: _me, recordId: id), RecordChange.notAllowed);
     });
 
     test('con algo en revisión, primero se resuelve', () async {
-      final id = await newVisit();
+      final id = await newRecord();
       await db.update(db.outboxOps).write(const OutboxOpsCompanion(state: Value('quarantine')));
-      expect(await edit(id, {'altura_cm': 99}), VisitChange.needsReview);
+      expect(await edit(id, {'altura_cm': 99}), RecordChange.needsReview);
     });
   });
 
   group('borrar', () {
     test('sale de la lista ya y viaja como delete sobre su versión', () async {
-      final id = await newVisit();
+      final id = await newRecord();
       await edit(id, {'altura_cm': 20});
-      expect(await capture.delete(identity: _me, visitId: id), VisitChange.saved);
+      expect(await capture.delete(identity: _me, recordId: id), RecordChange.saved);
 
-      final visit = await (db.select(db.visits)..where((t) => t.id.equals(id))).getSingle();
-      expect(visit.deletedAt, isNotNull);
+      final record = await (db.select(db.records)..where((t) => t.id.equals(id))).getSingle();
+      expect(record.deletedAt, isNotNull);
       final delete = (await ops()).last;
       expect((delete.opType, delete.baseVersion), ('delete', 2));
       expect(jsonDecode(delete.payloadJson), {'id': id});
@@ -187,20 +187,20 @@ void main() {
 
   group('motor', () {
     test('aplica la versión que devuelve el servidor y la siguiente edición parte de ella', () async {
-      final id = await newVisit();
+      final id = await newRecord();
       await edit(id, {'altura_cm': 20});
       final [create, update] = await ops();
       serverApplies({create.opUuid: 1, update.opUuid: 2});
       await engine.drainOutbox();
 
-      final visit = await (db.select(db.visits)..where((t) => t.id.equals(id))).getSingle();
-      expect(visit.version, 2);
+      final record = await (db.select(db.records)..where((t) => t.id.equals(id))).getSingle();
+      expect(record.version, 2);
       await edit(id, {'altura_cm': 30});
       expect((await ops()).single.baseVersion, 2);
     });
 
     test('un update no adelanta a su create en revisión', () async {
-      final id = await newVisit();
+      final id = await newRecord();
       await edit(id, {'altura_cm': 20});
       await (db.update(db.outboxOps)..where((t) => t.opType.equals('create'))).write(
         const OutboxOpsCompanion(state: Value('quarantine')),
@@ -211,12 +211,12 @@ void main() {
       expect(id, isNotEmpty);
     });
 
-    test('el adjunto espera a su visita', () async {
-      final id = await newVisit();
+    test('el adjunto espera a su registro', () async {
+      final id = await newRecord();
       final photo = _photo('foto-1');
       await edit(id, {'altura_cm': 10, 'foto': photo.id}, captured: {photo.id: photo});
-      // La alta de la visita en revisión: ni su adjunto (otra entidad) sale.
-      await (db.update(db.outboxOps)..where((t) => t.entity.equals('visit'))).write(
+      // La alta del registro en revisión: ni su adjunto (otra entidad) sale.
+      await (db.update(db.outboxOps)..where((t) => t.entity.equals('record'))).write(
         const OutboxOpsCompanion(state: Value('quarantine')),
       );
 
@@ -224,7 +224,7 @@ void main() {
     });
 
     test('un envío cortado (inflight) se reenvía en la siguiente sesión', () async {
-      await newVisit();
+      await newRecord();
       await db.update(db.outboxOps).write(const OutboxOpsCompanion(state: Value('inflight')));
       final op = (await ops()).single;
       serverApplies({op.opUuid: 1});
@@ -235,7 +235,7 @@ void main() {
     });
 
     test('el pull no pisa una edición sin enviar, pero guarda la copia del servidor', () async {
-      final id = await newVisit();
+      final id = await newRecord();
       final create = (await ops()).single;
       serverApplies({create.opUuid: 1});
       await engine.drainOutbox();
@@ -260,7 +260,7 @@ void main() {
       transport.pullResponses.add(
         Result.ok(
           PullResponse(
-            rows: [PullRow(entity: 'visit', data: serverRow)],
+            rows: [PullRow(entity: 'record', data: serverRow)],
             tombstones: const [],
             nextCursor: 'c1:00000000000000000007',
             hasMore: false,
@@ -269,27 +269,27 @@ void main() {
       );
       await engine.pull();
 
-      final visit = await (db.select(db.visits)..where((t) => t.id.equals(id))).getSingle();
-      expect(jsonDecode(visit.answersJson), {'altura_cm': 50}, reason: 'lo del agente sigue en pantalla');
-      expect((jsonDecode(visit.serverDataJson!) as Map<String, dynamic>)['answers'], {'altura_cm': 99});
+      final record = await (db.select(db.records)..where((t) => t.id.equals(id))).getSingle();
+      expect(jsonDecode(record.answersJson), {'altura_cm': 50}, reason: 'lo del agente sigue en pantalla');
+      expect((jsonDecode(record.serverDataJson!) as Map<String, dynamic>)['answers'], {'altura_cm': 99});
     });
   });
 
   group('revisión', () {
-    Future<String> syncedVisitWithRejectedEdit() async {
-      final id = await newVisit();
+    Future<String> syncedRecordWithRejectedEdit() async {
+      final id = await newRecord();
       final create = (await ops()).single;
       transport.pushResponses.add(
         Result.ok(
           PushResponse(
-            schemaVersion: 1,
+            schemaVersion: 2,
             results: [
               PushOpOutcome(
                 opUuid: create.opUuid,
                 status: 'applied',
                 serverVersion: 1,
                 serverRow: {
-                  'entity': 'visit',
+                  'entity': 'record',
                   'data': {
                     'id': id,
                     'org_id': 'org-1',
@@ -318,21 +318,21 @@ void main() {
       return id;
     }
 
-    test('descartar una edición rechazada vuelve a la versión del servidor, sin borrar la visita', () async {
-      final id = await syncedVisitWithRejectedEdit();
+    test('descartar una edición rechazada vuelve a la versión del servidor, sin borrar el registro', () async {
+      final id = await syncedRecordWithRejectedEdit();
       final quarantine = QuarantineService(db: db, engine: engine);
       final item = (await quarantine.list(orgId: 'org-1')).single;
       expect(item.existsOnServer, isTrue);
 
       await quarantine.discard(item);
-      final visit = await (db.select(db.visits)..where((t) => t.id.equals(id))).getSingle();
-      expect(jsonDecode(visit.answersJson), {'altura_cm': 10});
+      final record = await (db.select(db.records)..where((t) => t.id.equals(id))).getSingle();
+      expect(jsonDecode(record.answersJson), {'altura_cm': 10});
       expect(await ops(), isEmpty);
     });
 
     test('"enviar mi versión" de un borrado en conflicto vuelve a borrar sobre la versión del servidor', () async {
-      final id = await newVisit();
-      await capture.delete(identity: _me, visitId: id);
+      final id = await newRecord();
+      await capture.delete(identity: _me, recordId: id);
       final serverData = {
         'id': id,
         'org_id': 'org-1',
@@ -355,7 +355,7 @@ void main() {
         OutboxOpsCompanion(
           state: const Value('quarantine'),
           errorCode: const Value('conflict'),
-          serverRowJson: Value(jsonEncode({'entity': 'visit', 'data': serverData})),
+          serverRowJson: Value(jsonEncode({'entity': 'record', 'data': serverData})),
         ),
       );
       final quarantine = QuarantineService(db: db, engine: engine);

@@ -5,18 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/app_dependencies.dart';
-import 'package:visitacampo/core/auth/auth_controller.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/core/auth/auth_state.dart';
-import 'package:visitacampo/core/capture/visit_capture.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/core/location/gps_settings.dart';
-import 'package:visitacampo/core/providers.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/features/auth/login_screen.dart';
-import 'package:visitacampo/features/settings/settings_screen.dart';
+import 'package:suno/core/app_dependencies.dart';
+import 'package:suno/core/auth/auth_controller.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/core/auth/auth_state.dart';
+import 'package:suno/core/capture/record_capture.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/core/location/gps_settings.dart';
+import 'package:suno/core/providers.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/features/auth/login_screen.dart';
+import 'package:suno/features/settings/settings_screen.dart';
 
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
@@ -89,9 +89,9 @@ void main() {
     expect(dependencies.gpsPolicy.targetAccuracyM, 20);
   });
 
-  testWidgets('cerrar sesión avisa de las visitas sin enviar y vuelve al login', (tester) async {
+  testWidgets('cerrar sesión avisa de los registros sin enviar y vuelve al login', (tester) async {
     final dependencies = await loggedIn();
-    await VisitCapture(db: db).save(
+    await RecordCapture(db: db).save(
       identity: const CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1'),
       templateVersionId: 'tv-1',
       definition: (parseFormDefinition({'fields': <Object>[]}) as DefinitionOk).definition,
@@ -102,7 +102,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('settings_logout')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Tienes 1 visita sin enviar'), findsOneWidget);
+    expect(find.textContaining('Tienes 1 registro sin enviar'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('settings_logout_confirm')));
     await tester.pumpAndSettle();

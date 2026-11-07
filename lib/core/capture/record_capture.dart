@@ -1,7 +1,7 @@
-// Guardado de una visita capturada (Paso 22, tarea 5) — la lógica, sin UI.
+// Guardado de un registro capturado (Paso 22, tarea 5) — la lógica, sin UI.
 //
-// Una visita se guarda **entera y offline** en una sola transacción local
-// (`AppDatabase.saveVisitCapture`): la visita, sus adjuntos, las operaciones
+// Un registro se guarda **entera y offline** en una sola transacción local
+// (`AppDatabase.saveRecordCapture`): el registro, sus adjuntos, las operaciones
 // de outbox y la cola de subida. La UI la ve al instante (optimista, doc 08
 // §4.2 "FASE OFFLINE"); la red llega después, por el `SyncEngine` y el
 // `AttachmentUploadService`.
@@ -14,8 +14,8 @@
 // - **Solo se guardan los adjuntos referenciados**: los de los campos
 //   foto/firma visibles y las fotos adicionales. Una foto repetida antes de
 //   guardar sustituye a la anterior, que no llega a crearse.
-// - **Orden de las operaciones**: la visita primero y luego sus adjuntos, en
-//   el orden de la plantilla; el servidor rechaza un adjunto cuya visita no
+// - **Orden de las operaciones**: el registro primero y luego sus adjuntos, en
+//   el orden de la plantilla; el servidor rechaza un adjunto cuyo registro no
 //   existe todavía.
 import 'dart:convert';
 
@@ -30,7 +30,7 @@ import '../location/location_source.dart';
 
 export '../forms/answers.dart' show keptAnswers;
 
-/// Un archivo capturado en esta visita y todavía no guardado.
+/// Un archivo capturado en este registro y todavía no guardado.
 @immutable
 class PendingAttachment {
   const PendingAttachment({
@@ -42,7 +42,7 @@ class PendingAttachment {
     required this.capturedAt,
   });
 
-  /// `visit_attachment.id` (UUIDv7, generado en el dispositivo): es lo que se
+  /// `record_attachment.id` (UUIDv7, generado en el dispositivo): es lo que se
   /// guarda en `answers` para un campo foto/firma.
   final String id;
   final String sha256;
@@ -67,7 +67,7 @@ class CaptureIdentity {
 }
 
 /// Costos, etapa 1: la tarea del cronograma y el % acumulado que reporta una
-/// visita. Viajan siempre juntos (`task_id` + `progress_pct`).
+/// registro. Viajan siempre juntos (`task_id` + `progress_pct`).
 @immutable
 class TaskProgress {
   const TaskProgress({required this.taskId, required this.pct});
@@ -75,8 +75,8 @@ class TaskProgress {
   final double pct;
 }
 
-class VisitCapture {
-  VisitCapture({required this.db, String Function()? idGenerator, DateTime Function()? clock})
+class RecordCapture {
+  RecordCapture({required this.db, String Function()? idGenerator, DateTime Function()? clock})
     : _newId = idGenerator ?? (() => const Uuid().v7()),
       _now = clock ?? DateTime.now;
 
@@ -86,7 +86,7 @@ class VisitCapture {
 
   String newAttachmentId() => _newId();
 
-  /// Guarda la visita. Devuelve su `id`.
+  /// Guarda el registro. Devuelve su `id`.
   ///
   /// [captured] son los archivos capturados para los campos foto/firma, por
   /// `id`; [extraPhotos], las fotos adicionales fuera de la plantilla.
@@ -101,7 +101,7 @@ class VisitCapture {
     String? assignmentId,
     TaskProgress? progress,
   }) async {
-    final visitId = _newId();
+    final recordId = _newId();
     final now = _now().toUtc();
 
     final kept = keptAnswers(definition, answers);
@@ -112,7 +112,7 @@ class VisitCapture {
     ];
 
     final payload = <String, Object?>{
-      'id': visitId,
+      'id': recordId,
       'template_version_id': templateVersionId,
       'answers': kept,
       'captured_at': now.toIso8601String(),
@@ -128,9 +128,9 @@ class VisitCapture {
       },
     };
 
-    await db.saveVisitCapture(
-      visit: VisitsCompanion.insert(
-        id: visitId,
+    await db.saveRecordCapture(
+      record: RecordsCompanion.insert(
+        id: recordId,
         orgId: identity.orgId,
         // `INITIAL_VERSION` del servidor; el valor autoritativo llega tras el push.
         version: 1,
@@ -149,10 +149,10 @@ class VisitCapture {
       ),
       attachments: [
         for (final (order, a) in attachments.indexed)
-          VisitAttachmentsCompanion.insert(
+          RecordAttachmentsCompanion.insert(
             id: a.id,
             orgId: identity.orgId,
-            visitId: visitId,
+            recordId: recordId,
             sha256: a.sha256,
             role: a.role,
             capturedAt: a.capturedAt.toUtc(),
@@ -160,8 +160,8 @@ class VisitCapture {
           ),
       ],
       outboxOps: [
-        _op(entity: 'visit', entityId: visitId, payload: payload, now: now),
-        for (final (order, a) in attachments.indexed) _attachmentOp(visitId, a, order, now),
+        _op(entity: 'record', entityId: recordId, payload: payload, now: now),
+        for (final (order, a) in attachments.indexed) _attachmentOp(recordId, a, order, now),
       ],
       uploads: [
         for (final a in attachments)
@@ -174,10 +174,10 @@ class VisitCapture {
           ),
       ],
     );
-    return visitId;
+    return recordId;
   }
 
-  /// Edita una visita ya guardada (Fase A). Viaja como `update` con solo lo
+  /// Edita un registro ya guardado (Fase A). Viaja como `update` con solo lo
   /// que cambió (respuestas y/o ubicación) y los adjuntos nuevos como altas.
   ///
   /// [captured] son los archivos capturados **en esta edición**; una foto
@@ -186,11 +186,11 @@ class VisitCapture {
   ///
   /// El `base_version` es la versión que el agente estaba viendo más las
   /// ediciones suyas que aún no se aplicaron: así varias ediciones seguidas
-  /// sin red encadenan bien, y si otro cambió la visita en el servidor el
+  /// sin red encadenan bien, y si otro cambió el registro en el servidor el
   /// CAS lo detecta y la revisión muestra las dos versiones.
-  Future<VisitChange> update({
+  Future<RecordChange> update({
     required CaptureIdentity identity,
-    required String visitId,
+    required String recordId,
     required FormDefinition definition,
     required Map<String, Object?> answers,
     required Map<String, PendingAttachment> captured,
@@ -201,15 +201,15 @@ class VisitCapture {
     /// `(value: TaskProgress(...))`: poner o cambiar la tarea y su %.
     ({TaskProgress? value})? progress,
   }) => db.transaction(() async {
-    final visit = await _editable(identity, visitId);
-    if (visit is! Visit) return visit as VisitChange;
+    final record = await _editable(identity, recordId);
+    if (record is! Record) return record as RecordChange;
     final now = _now().toUtc();
 
     final kept = keptAnswers(definition, answers);
     final link = progress?.value;
-    final progressChanged = progress != null && (link?.taskId != visit.taskId || link?.pct != visit.progressPct);
+    final progressChanged = progress != null && (link?.taskId != record.taskId || link?.pct != record.progressPct);
     final changed = <String, Object?>{
-      if (jsonEncode(kept) != visit.answersJson) 'answers': kept,
+      if (jsonEncode(kept) != record.answersJson) 'answers': kept,
       if (fix != null) ...{'lat': fix.lat, 'lon': fix.lon, 'accuracy_m': fix.accuracyM, 'altitude_m': fix.altitudeM},
       // El servidor exige el par completo, también en `update`.
       if (progressChanged) ...{'task_id': link?.taskId, 'progress_pct': link?.pct},
@@ -219,14 +219,14 @@ class VisitCapture {
         if (field is AttachmentRefFieldDef && captured[value] != null) captured[value]!,
       ...extraPhotos,
     ];
-    if (changed.isEmpty && attachments.isEmpty) return VisitChange.unchanged;
+    if (changed.isEmpty && attachments.isEmpty) return RecordChange.unchanged;
 
-    final existing = await (db.select(db.visitAttachments)..where((t) => t.visitId.equals(visitId))).get();
+    final existing = await (db.select(db.recordAttachments)..where((t) => t.recordId.equals(recordId))).get();
     final firstPosition = existing.isEmpty ? 0 : existing.map((a) => a.position).reduce((a, b) => a > b ? a : b) + 1;
 
     if (changed.isNotEmpty) {
-      await (db.update(db.visits)..where((t) => t.id.equals(visitId))).write(
-        VisitsCompanion(
+      await (db.update(db.records)..where((t) => t.id.equals(recordId))).write(
+        RecordsCompanion(
           answersJson: Value(jsonEncode(kept)),
           lat: fix == null ? const Value.absent() : Value(fix.lat),
           lon: fix == null ? const Value.absent() : Value(fix.lon),
@@ -240,11 +240,11 @@ class VisitCapture {
           .into(db.outboxOps)
           .insert(
             _op(
-              entity: 'visit',
-              entityId: visitId,
+              entity: 'record',
+              entityId: recordId,
               opType: 'update',
-              baseVersion: await _baseVersion(visit),
-              payload: {'id': visitId, ...changed},
+              baseVersion: await _baseVersion(record),
+              payload: {'id': recordId, ...changed},
               now: now,
             ),
           );
@@ -252,19 +252,19 @@ class VisitCapture {
     for (final (index, a) in attachments.indexed) {
       final order = firstPosition + index;
       await db
-          .into(db.visitAttachments)
+          .into(db.recordAttachments)
           .insert(
-            VisitAttachmentsCompanion.insert(
+            RecordAttachmentsCompanion.insert(
               id: a.id,
               orgId: identity.orgId,
-              visitId: visitId,
+              recordId: recordId,
               sha256: a.sha256,
               role: a.role,
               capturedAt: a.capturedAt.toUtc(),
               position: order,
             ),
           );
-      await db.into(db.outboxOps).insert(_attachmentOp(visitId, a, order, now));
+      await db.into(db.outboxOps).insert(_attachmentOp(recordId, a, order, now));
       await db
           .into(db.attachmentQueue)
           .insert(
@@ -278,66 +278,66 @@ class VisitCapture {
             mode: InsertMode.insertOrIgnore,
           );
     }
-    return VisitChange.saved;
+    return RecordChange.saved;
   });
 
-  /// Borra una visita (Fase A): sale de la lista ya y viaja como `delete`.
+  /// Borra un registro (Fase A): sale de la lista ya y viaja como `delete`.
   /// Si su alta aún no se envió, viajan las dos en orden: el servidor la crea
   /// y la borra, y queda constancia (borrado lógico, `deleted_at`).
-  Future<VisitChange> delete({required CaptureIdentity identity, required String visitId}) => db.transaction(() async {
-    final visit = await _editable(identity, visitId);
-    if (visit is! Visit) return visit as VisitChange;
+  Future<RecordChange> delete({required CaptureIdentity identity, required String recordId}) => db.transaction(() async {
+    final record = await _editable(identity, recordId);
+    if (record is! Record) return record as RecordChange;
     final now = _now().toUtc();
-    await (db.update(db.visits)..where((t) => t.id.equals(visitId))).write(VisitsCompanion(deletedAt: Value(now)));
+    await (db.update(db.records)..where((t) => t.id.equals(recordId))).write(RecordsCompanion(deletedAt: Value(now)));
     await db
         .into(db.outboxOps)
         .insert(
           _op(
-            entity: 'visit',
-            entityId: visitId,
+            entity: 'record',
+            entityId: recordId,
             opType: 'delete',
-            baseVersion: await _baseVersion(visit),
-            payload: {'id': visitId},
+            baseVersion: await _baseVersion(record),
+            payload: {'id': recordId},
             now: now,
           ),
         );
-    return VisitChange.saved;
+    return RecordChange.saved;
   });
 
-  /// La visita, si [identity] puede editarla; si no, el motivo.
-  Future<Object> _editable(CaptureIdentity identity, String visitId) async {
-    final visit = await (db.select(
-      db.visits,
-    )..where((t) => t.id.equals(visitId) & t.orgId.equals(identity.orgId) & t.deletedAt.isNull())).getSingleOrNull();
-    if (visit == null) return VisitChange.notFound;
-    if (!canEdit(visit, userId: identity.userId, roles: identity.roles)) return VisitChange.notAllowed;
+  /// El registro, si [identity] puede editarla; si no, el motivo.
+  Future<Object> _editable(CaptureIdentity identity, String recordId) async {
+    final record = await (db.select(
+      db.records,
+    )..where((t) => t.id.equals(recordId) & t.orgId.equals(identity.orgId) & t.deletedAt.isNull())).getSingleOrNull();
+    if (record == null) return RecordChange.notFound;
+    if (!canEdit(record, userId: identity.userId, roles: identity.roles)) return RecordChange.notAllowed;
     final quarantined =
         await (db.select(db.outboxOps)
-              ..where((t) => t.entityId.equals(visitId) & t.state.equals('quarantine'))
+              ..where((t) => t.entityId.equals(recordId) & t.state.equals('quarantine'))
               ..limit(1))
             .get();
     // Con algo en revisión, una edición nueva quedaría detrás sin poder
     // salir: primero se resuelve la revisión.
-    if (quarantined.isNotEmpty) return VisitChange.needsReview;
-    return visit;
+    if (quarantined.isNotEmpty) return RecordChange.needsReview;
+    return record;
   }
 
   /// La versión que el agente estaba viendo más sus ediciones aún sin aplicar.
-  Future<int> _baseVersion(Visit visit) async {
+  Future<int> _baseVersion(Record record) async {
     final pendingEdits =
         await (db.select(db.outboxOps)..where(
-              (t) => t.entity.equals('visit') & t.entityId.equals(visit.id) & t.opType.isIn(const ['update', 'delete']),
+              (t) => t.entity.equals('record') & t.entityId.equals(record.id) & t.opType.isIn(const ['update', 'delete']),
             ))
             .get();
-    return visit.version + pendingEdits.length;
+    return record.version + pendingEdits.length;
   }
 
-  OutboxOpsCompanion _attachmentOp(String visitId, PendingAttachment a, int order, DateTime now) => _op(
-    entity: 'visit_attachment',
+  OutboxOpsCompanion _attachmentOp(String recordId, PendingAttachment a, int order, DateTime now) => _op(
+    entity: 'record_attachment',
     entityId: a.id,
     payload: {
       'id': a.id,
-      'visit_id': visitId,
+      'record_id': recordId,
       'sha256': a.sha256,
       'role': a.role,
       'caption': null,
@@ -366,27 +366,27 @@ class VisitCapture {
   );
 }
 
-/// Resultado de editar o borrar una visita.
-enum VisitChange {
+/// Resultado de editar o borrar un registro.
+enum RecordChange {
   saved,
 
   /// Nada que guardar: las respuestas y la ubicación son las mismas.
   unchanged,
   notFound,
 
-  /// No es una visita de este agente.
+  /// No es un registro de este agente.
   notAllowed,
 
   /// Tiene algo en "Para revisar": se resuelve primero.
   needsReview,
 }
 
-/// ¿Puede el usuario editar o borrar [visit]? Su autor o supervisión: la
-/// misma regla que impone el servidor (`can_modify_visit`, ISO 27001
+/// ¿Puede el usuario editar o borrar [record]? Su autor o supervisión: la
+/// misma regla que impone el servidor (`can_modify_record`, ISO 27001
 /// A.5.15). Aquí solo decide qué botones se muestran; quien autoriza es el
 /// servidor, que rechaza con `forbidden` lo que no corresponda.
-bool canEdit(Visit visit, {required String userId, required List<String> roles}) =>
-    visit.createdBy == userId || roles.any(supervisionRoles.contains);
+bool canEdit(Record record, {required String userId, required List<String> roles}) =>
+    record.createdBy == userId || roles.any(supervisionRoles.contains);
 
 /// Roles que supervisan el trabajo de campo (`SUPERVISION_ROLES` del servidor).
 const supervisionRoles = {'OWNER', 'ADMIN', 'SUPERVISOR'};

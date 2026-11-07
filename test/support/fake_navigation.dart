@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:visitacampo/core/location/location_source.dart';
-import 'package:visitacampo/core/location/navigation_target.dart';
+import 'package:suno/core/location/location_source.dart';
+import 'package:suno/core/location/navigation_target.dart';
 
 class FakeNavigationGps implements LocationSource {
   final controller = StreamController<LocationFix>.broadcast();

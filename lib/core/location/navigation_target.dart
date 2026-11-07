@@ -32,7 +32,7 @@ class NavigationTarget {
   }
 
   /// URL universal: app de Google Maps si está instalada o navegador.
-  /// Sin origen, identidad, título de la asignación ni datos de la visita.
+  /// Sin origen, identidad, título de la asignación ni datos del registro.
   /// Decimales fijos: `toString` daría `5e-7` o `-0.0` cerca del ecuador o
   /// del meridiano. Siete decimales son ~1 cm.
   Uri get directionsUri => Uri.https('www.google.com', '/maps/dir/', {

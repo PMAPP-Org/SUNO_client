@@ -2,8 +2,8 @@
 // vuelve a WGS84.
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/location/coordinate_settings.dart';
-import 'package:visitacampo/core/location/coordinate_system.dart';
+import 'package:suno/core/location/coordinate_settings.dart';
+import 'package:suno/core/location/coordinate_system.dart';
 
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
@@ -22,7 +22,7 @@ void main() {
   });
 
   test('un código desconocido vuelve a WGS84', () async {
-    FlutterSecureStorage.setMockInitialValues({'visitacampo.coordinate_system.v1': 'EPSG:1234'});
+    FlutterSecureStorage.setMockInitialValues({'suno.coordinate_system.v1': 'EPSG:1234'});
     final settings = CoordinateSettings(const FlutterSecureStorage());
     await settings.load();
     expect(settings.current.value, CoordinateSystem.wgs84);

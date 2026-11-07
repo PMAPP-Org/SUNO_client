@@ -2,8 +2,8 @@
 // opciones vuelve al de fábrica.
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/location/gps_sampler.dart';
-import 'package:visitacampo/core/location/gps_settings.dart';
+import 'package:suno/core/location/gps_sampler.dart';
+import 'package:suno/core/location/gps_settings.dart';
 
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
@@ -28,7 +28,7 @@ void main() {
 
   test('un valor fuera de las opciones o ilegible vuelve a los de fábrica', () async {
     for (final raw in ['{"target_accuracy_m": 10, "samples": 5, "timeout_s": 0}', '{roto']) {
-      FlutterSecureStorage.setMockInitialValues({'visitacampo.gps_policy.v1': raw});
+      FlutterSecureStorage.setMockInitialValues({'suno.gps_policy.v1': raw});
       final settings = GpsSettings(const FlutterSecureStorage());
       await settings.load();
       expect(settings.policy.timeout, const GpsPolicy().timeout, reason: raw);

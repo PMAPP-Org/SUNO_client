@@ -1,8 +1,8 @@
 # SUNO_client
 
-App móvil **offline-first** de VisitaCampo, para registrar visitas de campo: formularios dinámicos, GPS, fotos y firma. Todo se guarda en el teléfono (SQLite cifrado con SQLCipher) y se sincroniza con el servidor cuando hay red.
+App móvil **offline-first** de SUNO, para capturar registros de campo: formularios dinámicos, GPS, fotos y firma. Todo se guarda en el teléfono (SQLite cifrado con SQLCipher) y se sincroniza con el servidor cuando hay red.
 
-El backend (API, panel de administración e infraestructura) está en [`PMAPP-Org/SUNO_server`](https://github.com/PMAPP-Org/SUNO_server). Allí también viven la arquitectura (`docs/08-arquitectura-propuesta-visitacampo.md`), el SGSI ISO 27001 (`docs/seguridad/`) y el plan de construcción (`plans/`).
+El backend (API, panel de administración e infraestructura) está en [`PMAPP-Org/SUNO_server`](https://github.com/PMAPP-Org/SUNO_server). Allí también viven la arquitectura (`docs/08-arquitectura-propuesta-suno.md`), el SGSI ISO 27001 (`docs/seguridad/`) y el plan de construcción (`plans/`).
 
 ## Requisitos
 
@@ -24,7 +24,7 @@ Ni el código generado (`*.g.dart`, `*.freezed.dart`) ni los textos generados (`
 
 | Carpeta | Qué hay |
 |---|---|
-| `lib/core/` | Dominio sin UI: sesión, sincronización (outbox, pull, CAS), formularios (DSL de visibilidad, validación), captura de visitas |
+| `lib/core/` | Dominio sin UI: sesión, sincronización (outbox, pull, CAS), formularios (DSL de visibilidad, validación), captura de registros |
 | `lib/data/` | Adaptadores: HTTP (Dio), base de datos local (Drift + SQLCipher), cámara, GPS |
 | `lib/features/` | Pantallas: login, inicio, captura, firma |
 | `lib/ui/` | Sistema de diseño (tema, tokens, widgets) y el renderer de formularios |

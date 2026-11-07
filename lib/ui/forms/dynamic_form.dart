@@ -20,10 +20,10 @@ import 'form_controller.dart';
 /// Captura de los campos que necesitan hardware. Devuelve `null` si el
 /// usuario cancela.
 abstract interface class FormMediaDelegate {
-  /// Id (UUID) del `visit_attachment` de la foto.
+  /// Id (UUID) del `record_attachment` de la foto.
   Future<String?> capturePhoto(String fieldKey);
 
-  /// Id (UUID) del `visit_attachment` de la firma.
+  /// Id (UUID) del `record_attachment` de la firma.
   Future<String?> captureSignature(String fieldKey);
 
   /// `{"lat": …, "lon": …}`.
@@ -110,7 +110,7 @@ String formErrorMessage(AppLocalizations l10n, String reason) => switch (reason)
   'task_is_summary' => l10n.formErrorTaskIsSummary,
   'not_responsible' => l10n.formErrorNotResponsible,
   'task_progress_pair' => l10n.formErrorTaskProgressPair,
-  'visit_validated' => l10n.formErrorVisitValidated,
+  'record_validated' => l10n.formErrorRecordValidated,
   'greater_than_equal' || 'less_than_equal' => l10n.formErrorOutOfRange,
   _ => l10n.formErrorInvalid,
 };

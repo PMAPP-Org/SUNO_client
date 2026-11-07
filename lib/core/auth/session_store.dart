@@ -48,7 +48,7 @@ class SecureSessionStore implements SessionStore {
 
   final FlutterSecureStorage _storage;
 
-  static const _prefix = 'visitacampo.session.v1.';
+  static const _prefix = 'suno.session.v1.';
 
   @override
   Future<void> save(String deviceId, StoredSession session) => _storage.write(

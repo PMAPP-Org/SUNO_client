@@ -13,8 +13,8 @@ class PresignData {
 }
 
 abstract class AttachmentTransport {
-  /// `POST /v1/attachments/presign`. Sin `visit_id` (Decisión de diseño 11
-  /// del plan): evita depender de que el `push` de la visita ya haya
+  /// `POST /v1/attachments/presign`. Sin `record_id` (Decisión de diseño 11
+  /// del plan): evita depender de que el `push` del registro ya haya
   /// terminado en el servidor.
   Future<AttachmentResult<PresignData>> presign({
     required String sha256,
@@ -23,7 +23,7 @@ abstract class AttachmentTransport {
   });
 
   /// `PUT` directo a `uploadUrl` (host del object storage, no de la API de
-  /// VisitaCampo) con los `headers` que el servidor exigió al firmar.
+  /// SUNO) con los `headers` que el servidor exigió al firmar.
   ///
   /// **Streaming** (Paso 18, corrige H-05 en el cliente): `body` se envía a
   /// medida que se lee del archivo, con `Content-Length` = [length], sin

@@ -59,14 +59,14 @@ class SpkiPinPolicy {
     }
   }
 
-  /// Lee la política del build: `--dart-define=VISITACAMPO_SPKI_PINS=pin1,pin2`
-  /// y `--dart-define=VISITACAMPO_SPKI_PINS_EXPIRE=2027-06-30`. Sin pines, el
+  /// Lee la política del build: `--dart-define=SUNO_SPKI_PINS=pin1,pin2`
+  /// y `--dart-define=SUNO_SPKI_PINS_EXPIRE=2027-06-30`. Sin pines, el
   /// servidor no es "oficial" y se trata como autohospedado (TOFU). Con pines
   /// pero mal configurados, la app no arranca: un build de producción sin
   /// pinning no puede pasar desapercibido.
   static SpkiPinPolicy? fromEnvironment(String apiBaseUrl) {
-    const rawPins = String.fromEnvironment('VISITACAMPO_SPKI_PINS');
-    const rawExpiry = String.fromEnvironment('VISITACAMPO_SPKI_PINS_EXPIRE');
+    const rawPins = String.fromEnvironment('SUNO_SPKI_PINS');
+    const rawExpiry = String.fromEnvironment('SUNO_SPKI_PINS_EXPIRE');
     return parse(
       apiBaseUrl: apiBaseUrl,
       rawPins: rawPins,
@@ -88,7 +88,7 @@ class SpkiPinPolicy {
     final expiresAt = DateTime.tryParse(rawExpiry);
     if (expiresAt == null) {
       throw ArgumentError(
-        'VISITACAMPO_SPKI_PINS_EXPIRE falta o no es una fecha ISO-8601.',
+        'SUNO_SPKI_PINS_EXPIRE falta o no es una fecha ISO-8601.',
       );
     }
     return SpkiPinPolicy(

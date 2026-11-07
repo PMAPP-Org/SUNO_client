@@ -1,8 +1,8 @@
 // Fase C: vértices ↔ GeoJSON, y que lo que produce la app pase la misma
 // validación que el servidor.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/core/forms/geometry.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/core/forms/geometry.dart';
 
 const _label = I18nText({'es': 'x'});
 

@@ -2,8 +2,8 @@
 // y "% avance acumulado" con el último validado como referencia.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/data/local/schedule_task_repository.dart';
-import 'package:visitacampo/features/capture/task_progress_section.dart';
+import 'package:suno/data/local/schedule_task_repository.dart';
+import 'package:suno/features/capture/task_progress_section.dart';
 
 import '../../support/test_app.dart';
 

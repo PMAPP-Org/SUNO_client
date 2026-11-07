@@ -19,21 +19,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:visitacampo/core/app_dependencies.dart';
-import 'package:visitacampo/core/attachments/attachment_result.dart';
-import 'package:visitacampo/core/attachments/attachment_upload_service.dart';
-import 'package:visitacampo/core/auth/auth_controller.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/core/basemaps/basemap_manager.dart';
-import 'package:visitacampo/core/layers/layer_manager.dart';
-import 'package:visitacampo/core/providers.dart';
-import 'package:visitacampo/core/schedule/schedule_task_sync.dart';
-import 'package:visitacampo/core/sync/result.dart';
-import 'package:visitacampo/core/sync/sync_engine.dart';
-import 'package:visitacampo/core/sync/sync_transport.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/features/home/home_screen.dart';
+import 'package:suno/core/app_dependencies.dart';
+import 'package:suno/core/attachments/attachment_result.dart';
+import 'package:suno/core/attachments/attachment_upload_service.dart';
+import 'package:suno/core/auth/auth_controller.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/core/basemaps/basemap_manager.dart';
+import 'package:suno/core/layers/layer_manager.dart';
+import 'package:suno/core/providers.dart';
+import 'package:suno/core/schedule/schedule_task_sync.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_engine.dart';
+import 'package:suno/core/sync/sync_transport.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/features/home/home_screen.dart';
 
 import '../../core/attachments/fake_attachment_transport.dart';
 import '../../core/attachments/fake_file_source.dart';
@@ -277,14 +277,14 @@ void main() {
     },
   );
 
-  testWidgets('con visitas en cuarentena aparece el aviso y lleva a la revisión (Paso 23)', (tester) async {
+  testWidgets('con registros en cuarentena aparece el aviso y lleva a la revisión (Paso 23)', (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     await db
-        .into(db.visits)
+        .into(db.records)
         .insert(
-          VisitsCompanion.insert(
-            id: 'visit-1',
+          RecordsCompanion.insert(
+            id: 'record-1',
             orgId: 'org-1',
             version: 1,
             templateVersionId: 'tv-1',
@@ -299,10 +299,10 @@ void main() {
         .insert(
           OutboxOpsCompanion.insert(
             opUuid: 'op-1',
-            entity: 'visit',
-            entityId: 'visit-1',
+            entity: 'record',
+            entityId: 'record-1',
             opType: 'create',
-            payloadJson: '{"id": "visit-1"}',
+            payloadJson: '{"id": "record-1"}',
             state: 'quarantine',
             createdAt: DateTime.utc(2026, 10, 17),
             errorMessage: const Value('Plantilla desconocida.'),
@@ -333,7 +333,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('1 visita para revisar'), findsOneWidget);
+    expect(find.text('1 registro para revisar'), findsOneWidget);
     await tester.tap(find.byKey(const Key('home_review_button')));
     await tester.pumpAndSettle();
     expect(find.text('Para revisar'), findsOneWidget);

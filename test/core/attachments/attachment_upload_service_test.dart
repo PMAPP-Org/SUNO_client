@@ -8,11 +8,11 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/attachments/attachment_result.dart';
-import 'package:visitacampo/core/attachments/attachment_transport.dart';
-import 'package:visitacampo/core/attachments/attachment_upload_service.dart';
-import 'package:visitacampo/core/sync/backoff.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/core/attachments/attachment_result.dart';
+import 'package:suno/core/attachments/attachment_transport.dart';
+import 'package:suno/core/attachments/attachment_upload_service.dart';
+import 'package:suno/core/sync/backoff.dart';
+import 'package:suno/data/local/database.dart';
 
 import 'fake_attachment_transport.dart';
 import 'fake_file_source.dart';

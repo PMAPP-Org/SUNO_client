@@ -5,12 +5,12 @@
 // repositorio responde a dos preguntas distintas, y no mezclarlas es la
 // corrección de H-11:
 //
-// - **¿Con qué plantilla se captura una visita nueva?** → [latestForNewVisit]:
+// - **¿Con qué plantilla se captura un registro nuevo?** → [latestForNewRecord]:
 //   la versión publicada más alta, no borrada, de esa plantilla. Se consulta
 //   en la BD cada vez; lo único que se memoriza es el resultado del parseo de
 //   cada versión.
-// - **¿Con qué plantilla se lee una visita existente?** → [forVisit]: la
-//   versión exacta que la visita referencia, aunque haya otra más nueva o esta
+// - **¿Con qué plantilla se lee un registro existente?** → [forRecord]: la
+//   versión exacta que el registro referencia, aunque haya otra más nueva o esta
 //   se haya retirado.
 //
 // La memoria de parseo se indexa por `(org_id, template_version_id)` y se
@@ -103,7 +103,7 @@ class FormTemplateRepository {
     return true;
   }
 
-  /// Tombstone del pull: la versión deja de ofrecerse para visitas nuevas.
+  /// Tombstone del pull: la versión deja de ofrecerse para registros nuevos.
   Future<void> markDeleted(String versionId, DateTime deletedAt) async {
     final row = await (db.select(db.formTemplateVersions)..where((t) => t.id.equals(versionId))).getSingleOrNull();
     if (row == null) return;
@@ -113,8 +113,8 @@ class FormTemplateRepository {
     _invalidateTemplate(row.orgId, row.templateId, versionId: versionId);
   }
 
-  /// La versión con la que se captura una visita **nueva** de [templateId].
-  Future<TemplateLookup> latestForNewVisit({required String orgId, required String templateId}) async {
+  /// La versión con la que se captura un registro **nueva** de [templateId].
+  Future<TemplateLookup> latestForNewRecord({required String orgId, required String templateId}) async {
     final row =
         await (db.select(db.formTemplateVersions)
               ..where(
@@ -130,8 +130,8 @@ class FormTemplateRepository {
     return row == null ? const TemplateMissing() : _lookup(row);
   }
 
-  /// La versión exacta que referencia una visita existente, retirada o no.
-  Future<TemplateLookup> forVisit({required String orgId, required String templateVersionId}) async {
+  /// La versión exacta que referencia un registro existente, retirada o no.
+  Future<TemplateLookup> forRecord({required String orgId, required String templateVersionId}) async {
     final row =
         await (db.select(db.formTemplateVersions)
               ..where((t) => t.orgId.equals(orgId) & t.id.equals(templateVersionId)))
@@ -139,7 +139,7 @@ class FormTemplateRepository {
     return row == null ? const TemplateMissing() : _lookup(row);
   }
 
-  /// Plantillas disponibles para una visita nueva: la versión vigente de cada
+  /// Plantillas disponibles para un registro nuevo: la versión vigente de cada
   /// una, ordenadas por nombre.
   Future<List<TemplateVersionInfo>> availableTemplates({required String orgId}) async {
     final rows =

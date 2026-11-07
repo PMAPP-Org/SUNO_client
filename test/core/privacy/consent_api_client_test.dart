@@ -3,8 +3,8 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/privacy/consent.dart';
-import 'package:visitacampo/data/http/consent_api_client.dart';
+import 'package:suno/core/privacy/consent.dart';
+import 'package:suno/data/http/consent_api_client.dart';
 
 import '../auth/fake_http_client_adapter.dart';
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prueba E2E de la Fase 0 (Paso 14): una visita creada en modo avión en el
+# Prueba E2E de la Fase 0 (Paso 14): un registro creado en modo avión en el
 # emulador llega al servidor al reconectar. Procedimiento completo en
 # SUNO_server docs/testing/e2e-fase0.md.
 #
@@ -18,7 +18,7 @@ unset CURL_CA_BUNDLE
 CLIENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # `pwd -W` (solo Git Bash) da C:/...: docker lo entiende sin conversión.
 SERVER_DIR="$(cd "${SUNO_SERVER_DIR:-$CLIENT_DIR/../SUNO_server}" && { pwd -W 2>/dev/null || pwd; })"
-PACKAGE=com.visitacampo.visitacampo
+PACKAGE=com.suno.app
 HOST=10.0.2.2
 RUN_ID="e2e-$(date +%Y%m%d%H%M%S)"
 ENV_FILE="$SERVER_DIR/infra/.env.e2e"
@@ -50,7 +50,7 @@ cleanup() {
   rm -f "$ENV_FILE"
   rm -rf "$WORK"
   if [[ $status -eq 0 ]]; then
-    log "OK: la visita $RUN_ID llegó al servidor con su tarea y su avance."
+    log "OK: el registro $RUN_ID llegó al servidor con su tarea y su avance."
   else
     log "FALLÓ (código $status)."
   fi
@@ -105,7 +105,7 @@ log "Lanzando la prueba de integración"
   flutter drive --no-dds -d "$DEVICE" \
     --driver=test_driver/integration_test.dart \
     --target=integration_test/e2e_fase0_test.dart \
-    --dart-define=VISITACAMPO_API_BASE_URL="https://$HOST" \
+    --dart-define=SUNO_API_BASE_URL="https://$HOST" \
     --dart-define=E2E_HOST="$HOST" \
     --dart-define=E2E_USERNAME="$RUN_ID" \
     --dart-define=E2E_PASSWORD="$PASSWORD" \
@@ -138,23 +138,23 @@ tail -n 25 "$WORK/flutter.log"
 grep -q 'E2E:SYNCED' "$WORK/logcat.log" || die "La prueba terminó sin la marca E2E:SYNCED."
 
 # --- Verificación en el servidor ---------------------------------------------
-log "Verificando la visita en el servidor"
+log "Verificando el registro en el servidor"
 "${COMPOSE[@]}" exec -T -e E2E_MARKER="$RUN_ID" api python manage.py shell -c '
 import os, sys
 from decimal import Decimal
-from visitacampo.core.models import Visit
+from suno.core.models import Record
 marker = os.environ["E2E_MARKER"]
-visits = list(Visit.objects.filter(answers__notas=marker, deleted_at__isnull=True).select_related("org", "task"))
+records = list(Record.objects.filter(answers__notas=marker, deleted_at__isnull=True).select_related("org", "task"))
 ok = (
-    len(visits) == 1
-    and visits[0].org.name == f"E2E {marker}"
-    and visits[0].version >= 1
-    and visits[0].change_seq
-    and visits[0].task is not None
-    and visits[0].task.wbs == "1.1"
-    and visits[0].progress_pct == Decimal("35")
+    len(records) == 1
+    and records[0].org.name == f"E2E {marker}"
+    and records[0].version >= 1
+    and records[0].change_seq
+    and records[0].task is not None
+    and records[0].task.wbs == "1.1"
+    and records[0].progress_pct == Decimal("35")
 )
-for v in visits:
-    print(f"visita {v.pk} org={v.org.name!r} version={v.version} change_seq={v.change_seq} tarea={v.task} avance={v.progress_pct}")
+for v in records:
+    print(f"registro {v.pk} org={v.org.name!r} version={v.version} change_seq={v.change_seq} tarea={v.task} avance={v.progress_pct}")
 sys.exit(0 if ok else 1)
-' || die "La visita $RUN_ID no está en el servidor como se esperaba (con la tarea 1.1 al 35 %)."
+' || die "El registro $RUN_ID no está en el servidor como se esperaba (con la tarea 1.1 al 35 %)."

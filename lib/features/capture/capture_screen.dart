@@ -1,13 +1,13 @@
-// Captura de visita (Paso 22): plantilla → formulario dinámico (Paso 21) →
+// Captura de registro (Paso 22): plantilla → formulario dinámico (Paso 21) →
 // ubicación, fotos y firma → guardado offline en una sola transacción.
 //
 // - La plantilla sale de la caché local (`FormTemplateRepository`), la versión
-//   vigente para una visita **nueva**; sin plantillas, se pide sincronizar.
+//   vigente para un registro **nueva**; sin plantillas, se pide sincronizar.
 // - Foto, firma y ubicación de los campos de la plantilla se capturan aquí
 //   (`FormMediaDelegate`) y el formulario guarda solo el `id` del adjunto.
-// - Aparte del formulario: la ubicación de la visita (`Visit.lat/lon`, con su
+// - Aparte del formulario: la ubicación del registro (`Record.lat/lon`, con su
 //   precisión) y fotos adicionales.
-// - Guardar es local e inmediato (`VisitCapture.save`): la visita aparece en
+// - Guardar es local e inmediato (`RecordCapture.save`): el registro aparece en
 //   la pantalla de inicio sin esperar a la red.
 import 'dart:async';
 import 'dart:typed_data';
@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_state.dart';
-import '../../core/capture/visit_capture.dart';
+import '../../core/capture/record_capture.dart';
 import '../../core/location/coordinate_system.dart';
 import '../../core/location/geo.dart';
 import '../../core/forms/form_definition.dart';
@@ -40,14 +40,14 @@ import 'qr_capture_screen.dart';
 import 'task_progress_section.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
-  const CaptureScreen({super.key, this.editVisitId, this.assignmentId})
-    : assert(editVisitId == null || assignmentId == null);
+  const CaptureScreen({super.key, this.editRecordId, this.assignmentId})
+    : assert(editRecordId == null || assignmentId == null);
 
-  /// Fase A: editar esta visita en vez de crear una. Se abre con su misma
+  /// Fase A: editar este registro en vez de crear una. Se abre con su misma
   /// versión de plantilla y sus respuestas; solo viaja lo que cambie.
-  final String? editVisitId;
+  final String? editRecordId;
 
-  /// Fase B: la visita nueva cumple esta asignación. Se abre con la versión
+  /// Fase B: el registro nuevo cumple esta asignación. Se abre con la versión
   /// de plantilla de la asignación y muestra su punto y la distancia a él.
   final String? assignmentId;
 
@@ -65,17 +65,17 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   FormController? _form;
 
   /// Ubicación tomada **en esta pantalla**; al editar, `null` conserva la de
-  /// la visita ([_originalFix]).
+  /// el registro ([_originalFix]).
   LocationFix? _fix;
   LocationFix? _originalFix;
   bool _saving = false;
 
-  bool get _editing => widget.editVisitId != null;
+  bool get _editing => widget.editRecordId != null;
 
   /// Sistema en que se muestran las coordenadas (Fase C).
   CoordinateSystem get _crs => ref.read(appDependenciesProvider).coordinates.current.value;
 
-  /// La asignación que esta visita cumple (Fase B), ya cargada.
+  /// La asignación que este registro cumple (Fase B), ya cargada.
   AssignmentItem? _assignment;
 
   /// Adjuntos de los campos foto/firma, por `id` (lo que guarda `answers`).
@@ -94,7 +94,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     super.initState();
     _loadTasks();
     if (_editing) {
-      _loadForEdit(widget.editVisitId!);
+      _loadForEdit(widget.editRecordId!);
     } else if (widget.assignmentId != null) {
       _loadForAssignment(widget.assignmentId!);
     } else {
@@ -144,7 +144,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     }
     // La versión exacta de la asignación: es contra la que el servidor
     // validará las respuestas.
-    final lookup = await dependencies.formTemplates.forVisit(
+    final lookup = await dependencies.formTemplates.forRecord(
       orgId: orgId,
       templateVersionId: assignment.templateVersionId,
     );
@@ -157,30 +157,30 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     });
   }
 
-  Future<void> _loadForEdit(String visitId) async {
+  Future<void> _loadForEdit(String recordId) async {
     final orgId = _orgId;
     if (orgId == null) return;
     final dependencies = ref.read(appDependenciesProvider);
-    final detail = await dependencies.visitStatus.detail(orgId: orgId, visitId: visitId);
+    final detail = await dependencies.recordStatus.detail(orgId: orgId, recordId: recordId);
     if (detail == null) {
       if (mounted) setState(() => _templates = const []);
       return;
     }
-    final lookup = await dependencies.formTemplates.forVisit(
+    final lookup = await dependencies.formTemplates.forRecord(
       orgId: orgId,
-      templateVersionId: detail.visit.templateVersionId,
+      templateVersionId: detail.record.templateVersionId,
     );
     if (!mounted) return;
-    final visit = detail.visit;
+    final record = detail.record;
     setState(() {
       _lookup = lookup;
       _templates = lookup is TemplateReady ? [lookup.info] : const [];
       _form = lookup is TemplateReady ? FormController(lookup.definition, initialAnswers: detail.answers) : null;
-      _originalFix = visit.lat == null || visit.lon == null
+      _originalFix = record.lat == null || record.lon == null
           ? null
-          : LocationFix(lat: visit.lat!, lon: visit.lon!, accuracyM: visit.accuracyM ?? 0, altitudeM: visit.altitudeM);
-      _taskId = visit.taskId;
-      if (visit.progressPct != null) _progressController.text = formatProgressPct(visit.progressPct!);
+          : LocationFix(lat: record.lat!, lon: record.lon!, accuracyM: record.accuracyM ?? 0, altitudeM: record.altitudeM);
+      _taskId = record.taskId;
+      if (record.progressPct != null) _progressController.text = formatProgressPct(record.progressPct!);
     });
   }
 
@@ -211,7 +211,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     final lookup = await ref
         .read(appDependenciesProvider)
         .formTemplates
-        .latestForNewVisit(orgId: orgId, templateId: templateId);
+        .latestForNewRecord(orgId: orgId, templateId: templateId);
     if (!mounted) return;
     setState(() {
       _templateId = templateId;
@@ -245,7 +245,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     if (png == null) return null;
     final stored = await dependencies.signatureStore.save(png);
     final signature = PendingAttachment(
-      id: dependencies.visitCapture.newAttachmentId(),
+      id: dependencies.recordCapture.newAttachmentId(),
       sha256: stored.sha256,
       localPath: stored.path,
       mime: 'image/png',
@@ -262,7 +262,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     return fix == null ? null : {'lat': fix.lat, 'lon': fix.lon};
   }
 
-  /// Misma hoja para la ubicación de la visita y para los campos de
+  /// Misma hoja para la ubicación del registro y para los campos de
   /// ubicación del formulario (Fase A: precisión, promedio, tiempo máximo).
   Future<LocationFix?> _sampleLocation() {
     final dependencies = ref.read(appDependenciesProvider);
@@ -292,7 +292,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     final photo = await dependencies.photoCapture.takePhoto();
     if (photo == null) return null;
     return PendingAttachment(
-      id: dependencies.visitCapture.newAttachmentId(),
+      id: dependencies.recordCapture.newAttachmentId(),
       sha256: photo.sha256,
       localPath: photo.file.path,
       mime: photo.mime,
@@ -340,12 +340,12 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       roles: authState.user.roles,
     );
     setState(() => _saving = true);
-    VisitChange change;
+    RecordChange change;
     try {
       if (_editing) {
-        change = await dependencies.visitCapture.update(
+        change = await dependencies.recordCapture.update(
           identity: identity,
-          visitId: widget.editVisitId!,
+          recordId: widget.editRecordId!,
           definition: lookup.definition,
           answers: form.answers,
           captured: Map.of(_captured),
@@ -354,7 +354,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           progress: (value: progress.value),
         );
       } else {
-        await dependencies.visitCapture.save(
+        await dependencies.recordCapture.save(
           identity: identity,
           templateVersionId: lookup.info.id,
           definition: lookup.definition,
@@ -365,25 +365,25 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           assignmentId: _assignment?.id,
           progress: progress.value,
         );
-        change = VisitChange.saved;
+        change = RecordChange.saved;
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-    // La visita y sus fotos salen ya si hay red, sin esperar al siguiente
+    // El registro y sus fotos salen ya si hay red, sin esperar al siguiente
     // ciclo (Paso 18, Fase A). Sin `await`: no retiene la pantalla ni el
     // guardado; sin red queda en la outbox para el próximo disparo.
-    if (change == VisitChange.saved) unawaited(dependencies.syncCoordinator.syncNow());
+    if (change == RecordChange.saved) unawaited(dependencies.syncCoordinator.syncNow());
     if (!mounted) return;
     final message = switch (change) {
-      VisitChange.saved => _editing ? l10n.captureUpdated : l10n.captureSaved,
-      VisitChange.unchanged => l10n.visitUnchanged,
-      VisitChange.notAllowed => l10n.visitNotEditable,
-      VisitChange.needsReview => l10n.visitNeedsReview,
-      VisitChange.notFound => l10n.visitNotFound,
+      RecordChange.saved => _editing ? l10n.captureUpdated : l10n.captureSaved,
+      RecordChange.unchanged => l10n.recordUnchanged,
+      RecordChange.notAllowed => l10n.recordNotEditable,
+      RecordChange.needsReview => l10n.recordNeedsReview,
+      RecordChange.notFound => l10n.recordNotFound,
     };
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    Navigator.of(context).pop(change == VisitChange.saved);
+    Navigator.of(context).pop(change == RecordChange.saved);
   }
 
   @override
@@ -419,7 +419,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
             ],
             if (_assignment case final assignment?) ...[
               Text(
-                l10n.captureForAssignment(assignment.title ?? assignment.templateName ?? l10n.homeVisitUntitled),
+                l10n.captureForAssignment(assignment.title ?? assignment.templateName ?? l10n.homeRecordUntitled),
                 key: const Key('capture_assignment'),
                 style: Theme.of(context).textTheme.titleSmall,
               ),
@@ -453,7 +453,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
                 ),
               ],
               const AppGap.sm(),
-              Text(l10n.captureVisitLocation, style: Theme.of(context).textTheme.titleSmall),
+              Text(l10n.captureRecordLocation, style: Theme.of(context).textTheme.titleSmall),
               if (fix != null) Text(l10n.coordinatesWithAccuracy(_crs.format(fix.lat, fix.lon), fix.accuracyM.round())),
               if (fix != null && fix.accuracyM > ref.read(appDependenciesProvider).gpsPolicy.targetAccuracyM)
                 Text(l10n.captureLocationLowAccuracy, key: const Key('capture_location_low_accuracy')),

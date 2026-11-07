@@ -9,8 +9,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/attachments/attachment_result.dart';
-import 'package:visitacampo/data/http/attachment_api_client.dart';
+import 'package:suno/core/attachments/attachment_result.dart';
+import 'package:suno/data/http/attachment_api_client.dart';
 
 /// Adaptador que lee el cuerpo enviado, como lo haría el socket.
 class _WireAdapter implements HttpClientAdapter {

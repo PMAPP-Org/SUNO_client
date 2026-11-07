@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/ui/forms/dynamic_form.dart';
-import 'package:visitacampo/ui/forms/form_controller.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/ui/forms/dynamic_form.dart';
+import 'package:suno/ui/forms/form_controller.dart';
 
 import 'dynamic_form_test.dart' show FakeMedia, pumpForm;
 

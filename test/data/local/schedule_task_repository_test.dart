@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/data/local/schedule_task_repository.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/data/local/schedule_task_repository.dart';
 
 const _items = [
   ScheduleTaskItem(id: 'a', projectName: 'Obra Norte', code: '1.2', name: 'Descapote', lastValidatedPct: null),

@@ -2,13 +2,13 @@
 // `build_runner` dejara de generar código correcto, este test es el primero
 // en fallar, antes de que el dominio real del Paso 12 dependa de él.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/domain/visit.dart';
+import 'package:suno/core/domain/record.dart';
 
 void main() {
-  group('Visit (freezed + json_serializable)', () {
+  group('Record (freezed + json_serializable)', () {
     final capturedAt = DateTime.utc(2026, 7, 30, 14, 5, 9);
 
-    Visit buildVisit({double? lat}) => Visit(
+    Record buildRecord({double? lat}) => Record(
       id: 'a1a1a1a1-0000-0000-0000-000000000000',
       orgId: 'b2b2b2b2-0000-0000-0000-000000000000',
       version: 1,
@@ -22,7 +22,7 @@ void main() {
     );
 
     test('copyWith produce una copia con el campo cambiado, no una mutación', () {
-      final original = buildVisit(lat: 4.6);
+      final original = buildRecord(lat: 4.6);
       final moved = original.copyWith(lat: 4.7);
 
       expect(original.lat, 4.6, reason: 'copyWith no debe mutar el original');
@@ -30,20 +30,20 @@ void main() {
     });
 
     test('== estructural: dos instancias con los mismos campos son iguales', () {
-      expect(buildVisit(lat: 4.6), buildVisit(lat: 4.6));
+      expect(buildRecord(lat: 4.6), buildRecord(lat: 4.6));
     });
 
     test('toJson/fromJson hacen un roundtrip exacto', () {
-      final visit = buildVisit(lat: 4.6);
-      final roundtripped = Visit.fromJson(visit.toJson());
+      final record = buildRecord(lat: 4.6);
+      final roundtripped = Record.fromJson(record.toJson());
 
-      expect(roundtripped, visit);
+      expect(roundtripped, record);
     });
 
     test('fromJson sin un campo requerido lanza, nunca produce un valor a medias', () {
-      final incomplete = buildVisit(lat: 4.6).toJson()..remove('id');
+      final incomplete = buildRecord(lat: 4.6).toJson()..remove('id');
 
-      expect(() => Visit.fromJson(incomplete), throwsA(isA<TypeError>()));
+      expect(() => Record.fromJson(incomplete), throwsA(isA<TypeError>()));
     });
 
     test(
@@ -51,7 +51,7 @@ void main() {
       'field_rename: snake) — regresión: un roundtrip contra sí mismo no '
       'detecta un desajuste consistente en ambas direcciones',
       () {
-        final visit = Visit.fromJson({
+        final record = Record.fromJson({
           'id': 'a1a1a1a1-0000-0000-0000-000000000000',
           'org_id': 'b2b2b2b2-0000-0000-0000-000000000000',
           'version': 1,
@@ -68,10 +68,10 @@ void main() {
           'created_by': 'e5e5e5e5-0000-0000-0000-000000000000',
         });
 
-        expect(visit.orgId, 'b2b2b2b2-0000-0000-0000-000000000000');
-        expect(visit.changeSeq, 42);
-        expect(visit.templateVersionId, 'c3c3c3c3-0000-0000-0000-000000000000');
-        expect(visit.toJson(), containsPair('org_id', 'b2b2b2b2-0000-0000-0000-000000000000'));
+        expect(record.orgId, 'b2b2b2b2-0000-0000-0000-000000000000');
+        expect(record.changeSeq, 42);
+        expect(record.templateVersionId, 'c3c3c3c3-0000-0000-0000-000000000000');
+        expect(record.toJson(), containsPair('org_id', 'b2b2b2b2-0000-0000-0000-000000000000'));
       },
     );
   });

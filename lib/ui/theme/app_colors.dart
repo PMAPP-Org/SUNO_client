@@ -1,4 +1,4 @@
-// Colores de VisitaCampo. ÚNICO archivo de `lib/` donde se escribe un color
+// Colores de SUNO. ÚNICO archivo de `lib/` donde se escribe un color
 // literal (`infra/scripts/lint_ui_tokens.sh`); el resto de la app los toma de
 // `Theme.of(context).colorScheme` o de la extensión `AppStatusColors`.
 import 'package:flutter/material.dart';

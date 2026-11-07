@@ -1,21 +1,21 @@
-// Detalle de una visita (Fase A): etiquetas de la plantilla, opciones con su
+// Detalle de un registro (Fase A): etiquetas de la plantilla, opciones con su
 // texto, ubicación con precisión, y sin plantilla en caché, las claves.
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/app_dependencies.dart';
-import 'package:visitacampo/core/auth/auth_controller.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/core/capture/visit_capture.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/core/location/coordinate_system.dart';
-import 'package:visitacampo/core/location/location_source.dart';
-import 'package:visitacampo/core/providers.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/features/visits/visit_detail_screen.dart';
+import 'package:suno/core/app_dependencies.dart';
+import 'package:suno/core/auth/auth_controller.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/core/capture/record_capture.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/core/location/coordinate_system.dart';
+import 'package:suno/core/location/location_source.dart';
+import 'package:suno/core/providers.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/features/records/record_detail_screen.dart';
 
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
@@ -93,7 +93,7 @@ void main() {
         'definition': _definitionJson,
       });
     }
-    final id = await VisitCapture(db: db).save(
+    final id = await RecordCapture(db: db).save(
       identity: CaptureIdentity(orgId: 'org-1', userId: author, deviceId: 'device-1'),
       templateVersionId: 'tv-1',
       definition: (parseFormDefinition(_definitionJson) as DefinitionOk).definition,
@@ -108,7 +108,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appDependenciesProvider.overrideWithValue(dependencies)],
-        child: testApp(VisitDetailScreen(visitId: id)),
+        child: testApp(RecordDetailScreen(recordId: id)),
       ),
     );
     await tester.pumpAndSettle();
@@ -143,10 +143,10 @@ void main() {
     expect(find.text('enferma'), findsOneWidget);
   });
 
-  testWidgets('una visita que ya no está lo dice', (tester) async {
+  testWidgets('un registro que ya no está lo dice', (tester) async {
     final (dependencies, _) = await scenario(withTemplate: true);
     await pump(tester, dependencies, 'no-existe');
-    expect(find.byKey(const Key('visit_not_found')), findsOneWidget);
+    expect(find.byKey(const Key('record_not_found')), findsOneWidget);
   });
 
   testWidgets('las propias se pueden eliminar, con confirmación', (tester) async {
@@ -159,7 +159,7 @@ void main() {
             builder: (context) => TextButton(
               onPressed: () => Navigator.of(
                 context,
-              ).push(MaterialPageRoute<void>(builder: (_) => VisitDetailScreen(visitId: id))),
+              ).push(MaterialPageRoute<void>(builder: (_) => RecordDetailScreen(recordId: id))),
               child: const Text('abrir'),
             ),
           ),
@@ -168,16 +168,16 @@ void main() {
     );
     await tester.tap(find.text('abrir'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('visit_edit')), findsOneWidget);
+    expect(find.byKey(const Key('record_edit')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('visit_delete')));
+    await tester.tap(find.byKey(const Key('record_delete')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('visit_delete_confirm')));
+    await tester.tap(find.byKey(const Key('record_delete_confirm')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(VisitDetailScreen), findsNothing, reason: 'vuelve a la lista');
-    final visit = await (db.select(db.visits)..where((t) => t.id.equals(id))).getSingle();
-    expect(visit.deletedAt, isNotNull);
+    expect(find.byType(RecordDetailScreen), findsNothing, reason: 'vuelve a la lista');
+    final record = await (db.select(db.records)..where((t) => t.id.equals(id))).getSingle();
+    expect(record.deletedAt, isNotNull);
     final ops = await db.select(db.outboxOps).get();
     expect(ops.map((o) => o.opType), ['create', 'delete']);
   });
@@ -185,7 +185,7 @@ void main() {
   testWidgets('las de otro agente no muestran editar ni eliminar', (tester) async {
     final (dependencies, id) = await scenario(withTemplate: true, author: 'user-2');
     await pump(tester, dependencies, id);
-    expect(find.byKey(const Key('visit_edit')), findsNothing);
-    expect(find.byKey(const Key('visit_delete')), findsNothing);
+    expect(find.byKey(const Key('record_edit')), findsNothing);
+    expect(find.byKey(const Key('record_delete')), findsNothing);
   });
 }

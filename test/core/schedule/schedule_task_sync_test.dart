@@ -2,10 +2,10 @@
 // cambia, "sin cambios" no toca nada y sin red se conserva la anterior.
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/schedule/schedule_task_sync.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/data/local/schedule_task_repository.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/schedule/schedule_task_sync.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/data/local/schedule_task_repository.dart';
 
 import 'fake_schedule_task_transport.dart';
 

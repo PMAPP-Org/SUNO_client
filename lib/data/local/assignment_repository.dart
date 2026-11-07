@@ -1,8 +1,8 @@
 // Asignaciones del agente (Fase B): el trabajo planificado que le toca, con
-// si ya hizo la visita. Todo desde la BD local, sin red.
+// si ya hizo el registro. Todo desde la BD local, sin red.
 //
 // El servidor no lleva un estado "hecha": una asignación está hecha en este
-// teléfono cuando existe una visita (no borrada) que la referencia.
+// teléfono cuando existe un registro (no borrado) que la referencia.
 import 'package:drift/drift.dart';
 import 'package:meta/meta.dart';
 
@@ -20,7 +20,7 @@ class AssignmentItem {
     required this.scheduledFor,
     required this.lat,
     required this.lon,
-    required this.visitId,
+    required this.recordId,
   });
 
   final String id;
@@ -33,10 +33,10 @@ class AssignmentItem {
   final double? lat;
   final double? lon;
 
-  /// La visita que la cumplió, si ya se hizo.
-  final String? visitId;
+  /// El registro que la cumplió, si ya se hizo.
+  final String? recordId;
 
-  bool get done => visitId != null;
+  bool get done => recordId != null;
   NavigationTarget? get navigationTarget => NavigationTarget.tryCreate(lat, lon);
   bool get hasPoint => navigationTarget != null;
 }
@@ -68,9 +68,9 @@ class AssignmentRepository {
   Future<List<AssignmentItem>> _items(List<Assignment> rows) async {
     if (rows.isEmpty) return const [];
     final ids = [for (final r in rows) r.id];
-    final visits =
-        await (db.select(db.visits)..where((t) => t.assignmentId.isIn(ids) & t.deletedAt.isNull())).get();
-    final visitOf = {for (final v in visits) v.assignmentId!: v.id};
+    final records =
+        await (db.select(db.records)..where((t) => t.assignmentId.isIn(ids) & t.deletedAt.isNull())).get();
+    final recordOf = {for (final v in records) v.assignmentId!: v.id};
     final names = {
       for (final t
           in await (db.select(
@@ -88,7 +88,7 @@ class AssignmentRepository {
           scheduledFor: r.scheduledFor,
           lat: r.lat,
           lon: r.lon,
-          visitId: visitOf[r.id],
+          recordId: recordOf[r.id],
         ),
     ];
   }

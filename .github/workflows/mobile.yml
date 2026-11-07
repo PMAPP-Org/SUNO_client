@@ -154,21 +154,21 @@ jobs:
           keytool -genkeypair -noprompt -keystore android/app/ci-upload.jks \
             -alias ci -keyalg RSA -keysize 2048 -validity 1 \
             -storepass "$STOREPASS" -keypass "$STOREPASS" \
-            -dname "CN=VisitaCampo CI, O=VisitaCampo"
+            -dname "CN=SUNO CI, O=SUNO"
           printf 'storeFile=ci-upload.jks\nkeyAlias=ci\nstorePassword=%s\nkeyPassword=%s\n' \
             "$STOREPASS" "$STOREPASS" > android/key.properties
 
       - name: flutter build apk --release
         run: >-
           flutter build apk --release
-          --dart-define=VISITACAMPO_API_BASE_URL=https://pmapp.online
+          --dart-define=SUNO_API_BASE_URL=https://pmapp.online
 
       - name: Verificar firma y permisos del APK
         run: |
           BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           APK=build/app/outputs/flutter-apk/app-release.apk
           "$BT/apksigner" verify --print-certs "$APK" | tee certs.txt
-          grep -q "CN=VisitaCampo CI" certs.txt
+          grep -q "CN=SUNO CI" certs.txt
           if grep -q "CN=Android Debug" certs.txt; then
             echo "APK firmado con la clave de debug"; exit 1
           fi

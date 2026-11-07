@@ -8,20 +8,20 @@ import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
 import 'package:test/test.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/data/local/database.dart';
 
 void main() {
   test('un archivo escrito con createEncryptedExecutor no se puede leer sin la clave', () async {
-    final dir = await Directory.systemTemp.createTemp('visitacampo_enc_test');
+    final dir = await Directory.systemTemp.createTemp('suno_enc_test');
     final file = File('${dir.path}/test.sqlite');
     addTearDown(() => dir.delete(recursive: true));
 
     final db = AppDatabase.forTesting(
       createEncryptedExecutor(file: file, encryptionKey: 'clave-de-prueba-no-real'),
     );
-    await db.into(db.visits).insert(
-      VisitsCompanion.insert(
-        id: 'visit-1',
+    await db.into(db.records).insert(
+      RecordsCompanion.insert(
+        id: 'record-1',
         orgId: 'org-1',
         version: 1,
         templateVersionId: 'template-1',

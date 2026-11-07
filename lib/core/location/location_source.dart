@@ -22,7 +22,7 @@ class LocationFix {
   final double? altitudeM;
 
   /// Posición simulada (Android: "ubicación de prueba" activada). Se avisa
-  /// al agente: una visita con ubicación falsa no es evidencia.
+  /// al agente: un registro con ubicación falsa no es evidencia.
   final bool isMocked;
 }
 
@@ -50,8 +50,8 @@ abstract class LocationSource {
   /// Comprueba el servicio y pide el permiso si hace falta.
   ///
   /// Sin permiso o con el servicio apagado, `CaptureScreen` debe seguir
-  /// permitiendo guardar la visita sin ubicación (`Visit.lat`/`lon` son
-  /// opcionales en el contrato, `core/models/visit.py`).
+  /// permitiendo guardar el registro sin ubicación (`Record.lat`/`lon` son
+  /// opcionales en el contrato, `core/models/record.py`).
   Future<LocationStatus> ensureReady();
 
   /// Lecturas de alta precisión mientras haya suscriptor. Cancelar la

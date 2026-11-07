@@ -24,7 +24,7 @@ import 'auth/session_store.dart';
 import 'auth/token_store.dart';
 import 'capture/photo_capture.dart';
 import 'capture/signature_store.dart';
-import 'capture/visit_capture.dart';
+import 'capture/record_capture.dart';
 import 'constants.dart';
 import 'device/device_id_store.dart';
 import 'location/gps_sampler.dart';
@@ -56,7 +56,7 @@ import '../data/local/database.dart';
 import '../data/local/encryption_key_store.dart';
 import '../data/local/form_template_repository.dart';
 import '../data/local/schedule_task_repository.dart';
-import '../data/local/visit_status_repository.dart';
+import '../data/local/record_status_repository.dart';
 import '../data/location/geolocator_location_source.dart';
 import '../data/location/external_route_launcher.dart';
 
@@ -78,7 +78,7 @@ class AppDependencies {
     Directory? basemapsDirectory,
     LayerManager? layers,
     Directory? layersDirectory,
-    VisitCapture? visitCapture,
+    RecordCapture? recordCapture,
     TrustStore? trustStore,
     ConsentService? consent,
     ScheduleTaskSync? scheduleTasks,
@@ -92,7 +92,7 @@ class AppDependencies {
                accessTokenProvider: () => authController.accessToken ?? '',
                downloadDio: Dio()..httpClientAdapter = dio.httpClientAdapter,
              ),
-             directory: layersDirectory ?? Directory(p.join(Directory.systemTemp.path, 'visitacampo-layers')),
+             directory: layersDirectory ?? Directory(p.join(Directory.systemTemp.path, 'suno-layers')),
            ),
        basemaps =
            basemaps ??
@@ -103,7 +103,7 @@ class AppDependencies {
                // Como las subidas: sin bearer, con la misma política TLS.
                downloadDio: Dio()..httpClientAdapter = dio.httpClientAdapter,
              ),
-             directory: basemapsDirectory ?? Directory(p.join(Directory.systemTemp.path, 'visitacampo-basemaps')),
+             directory: basemapsDirectory ?? Directory(p.join(Directory.systemTemp.path, 'suno-basemaps')),
            ),
        trustStore = trustStore ?? TrustStore(pinStore: PinStore(HardenedSecureStorage())),
        consent =
@@ -128,7 +128,7 @@ class AppDependencies {
        routeLauncher = routeLauncher ?? const ExternalRouteLauncher(),
        photoCapture = photoCapture ?? ImagePickerPhotoCapture(),
        signatureStore = signatureStore ?? const FileSignatureStore(),
-       visitCapture = visitCapture ?? VisitCapture(db: database),
+       recordCapture = recordCapture ?? RecordCapture(db: database),
        syncEngine =
            syncEngine ??
            SyncEngine(
@@ -208,12 +208,12 @@ class AppDependencies {
     refreshTasks: scheduleTasks.refresh,
   );
 
-  /// Paso 22: dónde se guardan las firmas y el guardado de una visita.
+  /// Paso 22: dónde se guardan las firmas y el guardado de un registro.
   final SignatureStore signatureStore;
-  final VisitCapture visitCapture;
+  final RecordCapture recordCapture;
 
-  /// Estado de sincronización de las visitas, para la pantalla de inicio.
-  VisitStatusRepository get visitStatus => VisitStatusRepository(database);
+  /// Estado de sincronización de los registros, para la pantalla de inicio.
+  RecordStatusRepository get recordStatus => RecordStatusRepository(database);
 
   /// Asignaciones del agente (Fase B).
   AssignmentRepository get assignments => AssignmentRepository(database);
@@ -236,7 +236,7 @@ class AppDependencies {
     final encryptionKeyStore = EncryptionKeyStore(secureStorage);
     final encryptionKey = await encryptionKeyStore.getOrCreateKey();
     final documentsDir = await getApplicationDocumentsDirectory();
-    final dbFile = File(p.join(documentsDir.path, 'visitacampo.db'));
+    final dbFile = File(p.join(documentsDir.path, 'suno.db'));
     final database = AppDatabase.open(
       createEncryptedExecutor(file: dbFile, encryptionKey: encryptionKey),
     );

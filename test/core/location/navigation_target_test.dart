@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/location/location_source.dart';
-import 'package:visitacampo/core/location/navigation_target.dart';
+import 'package:suno/core/location/location_source.dart';
+import 'package:suno/core/location/navigation_target.dart';
 
 void main() {
   const origin = LocationFix(lat: 0, lon: 0, accuracyM: 3);

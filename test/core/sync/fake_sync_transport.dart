@@ -2,8 +2,8 @@
 // emulador" (doc 08 §8) significa que el protocolo se prueba entero sin
 // conexión real. Cada método es programable con una cola de respuestas, para
 // poder ensayar network→éxito, éxito→network (recuperación), etc.
-import 'package:visitacampo/core/sync/result.dart';
-import 'package:visitacampo/core/sync/sync_transport.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_transport.dart';
 
 class FakeSyncTransport implements SyncTransport {
   final List<Result<PushResponse>> pushResponses = [];

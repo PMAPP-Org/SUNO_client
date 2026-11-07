@@ -2,9 +2,9 @@
 // (`test/core/sync/fake_sync_transport.dart`, Paso 12): cada método se
 // programa con una cola de respuestas, para ensayar login/refresh
 // éxito→fallo, fallo→éxito, etc. sin red real.
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/core/auth/auth_transport.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/core/auth/auth_transport.dart';
 
 class FakeAuthTransport implements AuthTransport {
   final List<AuthResult<LoginResponse>> loginResponses = [];

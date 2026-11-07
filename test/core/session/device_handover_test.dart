@@ -1,13 +1,13 @@
-// Teléfono compartido (Fase A): las visitas sin enviar de un agente no salen
+// Teléfono compartido (Fase A): los registros sin enviar de un agente no salen
 // con la sesión de otro, y los datos de otra organización se borran.
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/capture/visit_capture.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/core/session/device_handover.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/capture/record_capture.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/core/session/device_handover.dart';
+import 'package:suno/data/local/database.dart';
 
 const _ana = UserProfile(id: 'ana', username: 'ana', orgId: 'org-1', roles: ['agent']);
 const _beto = UserProfile(id: 'beto', username: 'beto', orgId: 'org-1', roles: ['agent']);
@@ -47,7 +47,7 @@ void main() {
       role: 'foto',
       capturedAt: DateTime.utc(2026, 10, 18),
     );
-    return VisitCapture(db: db).save(
+    return RecordCapture(db: db).save(
       identity: CaptureIdentity(orgId: user.orgId, userId: user.id, deviceId: 'device-1'),
       templateVersionId: 'tv-1',
       definition: _definition,
@@ -59,13 +59,13 @@ void main() {
   test('el mismo agente vuelve a entrar con lo suyo pendiente', () async {
     await captureAs(_ana);
     expect(await handover.prepare(_ana), isA<HandoverReady>().having((r) => r.wiped, 'wiped', false));
-    expect(await handover.unsentVisitsOf(_ana), 1);
+    expect(await handover.unsentRecordsOf(_ana), 1);
   });
 
-  test('otro agente no entra mientras haya visitas sin enviar de alguien más', () async {
+  test('otro agente no entra mientras haya registros sin enviar de alguien más', () async {
     await captureAs(_ana);
     final result = await handover.prepare(_beto);
-    expect(result, isA<HandoverBlocked>().having((r) => r.visits, 'visits', 1));
+    expect(result, isA<HandoverBlocked>().having((r) => r.records, 'records', 1));
     expect(await db.select(db.outboxOps).get(), hasLength(2), reason: 'no se toca nada');
   });
 
@@ -73,7 +73,7 @@ void main() {
     await captureAs(_ana);
     await db.delete(db.outboxOps).go();
     expect(await handover.prepare(_beto), isA<HandoverReady>().having((r) => r.wiped, 'wiped', false));
-    expect(await db.select(db.visits).get(), hasLength(1));
+    expect(await db.select(db.records).get(), hasLength(1));
   });
 
   test('con otra organización se borran sus datos, fotos incluidas, y el cursor', () async {
@@ -83,20 +83,20 @@ void main() {
 
     final result = await handover.prepare(_carla);
     expect(result, isA<HandoverReady>().having((r) => r.wiped, 'wiped', true));
-    expect(await db.select(db.visits).get(), isEmpty);
+    expect(await db.select(db.records).get(), isEmpty);
     expect(await db.select(db.attachmentQueue).get(), isEmpty);
     expect(await db.readCursor(), isNull);
     expect(deleted, ['/fotos/ana.jpg']);
   });
 
-  test('una op sin visita en el teléfono cuenta como ajena', () async {
+  test('una op sin registro en el teléfono cuenta como ajena', () async {
     await db
         .into(db.outboxOps)
         .insert(
           OutboxOpsCompanion.insert(
             opUuid: 'op-huerfana',
-            entity: 'visit',
-            entityId: 'visita-que-no-esta',
+            entity: 'record',
+            entityId: 'registro-que-no-esta',
             opType: 'update',
             baseVersion: const Value(1),
             payloadJson: '{}',
@@ -109,9 +109,9 @@ void main() {
 
   test('al cambiar de organización también se borran las tareas del cronograma', () async {
     await db
-        .into(db.visits)
+        .into(db.records)
         .insert(
-          VisitsCompanion.insert(
+          RecordsCompanion.insert(
             id: 'v-ana',
             orgId: 'org-1',
             version: 1,

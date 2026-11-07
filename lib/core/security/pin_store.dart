@@ -1,7 +1,7 @@
 // `PinStore` — pines TLS aprobados por el usuario (TOFU, Paso 16 tarea 3),
 // uno por servidor autohospedado.
 //
-// **Una clave por `host:puerto`** (`visitacampo.tls_pin.v1.<host>:<port>`),
+// **Una clave por `host:puerto`** (`suno.tls_pin.v1.<host>:<port>`),
 // nunca una clave fija compartida. Es la regresión directa del hallazgo
 // H-10 (doc 07): QField guardaba sus cookies en una clave con un `%1` que
 // nunca se interpolaba, así que cada cookie nueva pisaba la anterior. Aquí
@@ -56,7 +56,7 @@ class PinStore {
 
   final FlutterSecureStorage _storage;
 
-  static const _prefix = 'visitacampo.tls_pin.v1.';
+  static const _prefix = 'suno.tls_pin.v1.';
 
   /// `host:puerto`, con el host en minúsculas (DNS no distingue mayúsculas).
   static String hostKey(String host, int port) => '${host.toLowerCase()}:$port';

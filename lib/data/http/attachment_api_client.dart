@@ -2,7 +2,7 @@
 // (Tarea 7 del plan de despliegue del demo). `upload()` usa un `Dio` **sin**
 // baseUrl ni cabeceras de autorización: `uploadUrl` es una URL prefirmada de
 // un host de object storage (Cloudflare R2/MinIO), que autentica por firma
-// en la propia URL, no con el bearer token de la API de VisitaCampo — mismo
+// en la propia URL, no con el bearer token de la API de SUNO — mismo
 // motivo por el que `AuthInterceptor` no debe interceptar esta llamada.
 
 import 'package:dio/dio.dart';

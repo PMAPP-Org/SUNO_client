@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:visitacampo/l10n/l10n.dart';
-import 'package:visitacampo/ui/theme/app_theme.dart';
+import 'package:suno/l10n/l10n.dart';
+import 'package:suno/ui/theme/app_theme.dart';
 
 /// Monta `home` con el mismo tema y los mismos textos que la app real
 /// (`lib/main.dart`). Sin los delegados de localización, `context.l10n`

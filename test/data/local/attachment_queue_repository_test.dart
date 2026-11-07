@@ -3,8 +3,8 @@
 // hasta ahora nadie escribía: la Tarea 7 (subida manual) leerá estas filas.
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/data/local/attachment_queue_repository.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/data/local/attachment_queue_repository.dart';
+import 'package:suno/data/local/database.dart';
 
 void main() {
   late AppDatabase db;

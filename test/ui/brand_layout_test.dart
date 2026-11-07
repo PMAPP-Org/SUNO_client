@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/features/auth/login_screen.dart';
-import 'package:visitacampo/l10n/l10n.dart';
-import 'package:visitacampo/ui/theme/app_theme.dart';
+import 'package:suno/features/auth/login_screen.dart';
+import 'package:suno/l10n/l10n.dart';
+import 'package:suno/ui/theme/app_theme.dart';
 
 void main() {
   for (final dark in [false, true]) {

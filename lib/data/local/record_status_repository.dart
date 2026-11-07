@@ -1,18 +1,18 @@
-// Estado de sincronización de cada visita, para el agente (Paso 22, tarea 6).
+// Estado de sincronización de cada registro, para el agente (Paso 22, tarea 6).
 //
 // Se deriva de lo que ya hay en la BD local, sin estado propio:
-// - **pendiente**: alguna operación de la visita o de sus adjuntos sigue en el
+// - **pendiente**: alguna operación del registro o de sus adjuntos sigue en el
 //   outbox (`pending`/`inflight`);
 // - **rechazada**: alguna está en `quarantine` (se revisa en la pantalla de
 //   conflictos, Paso 23);
 // - **sincronizada**: ninguna queda en el outbox.
 // Aparte, el estado de sus adjuntos en `AttachmentQueue` (Paso 18): cuántos
 // están por subir (`pending`/`uploading`, se suben solos) y cuántos fallaron
-// de forma permanente (`failed`, necesitan que el agente actúe). Una visita
+// de forma permanente (`failed`, necesitan que el agente actúe). Un registro
 // puede estar sincronizada con fotos todavía por subir.
 //
 // Fase A: búsqueda (por plantilla y por lo respondido) y el detalle de una
-// visita, para que el agente encuentre y revise lo que capturó.
+// registro, para que el agente encuentre y revise lo que capturó.
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
@@ -21,14 +21,14 @@ import 'package:meta/meta.dart';
 import '../../core/forms/geometry.dart';
 import 'database.dart';
 
-enum VisitSyncStatus { pending, synced, rejected }
+enum RecordSyncStatus { pending, synced, rejected }
 
-/// Una visita para el mapa: su punto y sus geometrías (GeoJSON, WGS84).
-typedef MapVisit = ({VisitSummary summary, double lat, double lon, List<Map<String, Object?>> geometries});
+/// Un registro para el mapa: su punto y sus geometrías (GeoJSON, WGS84).
+typedef MapRecord = ({RecordSummary summary, double lat, double lon, List<Map<String, Object?>> geometries});
 
 @immutable
-class VisitSummary {
-  const VisitSummary({
+class RecordSummary {
+  const RecordSummary({
     required this.id,
     required this.templateName,
     required this.capturedAt,
@@ -43,7 +43,7 @@ class VisitSummary {
   /// Nombre de la plantilla, si está en la caché local.
   final String? templateName;
   final DateTime capturedAt;
-  final VisitSyncStatus status;
+  final RecordSyncStatus status;
   final int attachments;
 
   /// Por subir: se reintentan solos.
@@ -53,10 +53,10 @@ class VisitSummary {
   final int failedUploads;
 }
 
-/// Un adjunto de la visita y dónde está su archivo, si sigue en el teléfono.
+/// Un adjunto del registro y dónde está su archivo, si sigue en el teléfono.
 @immutable
-class VisitAttachmentView {
-  const VisitAttachmentView({required this.id, required this.role, this.localPath, this.uploadState});
+class RecordAttachmentView {
+  const RecordAttachmentView({required this.id, required this.role, this.localPath, this.uploadState});
 
   final String id;
   final String role;
@@ -69,61 +69,61 @@ class VisitAttachmentView {
 }
 
 @immutable
-class VisitDetail {
-  const VisitDetail({required this.visit, required this.summary, required this.attachments});
+class RecordDetail {
+  const RecordDetail({required this.record, required this.summary, required this.attachments});
 
-  final Visit visit;
-  final VisitSummary summary;
-  final List<VisitAttachmentView> attachments;
+  final Record record;
+  final RecordSummary summary;
+  final List<RecordAttachmentView> attachments;
 
-  Map<String, dynamic> get answers => jsonDecode(visit.answersJson) as Map<String, dynamic>;
+  Map<String, dynamic> get answers => jsonDecode(record.answersJson) as Map<String, dynamic>;
 }
 
-class VisitStatusRepository {
-  const VisitStatusRepository(this.db);
+class RecordStatusRepository {
+  const RecordStatusRepository(this.db);
 
   final AppDatabase db;
 
-  /// Las visitas más recientes de [orgId], con su estado. Cinco consultas en
-  /// total, sean 1 o [limit] visitas.
+  /// Los registros más recientes de [orgId], con su estado. Cinco consultas en
+  /// total, sean 1 o [limit] registros.
   ///
   /// Con [query], solo las que lo contienen en el nombre de la plantilla o en
   /// alguna respuesta (sin distinguir mayúsculas ni tildes). La búsqueda
-  /// recorre en memoria las visitas de la organización: en un teléfono son
+  /// recorre en memoria los registros de la organización: en un teléfono son
   /// cientos o pocos miles, y así no depende de cómo se guarda `answers`.
-  Future<List<VisitSummary>> recentVisits({required String orgId, int limit = 50, String? query}) async {
+  Future<List<RecordSummary>> recentRecords({required String orgId, int limit = 50, String? query}) async {
     final needle = _fold(query?.trim() ?? '');
-    final select = db.select(db.visits)
+    final select = db.select(db.records)
       ..where((t) => t.orgId.equals(orgId) & t.deletedAt.isNull())
       ..orderBy([(t) => OrderingTerm.desc(t.capturedAt)]);
     if (needle.isEmpty) select.limit(limit);
-    var visits = await select.get();
-    if (visits.isEmpty) return const [];
+    var records = await select.get();
+    if (records.isEmpty) return const [];
 
-    final templateNames = await _templateNames(visits);
+    final templateNames = await _templateNames(records);
     if (needle.isNotEmpty) {
-      visits = visits.where((v) => _matches(v, templateNames[v.templateVersionId], needle)).take(limit).toList();
+      records = records.where((v) => _matches(v, templateNames[v.templateVersionId], needle)).take(limit).toList();
     }
-    return _summarize(visits, templateNames);
+    return _summarize(records, templateNames);
   }
 
-  /// Las visitas de [orgId] con ubicación, para el mapa (Fase B). Hasta
+  /// Los registros de [orgId] con ubicación, para el mapa (Fase B). Hasta
   /// [limit], las más recientes: miles de marcadores no se leen en un
   /// teléfono, y la búsqueda de la lista sigue llegando a todas.
   ///
-  /// Con cada visita, las líneas y polígonos de sus respuestas (Fase C), para
+  /// Con cada registro, las líneas y polígonos de sus respuestas (Fase C), para
   /// dibujarlos.
-  Future<List<MapVisit>> mapVisits({required String orgId, int limit = 2000}) async {
-    final visits =
-        await (db.select(db.visits)
+  Future<List<MapRecord>> mapRecords({required String orgId, int limit = 2000}) async {
+    final records =
+        await (db.select(db.records)
               ..where((t) => t.orgId.equals(orgId) & t.deletedAt.isNull() & t.lat.isNotNull() & t.lon.isNotNull())
               ..orderBy([(t) => OrderingTerm.desc(t.capturedAt)])
               ..limit(limit))
             .get();
-    final summaries = await _summarize(visits, await _templateNames(visits));
+    final summaries = await _summarize(records, await _templateNames(records));
     return [
-      for (final (index, visit) in visits.indexed)
-        (summary: summaries[index], lat: visit.lat!, lon: visit.lon!, geometries: _geometries(visit.answersJson)),
+      for (final (index, record) in records.indexed)
+        (summary: summaries[index], lat: record.lat!, lon: record.lon!, geometries: _geometries(record.answersJson)),
     ];
   }
 
@@ -153,18 +153,18 @@ class VisitStatusRepository {
     return collect(answers).toList();
   }
 
-  /// Una visita con su estado y sus adjuntos; `null` si no existe en [orgId]
+  /// Un registro con su estado y sus adjuntos; `null` si no existe en [orgId]
   /// o está borrada.
-  Future<VisitDetail?> detail({required String orgId, required String visitId}) async {
-    final visit = await (db.select(
-      db.visits,
-    )..where((t) => t.orgId.equals(orgId) & t.id.equals(visitId) & t.deletedAt.isNull())).getSingleOrNull();
-    if (visit == null) return null;
-    final summary = (await _summarize([visit], await _templateNames([visit]))).single;
+  Future<RecordDetail?> detail({required String orgId, required String recordId}) async {
+    final record = await (db.select(
+      db.records,
+    )..where((t) => t.orgId.equals(orgId) & t.id.equals(recordId) & t.deletedAt.isNull())).getSingleOrNull();
+    if (record == null) return null;
+    final summary = (await _summarize([record], await _templateNames([record]))).single;
 
     final attachments =
-        await (db.select(db.visitAttachments)
-              ..where((t) => t.visitId.equals(visitId))
+        await (db.select(db.recordAttachments)
+              ..where((t) => t.recordId.equals(recordId))
               ..orderBy([(t) => OrderingTerm.asc(t.position)]))
             .get();
     final queue = {
@@ -173,12 +173,12 @@ class VisitStatusRepository {
       )..where((t) => t.sha256.isIn({for (final a in attachments) a.sha256}))).get())
         row.sha256: row,
     };
-    return VisitDetail(
-      visit: visit,
+    return RecordDetail(
+      record: record,
       summary: summary,
       attachments: [
         for (final a in attachments)
-          VisitAttachmentView(
+          RecordAttachmentView(
             id: a.id,
             role: a.role,
             localPath: queue[a.sha256]?.localPath,
@@ -188,31 +188,31 @@ class VisitStatusRepository {
     );
   }
 
-  Future<Map<String, String?>> _templateNames(List<Visit> visits) async => {
+  Future<Map<String, String?>> _templateNames(List<Record> records) async => {
     for (final row in await (db.select(
       db.formTemplateVersions,
-    )..where((t) => t.id.isIn({for (final v in visits) v.templateVersionId}))).get())
+    )..where((t) => t.id.isIn({for (final v in records) v.templateVersionId}))).get())
       row.id: row.name,
   };
 
-  Future<List<VisitSummary>> _summarize(List<Visit> visits, Map<String, String?> templateNames) async {
-    if (visits.isEmpty) return const [];
-    final visitIds = [for (final v in visits) v.id];
+  Future<List<RecordSummary>> _summarize(List<Record> records, Map<String, String?> templateNames) async {
+    if (records.isEmpty) return const [];
+    final recordIds = [for (final v in records) v.id];
 
-    final attachments = await (db.select(db.visitAttachments)..where((t) => t.visitId.isIn(visitIds))).get();
-    final attachmentsByVisit = <String, List<VisitAttachment>>{};
+    final attachments = await (db.select(db.recordAttachments)..where((t) => t.recordId.isIn(recordIds))).get();
+    final attachmentsByRecord = <String, List<RecordAttachment>>{};
     for (final a in attachments) {
-      attachmentsByVisit.putIfAbsent(a.visitId, () => []).add(a);
+      attachmentsByRecord.putIfAbsent(a.recordId, () => []).add(a);
     }
-    final visitOfAttachment = {for (final a in attachments) a.id: a.visitId};
+    final recordOfAttachment = {for (final a in attachments) a.id: a.recordId};
 
     final ops = await (db.select(
       db.outboxOps,
-    )..where((t) => t.entityId.isIn([...visitIds, ...visitOfAttachment.keys]))).get();
-    final opStatesByVisit = <String, Set<String>>{};
+    )..where((t) => t.entityId.isIn([...recordIds, ...recordOfAttachment.keys]))).get();
+    final opStatesByRecord = <String, Set<String>>{};
     for (final op in ops) {
-      final visitId = op.entity == 'visit' ? op.entityId : visitOfAttachment[op.entityId];
-      if (visitId != null) opStatesByVisit.putIfAbsent(visitId, () => {}).add(op.state);
+      final recordId = op.entity == 'record' ? op.entityId : recordOfAttachment[op.entityId];
+      if (recordId != null) opStatesByRecord.putIfAbsent(recordId, () => {}).add(op.state);
     }
 
     final shas = {for (final a in attachments) a.sha256};
@@ -222,33 +222,33 @@ class VisitStatusRepository {
     };
 
     return [
-      for (final visit in visits)
-        VisitSummary(
-          id: visit.id,
-          templateName: templateNames[visit.templateVersionId],
-          capturedAt: visit.capturedAt,
-          status: switch (opStatesByVisit[visit.id] ?? const <String>{}) {
-            final states when states.contains('quarantine') => VisitSyncStatus.rejected,
-            final states when states.isNotEmpty => VisitSyncStatus.pending,
-            _ => VisitSyncStatus.synced,
+      for (final record in records)
+        RecordSummary(
+          id: record.id,
+          templateName: templateNames[record.templateVersionId],
+          capturedAt: record.capturedAt,
+          status: switch (opStatesByRecord[record.id] ?? const <String>{}) {
+            final states when states.contains('quarantine') => RecordSyncStatus.rejected,
+            final states when states.isNotEmpty => RecordSyncStatus.pending,
+            _ => RecordSyncStatus.synced,
           },
-          attachments: attachmentsByVisit[visit.id]?.length ?? 0,
-          pendingUploads: _countIn(attachmentsByVisit[visit.id], uploadState, const {'pending', 'uploading'}),
-          failedUploads: _countIn(attachmentsByVisit[visit.id], uploadState, const {'failed'}),
+          attachments: attachmentsByRecord[record.id]?.length ?? 0,
+          pendingUploads: _countIn(attachmentsByRecord[record.id], uploadState, const {'pending', 'uploading'}),
+          failedUploads: _countIn(attachmentsByRecord[record.id], uploadState, const {'failed'}),
         ),
     ];
   }
 
-  static int _countIn(List<VisitAttachment>? attachments, Map<String, String> uploadState, Set<String> states) =>
-      (attachments ?? const <VisitAttachment>[]).where((a) => states.contains(uploadState[a.sha256])).length;
+  static int _countIn(List<RecordAttachment>? attachments, Map<String, String> uploadState, Set<String> states) =>
+      (attachments ?? const <RecordAttachment>[]).where((a) => states.contains(uploadState[a.sha256])).length;
 
   /// Solo los **valores** de las respuestas: buscar "altura" no debe
-  /// encontrar todas las visitas por tener un campo `altura_cm`.
-  static bool _matches(Visit visit, String? templateName, String needle) {
+  /// encontrar todos los registros por tener un campo `altura_cm`.
+  static bool _matches(Record record, String? templateName, String needle) {
     if (templateName != null && _fold(templateName).contains(needle)) return true;
     final Object? answers;
     try {
-      answers = jsonDecode(visit.answersJson);
+      answers = jsonDecode(record.answersJson);
     } on FormatException {
       return false;
     }

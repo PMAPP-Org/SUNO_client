@@ -3,11 +3,11 @@
 // comportan igual que el código repetido que reemplazan.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/ui/theme/app_colors.dart';
-import 'package:visitacampo/ui/theme/app_theme.dart';
-import 'package:visitacampo/ui/theme/app_tokens.dart';
-import 'package:visitacampo/ui/widgets/app_button.dart';
-import 'package:visitacampo/ui/widgets/app_page_body.dart';
+import 'package:suno/ui/theme/app_colors.dart';
+import 'package:suno/ui/theme/app_theme.dart';
+import 'package:suno/ui/theme/app_tokens.dart';
+import 'package:suno/ui/widgets/app_button.dart';
+import 'package:suno/ui/widgets/app_page_body.dart';
 
 /// Relación de contraste WCAG 2.x entre dos colores opacos.
 double _contrast(Color a, Color b) {
