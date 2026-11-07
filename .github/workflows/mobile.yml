@@ -193,6 +193,11 @@ jobs:
       - name: bash tool/lint_ui_tokens.sh
         run: bash tool/lint_ui_tokens.sh
 
+      # Nombres: la app se llama SUNO y el concepto "registro"; falla si
+      # vuelve el nombre viejo (regla en tool/check_naming.sh).
+      - name: Nombres (SUNO / registro)
+        run: bash tool/check_naming.sh
+
       # RD-06 / ADR-012: el renderer de formularios interpreta datos; nada en
       # la app puede ejecutar código elegido en tiempo de ejecución.
       - name: bash tool/lint_no_dynamic_code.sh
