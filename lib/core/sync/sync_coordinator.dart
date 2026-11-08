@@ -56,6 +56,7 @@ class SyncCoordinator {
     required this.pull,
     required this.isAuthenticated,
     this.refreshTasks,
+    this.syncEquipment,
     this.interval = const Duration(minutes: 5),
     Timer Function(Duration, void Function(Timer))? periodic,
     DateTime Function()? clock,
@@ -74,6 +75,10 @@ class SyncCoordinator {
   /// pull (`ScheduleTaskSync.refresh`). Es una lista pequeña y la captura la
   /// necesita al día; por eso va dentro del ciclo y no aparte, como los mapas.
   final Future<bool> Function()? refreshTasks;
+  /// Maquinaria y equipos: envía las lecturas de medidor y trae la lista.
+  /// Opcional y aparte del informe: un fallo aquí no cuenta como incidencia de
+  /// las visitas.
+  final Future<void> Function()? syncEquipment;
   final Duration interval;
   final Timer Function(Duration, void Function(Timer)) _periodic;
   final DateTime Function() _now;
@@ -140,6 +145,20 @@ class SyncCoordinator {
     }
   }
 
+  bool _equipmentRunning = false;
+
+  /// Lanza la sincronización de equipos **aparte** del ciclo: una red lenta
+  /// aquí no debe retrasar el informe de las visitas. Un solo envío a la vez;
+  /// un fallo (sin red, sin acceso a equipos) se reintenta en el siguiente ciclo.
+  void _kickEquipment() {
+    final sync = syncEquipment;
+    if (sync == null || _equipmentRunning) return;
+    _equipmentRunning = true;
+    unawaited(
+      sync().catchError((Object _) {}).whenComplete(() => _equipmentRunning = false),
+    );
+  }
+
   Future<SyncCycleReport> _cycle(bool force) async {
     DrainReport drain = DrainReport.empty;
     AttachmentDrainReport attachments = AttachmentDrainReport.empty;
@@ -171,6 +190,7 @@ class SyncCoordinator {
         // Sin red o respuesta rara: queda la lista anterior; el próximo ciclo reintenta.
       }
     }
+    _kickEquipment();
     final report = SyncCycleReport(
       drain: drain,
       attachments: attachments,

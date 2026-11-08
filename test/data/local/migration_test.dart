@@ -509,4 +509,45 @@ void main() {
     expect(await db.readScheduleTaskState(), isNull);
     expect(await db.readCursor(), isNull, reason: 'el pull vuelve a traer las visitas, ahora con su tarea');
   });
+
+  test('v9 → v14: nacen las tablas de maquinaria y equipos, sin tocar lo existente', () async {
+    final raw = sqlite3.sqlite3.openInMemory();
+    addTearDown(raw.close);
+
+    // Esquema v9 (costos, etapa 1): solo la tabla que esta migración debe respetar.
+    raw.execute('''
+      CREATE TABLE sync_cursor (id INTEGER NOT NULL PRIMARY KEY, cursor TEXT NOT NULL, updated_at INTEGER NOT NULL);
+    ''');
+    raw.execute('PRAGMA user_version = 9;');
+    raw.execute("INSERT INTO sync_cursor (id, cursor, updated_at) VALUES (0, 'c1:00000000000000000099', 1767225600);");
+
+    final db = AppDatabase.forTesting(NativeDatabase.opened(raw));
+    addTearDown(db.close);
+
+    expect(await db.select(db.equipmentCache).get(), isEmpty);
+    expect(await db.select(db.equipmentCatalogMeta).get(), isEmpty);
+    expect(await db.select(db.meterReadingOutbox).get(), isEmpty);
+    expect(await db.select(db.inspectionOutbox).get(), isEmpty);
+    expect(await db.select(db.fuelCatalogCache).get(), isEmpty);
+    expect(await db.select(db.fuelFillOutbox).get(), isEmpty);
+    expect(await db.select(db.transportCatalogCache).get(), isEmpty);
+    expect(await db.select(db.tripOutbox).get(), isEmpty);
+    expect(await db.select(db.usageReportOutbox).get(), isEmpty);
+    expect(await db.readCursor(), 'c1:00000000000000000099', reason: 'la migración es aditiva');
+    await db
+        .into(db.meterReadingOutbox)
+        .insert(
+          MeterReadingOutboxCompanion.insert(
+            id: 'r-1',
+            orgId: 'org-1',
+            userId: 'ana',
+            equipmentId: 'e-1',
+            meterUnit: 'hours',
+            value: 12.5,
+            readAt: DateTime.utc(2026, 11, 8),
+          ),
+        );
+    final row = await db.select(db.meterReadingOutbox).getSingle();
+    expect((row.state, row.attempts, row.notes), ('pending', 0, ''));
+  });
 }

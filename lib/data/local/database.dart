@@ -30,6 +30,15 @@ part 'database.g.dart';
     Assignments,
     ScheduleTasks,
     ScheduleTaskState,
+    EquipmentCache,
+    EquipmentCatalogMeta,
+    MeterReadingOutbox,
+    InspectionOutbox,
+    FuelCatalogCache,
+    FuelFillOutbox,
+    TransportCatalogCache,
+    TripOutbox,
+    UsageReportOutbox,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -63,7 +72,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.forTesting(QueryExecutor executor) => AppDatabase._(executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -129,6 +138,31 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(scheduleTasks);
         await migrator.createTable(scheduleTaskState);
         await delete(syncCursor).go();
+      }
+      // v9 → v10 (Maquinaria y equipos, fase 1): caché de equipos y cola de
+      // lecturas de medidor. Solo crea tablas nuevas: nada existente cambia.
+      if (from < 10) {
+        await migrator.createTable(equipmentCache);
+        await migrator.createTable(equipmentCatalogMeta);
+        await migrator.createTable(meterReadingOutbox);
+      }
+      // v10 → v11 (M&E fase 2): cola de preoperacionales. Solo una tabla nueva.
+      if (from < 11) {
+        await migrator.createTable(inspectionOutbox);
+      }
+      // v11 → v12 (M&E fase 4): catálogo de combustible y cola de tanqueos.
+      if (from < 12) {
+        await migrator.createTable(fuelCatalogCache);
+        await migrator.createTable(fuelFillOutbox);
+      }
+      // v12 → v13 (M&E fase 5): catálogo de transporte y cola de viajes.
+      if (from < 13) {
+        await migrator.createTable(transportCatalogCache);
+        await migrator.createTable(tripOutbox);
+      }
+      // v13 → v14: reportes de uso de equipos desde campo.
+      if (from < 14) {
+        await migrator.createTable(usageReportOutbox);
       }
     },
   );

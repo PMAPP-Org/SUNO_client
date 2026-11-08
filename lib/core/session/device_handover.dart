@@ -30,10 +30,23 @@ final class HandoverReady extends HandoverResult {
   final bool wiped;
 }
 
-/// Hay [visits] visitas sin enviar de otro usuario (u otra organización).
+/// Hay [visits] visitas, [readings] lecturas de medidor e [inspections]
+/// preoperacionales sin enviar de otro usuario (u otra organización).
 final class HandoverBlocked extends HandoverResult {
-  const HandoverBlocked(this.visits);
+  const HandoverBlocked(
+    this.visits, {
+    this.readings = 0,
+    this.inspections = 0,
+    this.fuelFills = 0,
+    this.trips = 0,
+    this.usageReports = 0,
+  });
   final int visits;
+  final int readings;
+  final int inspections;
+  final int fuelFills;
+  final int trips;
+  final int usageReports;
 }
 
 class DeviceHandover {
@@ -46,12 +59,50 @@ class DeviceHandover {
   /// Antes de dejar entrar a [user] con este teléfono.
   Future<HandoverResult> prepare(UserProfile user) async {
     final foreign = await _visitsWithUnsentDataOfOthers(user);
-    if (foreign > 0) return HandoverBlocked(foreign);
+    // Las lecturas de medidor se envían con el token de quien tenga la sesión:
+    // las pendientes de otro usuario llegarían atribuidas a este.
+    final foreignReadings =
+        await (db.select(db.meterReadingOutbox)
+              ..where((t) => t.state.equals('pending') & (t.userId.equals(user.id).not() | t.orgId.equals(user.orgId).not())))
+            .get();
+    final foreignInspections =
+        await (db.select(db.inspectionOutbox)
+              ..where((t) => t.state.equals('pending') & (t.userId.equals(user.id).not() | t.orgId.equals(user.orgId).not())))
+            .get();
+    final foreignFuel =
+        await (db.select(db.fuelFillOutbox)
+              ..where((t) => t.state.equals('pending') & (t.userId.equals(user.id).not() | t.orgId.equals(user.orgId).not())))
+            .get();
+    final foreignTrips =
+        await (db.select(db.tripOutbox)
+              ..where((t) => t.state.equals('pending') & (t.userId.equals(user.id).not() | t.orgId.equals(user.orgId).not())))
+            .get();
+    final foreignUsage =
+        await (db.select(db.usageReportOutbox)
+              ..where((t) => t.state.equals('pending') & (t.userId.equals(user.id).not() | t.orgId.equals(user.orgId).not())))
+            .get();
+    if (foreign > 0 ||
+        foreignReadings.isNotEmpty ||
+        foreignInspections.isNotEmpty ||
+        foreignFuel.isNotEmpty ||
+        foreignTrips.isNotEmpty ||
+        foreignUsage.isNotEmpty) {
+      return HandoverBlocked(
+        foreign,
+        readings: foreignReadings.length,
+        inspections: foreignInspections.length,
+        fuelFills: foreignFuel.length,
+        trips: foreignTrips.length,
+        usageReports: foreignUsage.length,
+      );
+    }
 
     final otherOrg = await (db.select(db.visits)..where((t) => t.orgId.equals(user.orgId).not())..limit(1)).get();
     final otherOrgTemplates =
         await (db.select(db.formTemplateVersions)..where((t) => t.orgId.equals(user.orgId).not())..limit(1)).get();
-    if (otherOrg.isEmpty && otherOrgTemplates.isEmpty) return const HandoverReady();
+    final otherOrgEquipment =
+        await (db.select(db.equipmentCache)..where((t) => t.orgId.equals(user.orgId).not())..limit(1)).get();
+    if (otherOrg.isEmpty && otherOrgTemplates.isEmpty && otherOrgEquipment.isEmpty) return const HandoverReady();
 
     final files = [for (final row in await db.select(db.attachmentQueue).get()) row.localPath];
     await db.transaction(() async {
@@ -63,6 +114,15 @@ class DeviceHandover {
       await db.delete(db.scheduleTasks).go();
       await db.delete(db.scheduleTaskState).go();
       await db.delete(db.attachmentQueue).go();
+      await db.delete(db.equipmentCache).go();
+      await db.delete(db.equipmentCatalogMeta).go();
+      await db.delete(db.meterReadingOutbox).go();
+      await db.delete(db.inspectionOutbox).go();
+      await db.delete(db.fuelFillOutbox).go();
+      await db.delete(db.fuelCatalogCache).go();
+      await db.delete(db.tripOutbox).go();
+      await db.delete(db.usageReportOutbox).go();
+      await db.delete(db.transportCatalogCache).go();
       // El cursor es de la organización anterior: el pull empieza de cero.
       await db.delete(db.syncCursor).go();
     });

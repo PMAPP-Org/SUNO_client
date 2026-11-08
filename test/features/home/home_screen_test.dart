@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:visitacampo/core/app_dependencies.dart';
+import 'package:visitacampo/core/equipment/equipment_manager.dart';
 import 'package:visitacampo/core/attachments/attachment_result.dart';
 import 'package:visitacampo/core/attachments/attachment_upload_service.dart';
 import 'package:visitacampo/core/auth/auth_controller.dart';
@@ -44,7 +45,16 @@ import '../../core/layers/fake_layer_transport.dart';
 import '../../core/schedule/fake_schedule_task_transport.dart';
 import '../../core/sync/fake_sync_transport.dart';
 
+import '../../core/equipment/fake_equipment_transport.dart';
 import '../../support/test_app.dart';
+
+/// Equipos sin red: estas pruebas son del inicio, no de la lista de equipos, y
+/// un `Dio()` real no puede hacer llamadas dentro de una prueba de widgets.
+EquipmentManager _offlineEquipment(AppDatabase db) => EquipmentManager(
+  db: db,
+  transport: FakeEquipmentTransport(),
+  session: () => (orgId: 'org-1', userId: 'user-1'),
+);
 
 void main() {
   testWidgets('Sincronizar drena el outbox, sube adjuntos pendientes y hace pull', (tester) async {
@@ -82,6 +92,7 @@ void main() {
       dio: Dio(),
       authController: authController,
       deviceId: 'device-1',
+      equipment: _offlineEquipment(db),
       syncEngine: syncEngine,
       attachmentUploadService: attachmentUploadService,
     );
@@ -124,6 +135,7 @@ void main() {
       dio: Dio(),
       authController: authController,
       deviceId: 'device-1',
+      equipment: _offlineEquipment(db),
       syncEngine: SyncEngine(db: db, transport: syncTransport, deviceId: 'device-1'),
       attachmentUploadService: AttachmentUploadService(db: db, transport: FakeAttachmentTransport()),
     );
@@ -169,6 +181,7 @@ void main() {
       dio: Dio(),
       authController: authController,
       deviceId: 'device-1',
+      equipment: _offlineEquipment(db),
       syncEngine: SyncEngine(db: db, transport: syncTransport, deviceId: 'device-1'),
       attachmentUploadService: AttachmentUploadService(db: db, transport: FakeAttachmentTransport()),
       basemaps: BasemapManager(transport: basemaps, directory: dir),
@@ -256,6 +269,7 @@ void main() {
         dio: Dio(),
         authController: authController,
         deviceId: 'device-1',
+      equipment: _offlineEquipment(db),
         syncEngine: syncEngine,
         attachmentUploadService: attachmentUploadService,
       );
@@ -321,6 +335,7 @@ void main() {
       dio: Dio(),
       authController: authController,
       deviceId: 'device-1',
+      equipment: _offlineEquipment(db),
       syncEngine: SyncEngine(db: db, transport: FakeSyncTransport(), deviceId: 'device-1'),
       attachmentUploadService: AttachmentUploadService(db: db, transport: FakeAttachmentTransport()),
     );

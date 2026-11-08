@@ -515,6 +515,306 @@
   "formErrorVisitValidated": "La visita ya fue validada: su tarea y % no se pueden cambiar desde el teléfono.",
   "formErrorVisitValidatedDelete": "La visita ya fue validada: no se puede borrar desde el teléfono.",
   "formErrorTaskUnknown": "La tarea ya no existe en el cronograma.",
-  "reviewUnlinkTask": "Quitar la tarea y reenviar"
+  "reviewUnlinkTask": "Quitar la tarea y reenviar",
+  "loginHandoverBlockedReadings": "{count, plural, =1{Este teléfono tiene 1 lectura de medidor sin enviar de otro usuario.} other{Este teléfono tiene {count} lecturas de medidor sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlockedReadings": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "equipmentTitle": "Equipos",
+  "equipmentEmpty": "No tienes equipos disponibles. Sincroniza para recibir los que te asignen.",
+  "equipmentSearchLabel": "Buscar por código, nombre o placa",
+  "equipmentScan": "Escanear QR",
+  "equipmentScanNotFound": "Ese equipo no está disponible en tu teléfono. Sincroniza e inténtalo de nuevo.",
+  "equipmentRefreshFailed": "No se pudo actualizar la lista; se muestra la última descarga.",
+  "equipmentNoMatches": "Ningún equipo coincide con la búsqueda.",
+  "equipmentAlertsCount": "{count, plural, =1{1 alerta} other{{count} alertas}}",
+  "@equipmentAlertsCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "equipmentStatusAvailable": "Disponible",
+  "equipmentStatusAssigned": "Asignado",
+  "equipmentStatusMaintenance": "En mantenimiento",
+  "equipmentStatusOutOfService": "Fuera de servicio",
+  "equipmentStatusRetired": "Retirado",
+  "equipmentSectionDetails": "Datos del equipo",
+  "equipmentFieldType": "Tipo",
+  "equipmentFieldStatus": "Estado",
+  "equipmentFieldPlate": "Placa",
+  "equipmentFieldSerial": "Serie",
+  "equipmentFieldMake": "Fabricante",
+  "equipmentFieldModel": "Modelo",
+  "equipmentFieldDepartment": "Departamento de maquinaria",
+  "equipmentSectionMeters": "Medidores",
+  "equipmentNoReadings": "Sin lecturas registradas.",
+  "equipmentMeterHours": "Horómetro",
+  "equipmentMeterKilometers": "Kilometraje",
+  "equipmentMeterReadAt": "Leído el {date}",
+  "@equipmentMeterReadAt": {
+    "placeholders": { "date": { "type": "DateTime", "format": "yMd" } }
+  },
+  "equipmentRecordReading": "Registrar lectura",
+  "equipmentReadingMeter": "Medidor",
+  "equipmentReadingValue": "Lectura",
+  "equipmentReadingNotes": "Observaciones",
+  "equipmentReadingSave": "Guardar lectura",
+  "equipmentReadingQueued": "Lectura guardada. Se enviará al sincronizar.",
+  "equipmentReadingInvalid": "Escribe una lectura válida (un número mayor o igual que cero).",
+  "equipmentReadingBackwards": "La lectura no puede ser menor que la anterior ({baseline}).",
+  "@equipmentReadingBackwards": {
+    "placeholders": { "baseline": { "type": "String" } }
+  },
+  "equipmentReadingUnavailable": "No se puede registrar la lectura de este equipo.",
+  "equipmentPendingReadings": "Lecturas sin enviar",
+  "equipmentReadingPending": "Pendiente de envío",
+  "equipmentReadingRejected": "Rechazada por el servidor",
+  "equipmentReadingDismiss": "Descartar",
+  "equipmentSectionAlerts": "Alertas de vigencia",
+  "equipmentNoAlerts": "Sin alertas de vigencia.",
+  "equipmentAlertDue": "{name}: vence el {date} (en {days, plural, =0{hoy} =1{1 día} other{{days} días}})",
+  "@equipmentAlertDue": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "date": { "type": "DateTime", "format": "yMd" },
+      "days": { "type": "int" }
+    }
+  },
+  "equipmentAlertExpired": "{name}: venció el {date}",
+  "@equipmentAlertExpired": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "date": { "type": "DateTime", "format": "yMd" }
+    }
+  },
+  "equipmentSectionDocuments": "Documentos",
+  "equipmentNoDocuments": "Sin documentos registrados.",
+  "equipmentDocumentExpires": "Vence el {date}",
+  "@equipmentDocumentExpires": {
+    "placeholders": { "date": { "type": "DateTime", "format": "yMd" } }
+  },
+  "equipmentDocumentNoExpiry": "Sin vencimiento",
+  "equipmentSectionFields": "Campos adicionales",
+  "loginHandoverBlockedInspections": "{count, plural, =1{Este teléfono tiene 1 preoperacional sin enviar de otro usuario.} other{Este teléfono tiene {count} preoperacionales sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlockedInspections": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "equipmentPreoperational": "Preoperacional",
+  "equipmentPreoperationalStart": "Hacer preoperacional",
+  "equipmentPreoperationalNoChecklist": "La tipología de este equipo no tiene lista de chequeo.",
+  "equipmentPreoperationalMeter": "Lectura inicial de {meter}",
+  "@equipmentPreoperationalMeter": {
+    "placeholders": { "meter": { "type": "String" } }
+  },
+  "equipmentPreoperationalItemOk": "Cumple",
+  "equipmentPreoperationalItemFault": "Novedad",
+  "equipmentPreoperationalCritical": "Crítico",
+  "equipmentPreoperationalFaultNote": "Describe la novedad",
+  "equipmentPreoperationalNotes": "Observaciones generales",
+  "equipmentPreoperationalSubmit": "Enviar preoperacional",
+  "equipmentPreoperationalQueued": "Preoperacional guardado. Se enviará al sincronizar.",
+  "equipmentPreoperationalIncomplete": "Falta responder: {item}.",
+  "@equipmentPreoperationalIncomplete": {
+    "placeholders": { "item": { "type": "String" } }
+  },
+  "equipmentPreoperationalFaultNeedsNote": "Describe la novedad de: {item}.",
+  "@equipmentPreoperationalFaultNeedsNote": {
+    "placeholders": { "item": { "type": "String" } }
+  },
+  "equipmentPreoperationalMeterRequired": "Escribe la lectura inicial del medidor.",
+  "equipmentPreoperationalMeterBackwards": "La lectura no puede ser menor que la anterior ({baseline}).",
+  "@equipmentPreoperationalMeterBackwards": {
+    "placeholders": { "baseline": { "type": "String" } }
+  },
+  "equipmentInspectionsTitle": "Mis preoperacionales",
+  "equipmentInspectionSubmitted": "Pendiente de revisión",
+  "equipmentInspectionApproved": "Aprobado",
+  "equipmentInspectionRejected": "Rechazado",
+  "equipmentInspectionCorrection": "Corrección solicitada",
+  "equipmentInspectionSending": "Pendiente de envío",
+  "equipmentInspectionNotSent": "Rechazado al enviar",
+  "equipmentInspectionWithFaults": "con novedades",
+  "equipmentSectionMaintenance": "Mantenimiento preventivo",
+  "equipmentNoPlans": "Este equipo no tiene plan preventivo.",
+  "equipmentPlanOk": "Al día",
+  "equipmentPlanDueSoon": "Próximo a vencer",
+  "equipmentPlanOverdue": "Vencido",
+  "equipmentPlanUnknown": "Sin lecturas para calcularlo",
+  "equipmentMeterShortHours": "h",
+  "equipmentMeterShortKilometers": "km",
+  "equipmentPlanRemaining": "Faltan {value} {unit}",
+  "@equipmentPlanRemaining": {
+    "placeholders": { "value": { "type": "String" }, "unit": { "type": "String" } }
+  },
+  "equipmentPlanPastDue": "Vencido hace {value} {unit}",
+  "@equipmentPlanPastDue": {
+    "placeholders": { "value": { "type": "String" }, "unit": { "type": "String" } }
+  },
+  "equipmentPlanRemainingDays": "{days, plural, =0{Vence hoy} =1{Falta 1 día} other{Faltan {days} días}}",
+  "@equipmentPlanRemainingDays": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "equipmentPlanPastDueDays": "{days, plural, =1{Vencido hace 1 día} other{Vencido hace {days} días}}",
+  "@equipmentPlanPastDueDays": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "equipmentPlanWithOrder": "con orden abierta",
+  "equipmentSectionOrders": "Órdenes de trabajo abiertas",
+  "equipmentNoOrders": "Sin órdenes abiertas.",
+  "equipmentOrderPreventive": "Preventiva",
+  "equipmentOrderCorrective": "Correctiva",
+  "equipmentOrderOverhaul": "Overhaul",
+  "equipmentOrderDraft": "Borrador",
+  "equipmentOrderApproved": "Aprobada",
+  "equipmentOrderInExecution": "En ejecución",
+  "equipmentOrderLine": "{code} · {kind}",
+  "@equipmentOrderLine": {
+    "placeholders": { "code": { "type": "String" }, "kind": { "type": "String" } }
+  },
+  "equipmentLifeSheet": "Hoja de Vida (PDF)",
+  "equipmentLifeSheetFailed": "No se pudo descargar la Hoja de Vida. Revisa tu conexión e inténtalo de nuevo.",
+  "loginHandoverBlockedFuel": "{count, plural, =1{Este teléfono tiene 1 tanqueo sin enviar de otro usuario.} other{Este teléfono tiene {count} tanqueos sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlockedFuel": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "equipmentFuelRegister": "Registrar tanqueo",
+  "equipmentFuelSource": "Origen del combustible",
+  "equipmentFuelSourceStation": "Estación de servicio",
+  "equipmentFuelSourceStore": "Tanque propio",
+  "equipmentFuelStation": "Estación",
+  "equipmentFuelStore": "Tanque",
+  "equipmentFuelStationLabel": "{supplier} · {name}",
+  "@equipmentFuelStationLabel": {
+    "placeholders": { "supplier": { "type": "String" }, "name": { "type": "String" } }
+  },
+  "equipmentFuelNoCatalog": "Todavía no hay estaciones ni tanques en tu teléfono. Sincroniza con conexión.",
+  "equipmentFuelVoucher": "Número de vale",
+  "equipmentFuelGallons": "Galones",
+  "equipmentFuelMeter": "Lectura de {meter}",
+  "@equipmentFuelMeter": {
+    "placeholders": { "meter": { "type": "String" } }
+  },
+  "equipmentFuelFront": "Frente de obra",
+  "equipmentFuelDriver": "Conductor",
+  "equipmentFuelDriverDocument": "Cédula del conductor",
+  "equipmentFuelNotes": "Observaciones",
+  "equipmentFuelSave": "Guardar tanqueo",
+  "equipmentFuelQueued": "Tanqueo guardado. Se enviará al sincronizar.",
+  "equipmentFuelSourceMissing": "Elige la estación o el tanque.",
+  "equipmentFuelVoucherRequired": "Escribe el número de vale.",
+  "equipmentFuelInvalidGallons": "Escribe los galones (un número mayor que cero).",
+  "equipmentFuelMeterRequired": "Escribe la lectura del medidor.",
+  "equipmentFuelMeterBackwards": "La lectura no puede ser menor que la anterior ({baseline}).",
+  "@equipmentFuelMeterBackwards": {
+    "placeholders": { "baseline": { "type": "String" } }
+  },
+  "equipmentFuelPending": "Tanqueos sin enviar",
+  "equipmentFuelPendingLine": "Vale {voucher} · {gallons} gal",
+  "@equipmentFuelPendingLine": {
+    "placeholders": { "voucher": { "type": "String" }, "gallons": { "type": "String" } }
+  },
+  "loginHandoverBlockedTrips": "{count, plural, =1{Este teléfono tiene 1 viaje sin enviar de otro usuario.} other{Este teléfono tiene {count} viajes sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlockedTrips": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "tripRegister": "Registrar viaje",
+  "tripVehicleKind": "Vehículo",
+  "tripVehicleOwn": "Equipo propio",
+  "tripVehicleThird": "De terceros",
+  "tripEquipment": "Equipo",
+  "tripThirdVehicle": "Vehículo de terceros",
+  "tripRoute": "Tramo",
+  "tripRouteLabel": "{origin} → {destination} · {km} km",
+  "@tripRouteLabel": {
+    "placeholders": { "origin": { "type": "String" }, "destination": { "type": "String" }, "km": { "type": "String" } }
+  },
+  "tripThirdVehicleLabel": "{plate} · {contractor}",
+  "@tripThirdVehicleLabel": {
+    "placeholders": { "plate": { "type": "String" }, "contractor": { "type": "String" } }
+  },
+  "tripMaterial": "Material",
+  "tripVolume": "Volumen (m³)",
+  "tripRequestedBy": "Solicita",
+  "tripDispatchedBy": "Despacha",
+  "tripReceivedBy": "Recibe",
+  "tripDriver": "Conductor",
+  "tripDriverDocument": "Cédula del conductor",
+  "tripNotes": "Observaciones",
+  "tripSave": "Guardar viaje",
+  "tripQueued": "Viaje guardado. Se enviará al sincronizar.",
+  "tripNoCatalog": "Todavía no hay tramos ni materiales en tu teléfono. Sincroniza con conexión.",
+  "tripVehicleMissing": "Elige el vehículo del viaje.",
+  "tripRouteMissing": "Elige el tramo.",
+  "tripMaterialMissing": "Elige el material.",
+  "tripInvalidVolume": "Escribe el volumen (un número mayor que cero).",
+  "tripOverCapacity": "El volumen supera la capacidad del vehículo ({capacity} m³).",
+  "@tripOverCapacity": {
+    "placeholders": { "capacity": { "type": "String" } }
+  },
+  "tripPeopleMissing": "Elige quién solicita, quién despacha y quién recibe.",
+  "tripSameDispatcherReceiver": "Quien despacha no puede ser quien recibe.",
+  "tripPending": "Viajes sin enviar",
+  "tripPendingLine": "{vehicle} · {volume} m³",
+  "@tripPendingLine": {
+    "placeholders": { "vehicle": { "type": "String" }, "volume": { "type": "String" } }
+  },
+  "loginHandoverBlockedUsage": "{count, plural, =1{Este teléfono tiene 1 reporte de uso sin enviar de otro usuario.} other{Este teléfono tiene {count} reportes de uso sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlockedUsage": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "usagePickerLabel": "{label}: {value}",
+  "@usagePickerLabel": {
+    "placeholders": { "label": { "type": "String" }, "value": { "type": "String" } }
+  },
+  "usageRegister": "Registrar uso",
+  "usageNoProject": "No tienes un proyecto asignado para reportar el uso de este equipo.",
+  "usageProject": "Proyecto",
+  "usageDate": "Fecha",
+  "usageStart": "Hora de inicio",
+  "usageEnd": "Hora de fin",
+  "usageActivity": "Actividad realizada",
+  "usageLocation": "Ubicación o frente de obra",
+  "usageStartMeter": "Lectura inicial de {meter}",
+  "@usageStartMeter": {
+    "placeholders": { "meter": { "type": "String" } }
+  },
+  "usageEndMeter": "Lectura final de {meter}",
+  "@usageEndMeter": {
+    "placeholders": { "meter": { "type": "String" } }
+  },
+  "usageNotes": "Observaciones",
+  "usageSave": "Guardar reporte de uso",
+  "usageQueued": "Uso guardado. Se enviará al sincronizar.",
+  "usageProjectMissing": "Elige el proyecto.",
+  "usageActivityRequired": "Describe la actividad realizada.",
+  "usageInvalidTimes": "La hora de fin debe ser posterior a la de inicio.",
+  "usageFutureTime": "La hora de fin no puede estar en el futuro.",
+  "usageMeterRequired": "Escribe las lecturas inicial y final del medidor.",
+  "usageInvalidMeter": "La lectura final no puede ser menor que la inicial.",
+  "usageMeterBackwards": "La lectura inicial no puede ser menor que la última conocida ({baseline}).",
+  "@usageMeterBackwards": {
+    "placeholders": { "baseline": { "type": "String" } }
+  },
+  "usageOverlap": "Se cruza con otro uso del equipo ({activity}).",
+  "@usageOverlap": {
+    "placeholders": { "activity": { "type": "String" } }
+  },
+  "usageMine": "Mis usos del equipo",
+  "usagePending": "Usos sin enviar",
+  "usageLine": "{date} · {start}–{end}",
+  "@usageLine": {
+    "placeholders": { "date": { "type": "String" }, "start": { "type": "String" }, "end": { "type": "String" } }
+  },
+  "usageHours": "{hours} h",
+  "@usageHours": {
+    "placeholders": { "hours": { "type": "String" } }
+  },
+  "equipmentListTitle": "{code} · {name}",
+  "@equipmentListTitle": {
+    "placeholders": { "code": { "type": "String" }, "name": { "type": "String" } }
+  },
+  "equipmentReadingLine": "{meter}: {value}",
+  "@equipmentReadingLine": {
+    "placeholders": { "meter": { "type": "String" }, "value": { "type": "String" } }
+  }
 
 }

@@ -83,7 +83,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             }
             messenger.showSnackBar(
               SnackBar(
-                content: Text(l10n.loginHandoverBlocked(handover.visits)),
+                content: Text(
+                  handover.visits > 0
+                      ? l10n.loginHandoverBlocked(handover.visits)
+                      : handover.readings > 0
+                      ? l10n.loginHandoverBlockedReadings(handover.readings)
+                      : handover.inspections > 0
+                      ? l10n.loginHandoverBlockedInspections(handover.inspections)
+                      : handover.fuelFills > 0
+                      ? l10n.loginHandoverBlockedFuel(handover.fuelFills)
+                      : handover.trips > 0
+                      ? l10n.loginHandoverBlockedTrips(handover.trips)
+                      : l10n.loginHandoverBlockedUsage(handover.usageReports),
+                ),
               ),
             );
             return;
