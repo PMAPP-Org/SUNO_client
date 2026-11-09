@@ -148,4 +148,62 @@ void main() {
     expect(await db.select(db.scheduleTasks).get(), isEmpty);
     expect(await db.readScheduleTaskState(), isNull);
   });
+
+  group('maquinaria y equipos', () {
+    Future<void> reading({required String user, String org = 'org-1', String state = 'pending'}) => db
+        .into(db.meterReadingOutbox)
+        .insert(
+          MeterReadingOutboxCompanion.insert(
+            id: 'r-$user-$state',
+            orgId: org,
+            userId: user,
+            equipmentId: 'e-1',
+            meterUnit: 'hours',
+            value: 10,
+            readAt: DateTime.utc(2026, 11, 8),
+            state: Value(state),
+          ),
+        );
+
+    test('una lectura de medidor sin enviar de otro usuario bloquea la entrada', () async {
+      await reading(user: 'ana');
+
+      final result = await handover.prepare(_beto);
+
+      expect(result, isA<HandoverBlocked>().having((r) => r.readings, 'readings', 1).having((r) => r.records, 'v', 0));
+    });
+
+    test('el mismo usuario entra y conserva su cola; una rechazada ajena no bloquea', () async {
+      await reading(user: 'ana');
+      await reading(user: 'beto', state: 'rejected');
+
+      expect(await handover.prepare(_ana), isA<HandoverReady>());
+      expect(await db.select(db.meterReadingOutbox).get(), hasLength(2));
+    });
+
+    test('al cambiar de organización se borran la caché de equipos y la cola', () async {
+      await db
+          .into(db.equipmentCache)
+          .insert(
+            EquipmentCacheCompanion.insert(
+              id: 'e-1',
+              orgId: 'org-1',
+              code: 'EQ-1',
+              qrIdentifier: 'suno:eq:e-1',
+              dataJson: '{}',
+            ),
+          );
+      await db
+          .into(db.equipmentCatalogMeta)
+          .insert(EquipmentCatalogMetaCompanion.insert(orgId: 'org-1', version: 'v1', fetchedAt: DateTime.utc(2026, 11, 8)));
+      await reading(user: 'carla', org: 'org-2', state: 'rejected');
+
+      final result = await handover.prepare(_carla);
+
+      expect(result, isA<HandoverReady>().having((r) => r.wiped, 'wiped', true));
+      expect(await db.select(db.equipmentCache).get(), isEmpty);
+      expect(await db.select(db.equipmentCatalogMeta).get(), isEmpty);
+      expect(await db.select(db.meterReadingOutbox).get(), isEmpty);
+    });
+  });
 }

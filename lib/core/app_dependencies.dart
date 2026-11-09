@@ -19,6 +19,7 @@ import 'attachments/attachment_upload_service.dart';
 import 'auth/auth_controller.dart';
 import 'basemaps/basemap_manager.dart';
 import 'layers/layer_manager.dart';
+import 'equipment/equipment_manager.dart';
 import 'auth/auth_state.dart';
 import 'auth/session_store.dart';
 import 'auth/token_store.dart';
@@ -49,6 +50,7 @@ import '../data/http/auth_interceptor.dart';
 import '../data/http/basemap_api_client.dart';
 import '../data/http/layer_api_client.dart';
 import '../data/http/schedule_task_api_client.dart';
+import '../data/http/equipment_api_client.dart';
 import '../data/http/consent_api_client.dart';
 import '../data/http/sync_api_client.dart';
 import '../data/local/assignment_repository.dart';
@@ -78,12 +80,23 @@ class AppDependencies {
     Directory? basemapsDirectory,
     LayerManager? layers,
     Directory? layersDirectory,
+    EquipmentManager? equipment,
     RecordCapture? recordCapture,
     TrustStore? trustStore,
     ConsentService? consent,
     ScheduleTaskSync? scheduleTasks,
   }) : gpsSettings = gpsSettings ?? GpsSettings(HardenedSecureStorage()),
        coordinates = coordinates ?? CoordinateSettings(HardenedSecureStorage()),
+       equipment =
+           equipment ??
+           EquipmentManager(
+             db: database,
+             transport: EquipmentApiClient(dio: dio, accessTokenProvider: () => authController.accessToken ?? ''),
+             session: () {
+               final state = authController.state;
+               return state is Authenticated ? (orgId: state.user.orgId, userId: state.user.id) : null;
+             },
+           ),
        layers =
            layers ??
            LayerManager(
@@ -178,6 +191,9 @@ class AppDependencies {
 
   /// Capas de referencia GeoJSON (Fase C).
   final LayerManager layers;
+
+  /// Maquinaria y equipos (fase 1): lista en caché y lecturas de medidor.
+  final EquipmentManager equipment;
   GpsPolicy get gpsPolicy => gpsSettings.policy;
 
   /// Sistema en que se muestran las coordenadas (Fase C); se guardan en 4326.
@@ -206,6 +222,7 @@ class AppDependencies {
     pull: syncEngine.pull,
     isAuthenticated: () => authController.state is Authenticated,
     refreshTasks: scheduleTasks.refresh,
+    syncEquipment: equipment.sync,
   );
 
   /// Paso 22: dónde se guardan las firmas y el guardado de un registro.

@@ -24,7 +24,11 @@ import 'visibility.dart';
 
 /// Dialecto que habla este cliente (`definition.DSL_VERSION` del servidor).
 const dslVersion = 'suno/form@1';
-const supportedDslVersions = {dslVersion};
+
+/// Identificador anterior al renombrado del servidor:
+/// se sigue aceptando para las plantillas que ya están guardadas en el teléfono.
+const legacyDslVersion = 'visitacampo/form@1';
+const supportedDslVersions = {dslVersion, legacyDslVersion};
 
 const maxFields = 300;
 const maxOptions = 200;

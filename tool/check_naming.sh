@@ -5,7 +5,9 @@
 # No se revisan el CHANGELOG ni `.gitleaksignore` (historia: citan los nombres de
 # entonces) ni esta guardia (nombra lo que busca). Las citas a documentos de
 # `plans/` del servidor (`plans/....md`) se permiten: esos documentos históricos
-# conservan su nombre.
+# conservan su nombre. Tampoco el identificador `visitacampo/form@N` del DSL: es
+# un dato con el que se guardaron plantillas, y la app lo sigue aceptando
+# (`legacyDslVersion` en `lib/core/forms/form_definition.dart`).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 allowed='^(visited|revisit|revisited|revisitar|visitados|visitante|visitantes)$'
@@ -16,7 +18,7 @@ while IFS= read -r file; do
 	esac
 	[ -f "$file" ] || continue
 	words="$( { printf '%s\n' "$file"; cat "$file"; } |
-		sed -E 's#plans/[A-Za-z0-9_./-]+\.md# #g' |
+		sed -E -e 's#plans/[A-Za-z0-9_./-]+\.md# #g' -e 's#visitacampo/form@[0-9]+# #g' |
 		grep -oiE '[a-z_]*visit[a-z_]*' | grep -viE "$allowed" | sort -u || true)"
 	if [ -n "$words" ]; then
 		echo "$file: $(echo "$words" | tr '\n' ' ')"

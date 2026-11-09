@@ -28,6 +28,7 @@ import '../../ui/widgets/app_page_body.dart';
 import '../auth/login_screen.dart';
 import '../capture/capture_screen.dart';
 import '../assignments/assignments_screen.dart';
+import '../equipment/equipment_screen.dart';
 import '../map/map_screen.dart';
 import '../review/review_screen.dart';
 import '../settings/settings_screen.dart';
@@ -279,6 +280,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         title: const AppBrand(),
         actions: [
+          IconButton(
+            key: const Key('home_equipment'),
+            tooltip: l10n.equipmentTitle,
+            icon: const Icon(Icons.precision_manufacturing_outlined),
+            onPressed: () =>
+                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EquipmentScreen())),
+          ),
           IconButton(
             key: const Key('home_map'),
             tooltip: l10n.mapTitle,

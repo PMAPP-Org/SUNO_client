@@ -285,3 +285,196 @@ class ScheduleTaskState extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// Espejo local de la lista de equipos visibles (`GET /v1/equipment`), para
+/// consultarlos sin red. Cada fila guarda el JSON del servidor tal como llegó:
+/// la tabla no interpreta la ficha. Añadida en `schemaVersion` 10.
+@DataClassName('EquipmentCacheRow')
+class EquipmentCache extends Table {
+  TextColumn get id => text()();
+  TextColumn get orgId => text()();
+  TextColumn get code => text()();
+  TextColumn get qrIdentifier => text()();
+  TextColumn get dataJson => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Huella (`version`) de la última lista de equipos descargada, para que el
+/// servidor conteste "sin cambios". Una sola fila (`id = 0`).
+@DataClassName('EquipmentCatalogMetaRow')
+class EquipmentCatalogMeta extends Table {
+  IntColumn get id => integer().clientDefault(() => 0)();
+  TextColumn get orgId => text()();
+  TextColumn get version => text()();
+  DateTimeColumn get fetchedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Lecturas de medidor tomadas en campo y todavía sin confirmar por el
+/// servidor. El `id` lo genera el teléfono y hace el reenvío idempotente.
+/// `state`: `pending` (se enviará) o `rejected` (el servidor la rechazó y no
+/// se reintenta; `lastError` dice por qué). `userId` atribuye la lectura a
+/// quien la tomó (teléfono compartido). Añadida en `schemaVersion` 10.
+@DataClassName('MeterReadingOutboxRow')
+class MeterReadingOutbox extends Table {
+  TextColumn get id => text()();
+  TextColumn get orgId => text()();
+  TextColumn get userId => text()();
+  TextColumn get equipmentId => text()();
+  TextColumn get meterUnit => text()();
+  RealColumn get value => real()();
+  DateTimeColumn get readAt => dateTime()();
+  TextColumn get notes => text().withDefault(const Constant(''))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get state => text().withDefault(const Constant('pending'))();
+  TextColumn get lastError => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Preoperacionales tomados en campo y todavía sin confirmar por el servidor.
+/// Misma idea que `MeterReadingOutbox`: `id` propio (idempotencia), `state`
+/// `pending` o `rejected`, y `userId` para atribuir en un teléfono compartido.
+/// `itemsJson` guarda las respuestas `[{item_id, ok, note}]`. Añadida en
+/// `schemaVersion` 11.
+@DataClassName('InspectionOutboxRow')
+class InspectionOutbox extends Table {
+  TextColumn get id => text()();
+  TextColumn get orgId => text()();
+  TextColumn get userId => text()();
+  TextColumn get equipmentId => text()();
+  DateTimeColumn get capturedAt => dateTime()();
+  TextColumn get meterUnit => text().nullable()();
+  RealColumn get meterValue => real().nullable()();
+  TextColumn get itemsJson => text()();
+  TextColumn get notes => text().withDefault(const Constant(''))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get state => text().withDefault(const Constant('pending'))();
+  TextColumn get lastError => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Catálogo de combustible (estaciones y tanques propios) tal como llegó de
+/// `GET /v1/fuel/catalog`, para elegir el origen de un tanqueo sin red. Una
+/// sola fila (`id = 0`). Añadida en `schemaVersion` 12.
+@DataClassName('FuelCatalogRow')
+class FuelCatalogCache extends Table {
+  IntColumn get id => integer().clientDefault(() => 0)();
+  TextColumn get orgId => text()();
+  TextColumn get version => text()();
+  TextColumn get dataJson => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Tanqueos tomados en campo y todavía sin confirmar por el servidor. Misma
+/// idea que `MeterReadingOutbox`: `id` propio (idempotencia), `state`
+/// `pending` o `rejected`, y `userId` para atribuir en un teléfono compartido.
+/// Añadida en `schemaVersion` 12.
+@DataClassName('FuelFillOutboxRow')
+class FuelFillOutbox extends Table {
+  TextColumn get id => text()();
+  TextColumn get orgId => text()();
+  TextColumn get userId => text()();
+  TextColumn get equipmentId => text()();
+  TextColumn get source => text()();
+  TextColumn get stationId => text().nullable()();
+  TextColumn get storeId => text().nullable()();
+  TextColumn get fuelType => text().withDefault(const Constant('acpm'))();
+  TextColumn get voucherNumber => text()();
+  DateTimeColumn get filledAt => dateTime()();
+  RealColumn get gallons => real()();
+  TextColumn get meterUnit => text().nullable()();
+  RealColumn get meterValue => real().nullable()();
+  TextColumn get workFront => text().withDefault(const Constant(''))();
+  TextColumn get driverName => text().withDefault(const Constant(''))();
+  TextColumn get driverDocument => text().withDefault(const Constant(''))();
+  TextColumn get notes => text().withDefault(const Constant(''))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get state => text().withDefault(const Constant('pending'))();
+  TextColumn get lastError => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Catálogo de transporte (tramos, materiales, vehículos de terceros y
+/// personas) tal como llegó de `GET /v1/transport/catalog`. Una sola fila
+/// (`id = 0`). Añadida en `schemaVersion` 13.
+@DataClassName('TransportCatalogRow')
+class TransportCatalogCache extends Table {
+  IntColumn get id => integer().clientDefault(() => 0)();
+  TextColumn get orgId => text()();
+  TextColumn get version => text()();
+  TextColumn get dataJson => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Viajes tomados en campo y todavía sin confirmar por el servidor. Misma idea
+/// que las demás colas: `id` propio (idempotencia), `state` `pending` o
+/// `rejected`, y `userId` para atribuir en un teléfono compartido. Lleva un
+/// equipo propio o un vehículo de terceros, nunca los dos. Añadida en
+/// `schemaVersion` 13.
+@DataClassName('TripOutboxRow')
+class TripOutbox extends Table {
+  TextColumn get id => text()();
+  TextColumn get orgId => text()();
+  TextColumn get userId => text()();
+  TextColumn get equipmentId => text().nullable()();
+  TextColumn get vehicleId => text().nullable()();
+  TextColumn get routeId => text()();
+  TextColumn get materialId => text()();
+  RealColumn get volumeM3 => real()();
+  DateTimeColumn get recordedAt => dateTime()();
+  TextColumn get requestedBy => text()();
+  TextColumn get dispatchedBy => text()();
+  TextColumn get receivedBy => text()();
+  TextColumn get driverName => text().withDefault(const Constant(''))();
+  TextColumn get driverDocument => text().withDefault(const Constant(''))();
+  TextColumn get notes => text().withDefault(const Constant(''))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get state => text().withDefault(const Constant('pending'))();
+  TextColumn get lastError => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Reportes de uso de un equipo tomados en campo y todavía sin confirmar por el
+/// servidor. Misma idea que las demás colas: `id` propio (idempotencia),
+/// `state` `pending` o `rejected`, y `userId` para atribuir en un teléfono
+/// compartido. La fecha va como `AAAA-MM-DD` y las horas como minutos desde la
+/// medianoche (son hora local de quien trabajó, no instantes). Añadida en
+/// `schemaVersion` 14.
+@DataClassName('UsageReportOutboxRow')
+class UsageReportOutbox extends Table {
+  TextColumn get id => text()();
+  TextColumn get orgId => text()();
+  TextColumn get userId => text()();
+  TextColumn get equipmentId => text()();
+  TextColumn get projectId => text()();
+  TextColumn get usageDate => text()();
+  IntColumn get startMinutes => integer()();
+  IntColumn get endMinutes => integer()();
+  TextColumn get activity => text()();
+  TextColumn get location => text().withDefault(const Constant(''))();
+  RealColumn get startMeter => real().nullable()();
+  RealColumn get endMeter => real().nullable()();
+  TextColumn get notes => text().withDefault(const Constant(''))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get state => text().withDefault(const Constant('pending'))();
+  TextColumn get lastError => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

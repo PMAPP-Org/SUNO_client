@@ -30,6 +30,15 @@ part 'database.g.dart';
     Assignments,
     ScheduleTasks,
     ScheduleTaskState,
+    EquipmentCache,
+    EquipmentCatalogMeta,
+    MeterReadingOutbox,
+    InspectionOutbox,
+    FuelCatalogCache,
+    FuelFillOutbox,
+    TransportCatalogCache,
+    TripOutbox,
+    UsageReportOutbox,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -67,7 +76,7 @@ class AppDatabase extends _$AppDatabase {
 
   // La app `com.suno.app` empieza en el esquema 1: ningún teléfono actualiza desde
   // la base de la app anterior (otro applicationId). El historial de migraciones
-  // v1–v9 se reinició con el renombre al concepto "registro"; el próximo cambio
+  // v1–v14 se reinició con el renombre al concepto "registro"; el próximo cambio
   // de esquema añade aquí su `onUpgrade` y su test de migración.
   @override
   MigrationStrategy get migration => MigrationStrategy(
