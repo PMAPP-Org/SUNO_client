@@ -5,7 +5,7 @@
 //   login, y por tanto antes de capturar ubicación o fotos (`main.dart`).
 // - **Expresa**: cada finalidad se acepta con su propia casilla; sin las tres no
 //   se puede usar la app, porque las tres son el servicio (un registro de campo
-//   es ubicación + fotos + la cuenta de quien la hace).
+//   es ubicación + fotos + la cuenta de quien lo hace).
 // - **Informada**: el texto del aviso (`lib/l10n/app_es.arb`, `privacy*`),
 //   identificado por [kPrivacyNoticeVersion]. Cambiar el texto obliga a subir la
 //   versión, y la app vuelve a pedir la autorización.

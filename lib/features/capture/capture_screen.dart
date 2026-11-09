@@ -2,7 +2,7 @@
 // ubicación, fotos y firma → guardado offline en una sola transacción.
 //
 // - La plantilla sale de la caché local (`FormTemplateRepository`), la versión
-//   vigente para un registro **nueva**; sin plantillas, se pide sincronizar.
+//   vigente para un registro **nuevo**; sin plantillas, se pide sincronizar.
 // - Foto, firma y ubicación de los campos de la plantilla se capturan aquí
 //   (`FormMediaDelegate`) y el formulario guarda solo el `id` del adjunto.
 // - Aparte del formulario: la ubicación del registro (`Record.lat/lon`, con su
@@ -43,7 +43,7 @@ class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key, this.editRecordId, this.assignmentId})
     : assert(editRecordId == null || assignmentId == null);
 
-  /// Fase A: editar este registro en vez de crear una. Se abre con su misma
+  /// Fase A: editar este registro en vez de crear uno. Se abre con su misma
   /// versión de plantilla y sus respuestas; solo viaja lo que cambie.
   final String? editRecordId;
 

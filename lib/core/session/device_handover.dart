@@ -72,7 +72,7 @@ class DeviceHandover {
     return const HandoverReady(wiped: true);
   }
 
-  /// Registros con algo en la outbox (ellas o sus adjuntos, en cualquier
+  /// Registros con algo en la outbox (ellos o sus adjuntos, en cualquier
   /// estado) que no son de [user] en su organización.
   Future<int> _recordsWithUnsentDataOfOthers(UserProfile user) async {
     final ops = await db.select(db.outboxOps).get();
@@ -96,7 +96,7 @@ class DeviceHandover {
     }).length;
   }
 
-  /// Cuántas registros de [user] tienen algo sin enviar (aviso al cerrar sesión).
+  /// Cuántos registros de [user] tienen algo sin enviar (aviso al cerrar sesión).
   Future<int> unsentRecordsOf(UserProfile user) async {
     final ops = await db.select(db.outboxOps).get();
     if (ops.isEmpty) return 0;

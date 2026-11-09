@@ -130,7 +130,7 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  /// Guarda un registro capturado **entera** en una sola transacción (Paso 22,
+  /// Guarda un registro capturado **entero** en una sola transacción (Paso 22,
   /// tarea 5): la fila del registro, sus adjuntos, las operaciones de outbox
   /// (la del registro primero; ver `SyncEngine.drainOutbox` sobre el orden) y
   /// las entradas de la cola de subida. Si algo falla, no queda nada a medias:

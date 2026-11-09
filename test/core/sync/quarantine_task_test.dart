@@ -173,7 +173,7 @@ void main() {
   });
 
 
-  /// Conflicto sobre una edición del agente: [payload] es lo que editó; la
+  /// Conflicto sobre una edición del agente: [payload] es lo que editó; el
   /// registro local lleva task-1 al 50 % y el servidor task-2 al 30 %.
   Future<QuarantinedRecord> conflictOnEdit(Map<String, Object?> payload) async {
     await db

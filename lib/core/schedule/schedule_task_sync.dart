@@ -1,4 +1,4 @@
-// Tareas del cronograma (costos, etapa 1) que el agente puede vincular a una
+// Tareas del cronograma (costos, etapa 1) que el agente puede vincular a un
 // registro: las vigentes de detalle de las que es responsable, con su último %
 // validado.
 //

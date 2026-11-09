@@ -6,8 +6,7 @@
 import 'package:drift/drift.dart';
 
 /// Espejo local de `Record` (contrato `server/openapi/v1.yaml`,
-/// `server/suno/core/models/record.py`). `assignmentId` llegó con la
-/// versión 8 del esquema (Fase B, asignaciones).
+/// `server/suno/core/models/record.py`).
 class Records extends Table {
   TextColumn get id => text()();
   TextColumn get orgId => text()();
@@ -171,7 +170,7 @@ class SyncCursor extends Table {
 ///
 /// **La clave es la versión, no la plantilla** (corrige H-11: QField cacheaba
 /// por `layerId` en un `Q_GLOBAL_STATIC` que nunca se invalidaba). Cada fila es
-/// una versión inmutable; un registro histórico sigue leyendo la suya, y una
+/// una versión inmutable; un registro histórico sigue leyendo la suya, y un
 /// registro nuevo usa la publicada más alta de su plantilla
 /// (`FormTemplateRepository`). Un tombstone marca `deletedAt` en vez de borrar,
 /// por la misma razón: la versión deja de ofrecerse para registros nuevos, pero

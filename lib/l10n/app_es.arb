@@ -423,7 +423,7 @@
   "privacyPurposeAccountTitle": "Cuenta y uso de la aplicación",
   "privacyPurposeAccountBody": "Tu usuario, correo y nombre, y el teléfono desde el que entras: para identificarte, proteger tu cuenta y dejar constancia de quién hizo cada registro.",
   "privacyPurposeLocationTitle": "Ubicación de los registros",
-  "privacyPurposeLocationBody": "La posición GPS y la hora de cada registro que guardes, como evidencia del trabajo de campo. No se registra tu ubicación fuera de los registros.",
+  "privacyPurposeLocationBody": "La posición GPS y la hora de cada registro que guardes, como evidencia del trabajo de campo. No se guarda tu ubicación fuera de los registros.",
   "privacyPurposePhotosTitle": "Fotos y firmas",
   "privacyPurposePhotosBody": "Las fotos y firmas que captures en los registros. Pueden aparecer otras personas: captura solo lo necesario para el registro.",
   "privacyRights": "Puedes conocer, actualizar, rectificar y pedir que se supriman tus datos, y revocar esta autorización, a través de la administración de tu organización.",

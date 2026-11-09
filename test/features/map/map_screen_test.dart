@@ -1,4 +1,4 @@
-// Mapa (Fase B): registros y asignaciones como puntos, y tocar uno lleva a la
+// Mapa (Fase B): registros y asignaciones como puntos, y tocar uno lleva al
 // registro o a iniciar la asignación. Sin red ni teselas.
 import 'dart:async';
 import 'dart:io';

@@ -1,4 +1,4 @@
-// `RecordCapture.save` (Paso 22, tarea 5): un registro entera en una sola
+// `RecordCapture.save` (Paso 22, tarea 5): un registro entero en una sola
 // transacción local, con sus adjuntos, operaciones de outbox y cola de subida.
 // Incluye la prueba preliminar del criterio de doc 08 §8 ("jornada sin red:
 // ≥50 registros con 10 fotos c/u sin degradación perceptible"); la de carga

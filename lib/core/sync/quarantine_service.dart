@@ -97,7 +97,7 @@ class QuarantinedRecord {
   bool get recordValidated => kind == QuarantineKind.rejected && violations.any((v) => v.reason == 'record_validated');
 
   /// El servidor rechazó la tarea del cronograma (retirada, ya no es
-  /// responsable, % fuera de rango…): se puede reenviar sin ella. No si la
+  /// responsable, % fuera de rango…): se puede reenviar sin ella. No si el
   /// registro ya está validado: quitar la tarea sería otro cambio rechazado.
   bool get taskRejected =>
       kind == QuarantineKind.rejected &&
@@ -364,7 +364,7 @@ class QuarantineService {
   ///   (`serverDataJson`); los adjuntos que solo existían en esas ediciones
   ///   se van con ellas. **Pierde la edición**.
   ///
-  /// La UI lo confirma antes de llamar aquí. Las fotos que ninguna otra
+  /// La UI lo confirma antes de llamar aquí. Las fotos que ningún otro
   /// registro usa salen también de la cola de subida.
   Future<void> discard(QuarantinedRecord item) => db.transaction(() async {
     final recordId = item.record.id;

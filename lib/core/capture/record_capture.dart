@@ -1,8 +1,8 @@
 // Guardado de un registro capturado (Paso 22, tarea 5) — la lógica, sin UI.
 //
-// Un registro se guarda **entera y offline** en una sola transacción local
+// Un registro se guarda **entero y offline** en una sola transacción local
 // (`AppDatabase.saveRecordCapture`): el registro, sus adjuntos, las operaciones
-// de outbox y la cola de subida. La UI la ve al instante (optimista, doc 08
+// de outbox y la cola de subida. La UI lo ve al instante (optimista, doc 08
 // §4.2 "FASE OFFLINE"); la red llega después, por el `SyncEngine` y el
 // `AttachmentUploadService`.
 //
@@ -66,7 +66,7 @@ class CaptureIdentity {
   final List<String> roles;
 }
 
-/// Costos, etapa 1: la tarea del cronograma y el % acumulado que reporta una
+/// Costos, etapa 1: la tarea del cronograma y el % acumulado que reporta un
 /// registro. Viajan siempre juntos (`task_id` + `progress_pct`).
 @immutable
 class TaskProgress {

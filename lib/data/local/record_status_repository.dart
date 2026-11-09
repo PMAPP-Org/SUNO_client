@@ -3,15 +3,15 @@
 // Se deriva de lo que ya hay en la BD local, sin estado propio:
 // - **pendiente**: alguna operación del registro o de sus adjuntos sigue en el
 //   outbox (`pending`/`inflight`);
-// - **rechazada**: alguna está en `quarantine` (se revisa en la pantalla de
+// - **rechazado**: alguna está en `quarantine` (se revisa en la pantalla de
 //   conflictos, Paso 23);
-// - **sincronizada**: ninguna queda en el outbox.
+// - **sincronizado**: ninguna queda en el outbox.
 // Aparte, el estado de sus adjuntos en `AttachmentQueue` (Paso 18): cuántos
 // están por subir (`pending`/`uploading`, se suben solos) y cuántos fallaron
 // de forma permanente (`failed`, necesitan que el agente actúe). Un registro
-// puede estar sincronizada con fotos todavía por subir.
+// puede estar sincronizado con fotos todavía por subir.
 //
-// Fase A: búsqueda (por plantilla y por lo respondido) y el detalle de una
+// Fase A: búsqueda (por plantilla y por lo respondido) y el detalle de un
 // registro, para que el agente encuentre y revise lo que capturó.
 import 'dart:convert';
 
@@ -154,7 +154,7 @@ class RecordStatusRepository {
   }
 
   /// Un registro con su estado y sus adjuntos; `null` si no existe en [orgId]
-  /// o está borrada.
+  /// o está borrado.
   Future<RecordDetail?> detail({required String orgId, required String recordId}) async {
     final record = await (db.select(
       db.records,

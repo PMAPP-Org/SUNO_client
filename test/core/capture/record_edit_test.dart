@@ -1,4 +1,4 @@
-// Fase A: editar y borrar registros sin red, y que el motor las envíe en orden
+// Fase A: editar y borrar registros sin red, y que el motor los envíe en orden
 // y con el `base_version` correcto (el servidor guarda con CAS sobre él).
 import 'dart:convert';
 
@@ -215,7 +215,7 @@ void main() {
       final id = await newRecord();
       final photo = _photo('foto-1');
       await edit(id, {'altura_cm': 10, 'foto': photo.id}, captured: {photo.id: photo});
-      // La alta del registro en revisión: ni su adjunto (otra entidad) sale.
+      // El alta del registro en revisión: ni su adjunto (otra entidad) sale.
       await (db.update(db.outboxOps)..where((t) => t.entity.equals('record'))).write(
         const OutboxOpsCompanion(state: Value('quarantine')),
       );

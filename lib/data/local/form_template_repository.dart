@@ -113,7 +113,7 @@ class FormTemplateRepository {
     _invalidateTemplate(row.orgId, row.templateId, versionId: versionId);
   }
 
-  /// La versión con la que se captura un registro **nueva** de [templateId].
+  /// La versión con la que se captura un registro **nuevo** de [templateId].
   Future<TemplateLookup> latestForNewRecord({required String orgId, required String templateId}) async {
     final row =
         await (db.select(db.formTemplateVersions)
