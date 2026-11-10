@@ -27,6 +27,7 @@ import '../../data/local/database.dart';
 import '../forms/answers.dart';
 import '../forms/form_definition.dart';
 import '../location/location_source.dart';
+import '../schedule/quantity_rows.dart';
 
 export '../forms/answers.dart' show keptAnswers;
 
@@ -66,13 +67,19 @@ class CaptureIdentity {
   final List<String> roles;
 }
 
-/// Costos, etapa 1: la tarea del cronograma y el % acumulado que reporta un
-/// registro. Viajan siempre juntos (`task_id` + `progress_pct`).
+/// Costos, etapa 1 y pieza 4b: la tarea del cronograma y su avance. Una tarea por %
+/// lleva [pct]; una por cantidades, [quantities] (y `pct` nulo). Viajan siempre juntos
+/// (`task_id` + `progress_pct`, más `quantities` si las hay).
 @immutable
 class TaskProgress {
-  const TaskProgress({required this.taskId, required this.pct});
+  const TaskProgress({required this.taskId, this.pct, this.quantities});
   final String taskId;
-  final double pct;
+
+  /// % acumulado de una tarea medida por %; `null` en una medida por cantidades.
+  final double? pct;
+
+  /// Filas `RecordQuantityPayload` de una tarea medida por cantidades; `null` en una por %.
+  final List<Map<String, Object?>>? quantities;
 }
 
 class RecordCapture {
@@ -119,7 +126,12 @@ class RecordCapture {
       'device_id': identity.deviceId,
       'assignment_id': ?assignmentId,
       // Costos, etapa 1. Sin tarea no se envían: un servidor anterior los rechazaría.
-      if (progress != null) ...{'task_id': progress.taskId, 'progress_pct': progress.pct},
+      if (progress != null) ...{
+        'task_id': progress.taskId,
+        'progress_pct': progress.pct,
+        // Pieza 4b: solo las tareas medidas por cantidades.
+        if (progress.quantities != null) 'quantities': progress.quantities,
+      },
       if (fix != null) ...{
         'lat': fix.lat,
         'lon': fix.lon,
@@ -146,6 +158,7 @@ class RecordCapture {
         assignmentId: Value(assignmentId),
         taskId: Value(progress?.taskId),
         progressPct: Value(progress?.pct),
+        quantitiesJson: Value(jsonEncode(progress?.quantities ?? const <Object?>[])),
       ),
       attachments: [
         for (final (order, a) in attachments.indexed)
@@ -198,7 +211,7 @@ class RecordCapture {
     LocationFix? fix,
 
     /// Costos, etapa 1. `null`: no se toca. `(value: null)`: desvincular.
-    /// `(value: TaskProgress(...))`: poner o cambiar la tarea y su %.
+    /// `(value: TaskProgress(...))`: poner o cambiar la tarea y su % o sus cantidades.
     ({TaskProgress? value})? progress,
   }) => db.transaction(() async {
     final record = await _editable(identity, recordId);
@@ -207,12 +220,20 @@ class RecordCapture {
 
     final kept = keptAnswers(definition, answers);
     final link = progress?.value;
-    final progressChanged = progress != null && (link?.taskId != record.taskId || link?.pct != record.progressPct);
+    // Pieza 4b: cambian las cantidades si cambia un ítem, una ubicación, una cantidad o
+    // una nota (los datos automáticos no cuentan).
+    final quantitiesChanged = !sameQuantities(link?.quantities ?? const [], decodeQuantities(record.quantitiesJson));
+    final progressChanged =
+        progress != null && (link?.taskId != record.taskId || link?.pct != record.progressPct || quantitiesChanged);
     final changed = <String, Object?>{
       if (jsonEncode(kept) != record.answersJson) 'answers': kept,
       if (fix != null) ...{'lat': fix.lat, 'lon': fix.lon, 'accuracy_m': fix.accuracyM, 'altitude_m': fix.altitudeM},
-      // El servidor exige el par completo, también en `update`.
-      if (progressChanged) ...{'task_id': link?.taskId, 'progress_pct': link?.pct},
+      // El servidor exige el par completo, también en `update`; las cantidades viajan con él.
+      if (progressChanged) ...{
+        'task_id': link?.taskId,
+        'progress_pct': link?.pct,
+        if (link?.quantities != null) 'quantities': link!.quantities,
+      },
     };
     final attachments = [
       for (final (field, value) in answeredFields(definition, kept))
@@ -234,6 +255,9 @@ class RecordCapture {
           altitudeM: fix == null ? const Value.absent() : Value(fix.altitudeM),
           taskId: progressChanged ? Value(link?.taskId) : const Value.absent(),
           progressPct: progressChanged ? Value(link?.pct) : const Value.absent(),
+          quantitiesJson: progressChanged
+              ? Value(jsonEncode(link?.quantities ?? const <Object?>[]))
+              : const Value.absent(),
         ),
       );
       await db
@@ -326,7 +350,8 @@ class RecordCapture {
   Future<int> _baseVersion(Record record) async {
     final pendingEdits =
         await (db.select(db.outboxOps)..where(
-              (t) => t.entity.equals('record') & t.entityId.equals(record.id) & t.opType.isIn(const ['update', 'delete']),
+              (t) =>
+                  t.entity.equals('record') & t.entityId.equals(record.id) & t.opType.isIn(const ['update', 'delete']),
             ))
             .get();
     return record.version + pendingEdits.length;
