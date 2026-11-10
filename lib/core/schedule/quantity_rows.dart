@@ -28,16 +28,26 @@ const _captureKeys = ['client_id', 'captured_at', 'gps', 'seen', 'location_mode'
 /// Hasta 14 dígitos enteros (|q| < 10^14) y 4 decimales, con coma o punto.
 final _quantityPattern = RegExp(r'^-?\d{1,14}([.,]\d{1,4})?$');
 
-/// La cantidad escrita, o `null` si no es un número válido.
+/// Cifras significativas que el contrato devuelve exactas (`RecordQuantity.quantity`
+/// sale como número JSON).
+const _maxSignificantDigits = 15;
+
+/// La cantidad escrita, o `null` si no es un número válido: hasta 4 decimales,
+/// |q| < 10^14 y 15 cifras significativas.
 double? parseQuantity(String text) {
   final value = text.trim();
   if (!_quantityPattern.hasMatch(value)) return null;
+  final digits = value.replaceAll(RegExp('[-.,]'), '').replaceFirst(RegExp('^0+'), '');
+  if (digits.length > _maxSignificantDigits) return null;
   return double.parse(value.replaceAll(',', '.'));
 }
 
 /// `10.0` → `10`; `2.5` → `2,5`; hasta 4 decimales.
 String formatQuantity(double value) =>
     value.toStringAsFixed(4).replaceFirst(RegExp(r'\.?0+$'), '').replaceAll('.', ',');
+
+/// `2,5 m3`; sin unidad, solo el número (sin espacios sobrantes).
+String withUnit(double value, String unit) => unit.isEmpty ? formatQuantity(value) : '${formatQuantity(value)} $unit';
 
 /// Un ítem del presupuesto tal como lo muestra la app.
 @immutable
@@ -170,6 +180,7 @@ class QuantityRowDraft {
     this.seen,
     this.added = false,
     this.storedCapture,
+    this.storedLocationId,
   });
 
   /// Una fila guardada (forma del contrato) vuelta a la pantalla. [planned] es el ítem
@@ -203,6 +214,7 @@ class QuantityRowDraft {
         for (final key in _captureKeys)
           if (json[key] != null) key: json[key],
       },
+      storedLocationId: json['location_id'] as String?,
     );
   }
 
@@ -227,8 +239,12 @@ class QuantityRowDraft {
   final bool added;
 
   /// Los datos automáticos con que llegó una fila que ya existía (`null` en una creada
-  /// en esta pantalla): se reenvían tal cual, sin agregar ni recalcular ninguno.
+  /// en esta pantalla): se reenvían tal cual, sin agregar ninguno. Solo `location_mode`
+  /// se recalcula, y solo si la ubicación ya no es [storedLocationId].
   final Map<String, Object?>? storedCapture;
+
+  /// La ubicación con que llegó una fila que ya existía.
+  final String? storedLocationId;
 
   /// La fila ya existía (guardada o del servidor): sus datos automáticos no cambian.
   bool get isStored => storedCapture != null;
@@ -267,6 +283,7 @@ class QuantityRowDraft {
     seen: identical(seen, _keep) ? this.seen : seen as QuantitySeen?,
     added: added ?? this.added,
     storedCapture: storedCapture,
+    storedLocationId: storedLocationId,
   );
 
   /// Contrato `RecordQuantityPayload`.
@@ -278,7 +295,15 @@ class QuantityRowDraft {
       'note': note.trim(),
     };
     final stored = storedCapture;
-    if (stored != null) return {...base, ...stored};
+    if (stored != null) {
+      // Sin tocar la ubicación, la fila sale idéntica a como llegó; si cambió, su modo
+      // ya no vale (p. ej. una corrección la devuelve a la ubicación de la tarea).
+      return {
+        ...base,
+        ...stored,
+        if (locationId != storedLocationId) 'location_mode': locationMode,
+      };
+    }
     return {
       ...base,
       'client_id': clientId,
@@ -363,15 +388,19 @@ List<Map<String, Object?>> decodeQuantities(String json) {
 }
 
 /// ¿Las dos listas registran lo mismo? Compara ítem, ubicación, cantidad y nota (los
-/// datos automáticos y la forma del pull no cuentan).
+/// datos automáticos y la forma del pull no cuentan) sin importar el orden: volver a
+/// abrir un registro puede ordenar sus filas distinto, y eso no es un cambio.
 bool sameQuantities(List<Map<String, Object?>> a, List<Map<String, Object?>> b) {
-  List<Object?> key(Map<String, Object?> row) => [
+  String key(Map<String, Object?> row) => jsonEncode([
     row['item_id'],
     row['location_id'],
     (row['quantity'] as num?)?.toDouble(),
     (row['note'] as String? ?? '').trim(),
-  ];
-  return jsonEncode([for (final row in a) key(row)]) == jsonEncode([for (final row in b) key(row)]);
+  ]);
+  if (a.length != b.length) return false;
+  final left = [for (final row in a) key(row)]..sort();
+  final right = [for (final row in b) key(row)]..sort();
+  return jsonEncode(left) == jsonEncode(right);
 }
 
 /// Una fila guardada, para mostrar o exportar.

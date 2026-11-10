@@ -25,11 +25,13 @@ void main() {
       expect(parseQuantity('12,5'), 12.5);
       expect(parseQuantity(' 3.0001 '), 3.0001);
       expect(parseQuantity('-2'), -2);
-      expect(parseQuantity('99999999999999,9999'), closeTo(99999999999999.9999, 0.01));
+      expect(parseQuantity('99999999999,9999'), closeTo(99999999999.9999, 0.0001));
+      expect(parseQuantity('0,0001'), 0.0001);
     });
 
     test('rechaza lo demás', () {
-      for (final text in ['', 'abc', '1,23456', '123456789012345', '1e3', '--1', '1,']) {
+      // Hasta 15 cifras significativas: lo que el contrato devuelve exacto.
+      for (final text in ['', 'abc', '1,23456', '123456789012345', '1e3', '--1', '1,', '99999999999999,9999']) {
         expect(parseQuantity(text), isNull, reason: text);
       }
     });
@@ -165,7 +167,14 @@ void main() {
         gps: const GpsReading(lat: 1, lon: 2, accuracyM: 3),
         seen: const QuantitySeen(planned: 10, validated: 4, locationId: null),
       );
-      expect(row.toPayload(), {'item_id': 'item-1', 'location_id': 'loc-2', 'quantity': 4.0, 'note': ''});
+      // La ubicación cambió: su modo se recalcula; lo demás no se agrega.
+      expect(row.toPayload(), {
+        'item_id': 'item-1',
+        'location_id': 'loc-2',
+        'quantity': 4.0,
+        'note': '',
+        'location_mode': 'refined',
+      });
     });
 
     test('con datos automáticos: se reenvían tal como llegaron', () {
@@ -197,6 +206,52 @@ void main() {
         'location_mode': 'task',
       });
     });
+  });
+
+  group('modo de ubicación de una fila guardada', () {
+    const stored = {
+      'item_id': 'item-1',
+      'location_id': 'loc-2',
+      'quantity': 2,
+      'note': '',
+      'client_id': 'c-1',
+      'captured_at': '2026-11-09T14:03:00.000Z',
+      'gps': {'lat': 4.6, 'lon': -74.08, 'accuracy_m': 7.0},
+      'seen': {'planned': 10.0, 'validated': 4.0, 'location_id': 'loc-1'},
+      'location_mode': 'refined',
+    };
+
+    test('sin tocar: idéntica a lo guardado', () {
+      final row = QuantityRowDraft.fromStored(stored, item: _concrete, fallbackId: 'x');
+      expect(row.toPayload(), {...stored, 'quantity': 2.0});
+    });
+
+    test('si pasa a la ubicación de la tarea, el modo se recalcula; lo demás queda', () {
+      final row = QuantityRowDraft.fromStored(stored, item: _concrete, fallbackId: 'x').copyWith(locationId: null);
+      expect(row.toPayload(), {...stored, 'quantity': 2.0, 'location_id': null, 'location_mode': 'task'});
+    });
+
+    test('si vuelve a la ubicación guardada, el modo guardado vuelve', () {
+      final row = QuantityRowDraft.fromStored(
+        stored,
+        item: _concrete,
+        fallbackId: 'x',
+      ).copyWith(locationId: null).copyWith(locationId: 'loc-2');
+      expect(row.toPayload()['location_mode'], 'refined');
+    });
+  });
+
+  test('withUnit: sin espacios dobles si no hay unidad', () {
+    expect(withUnit(2.5, 'm3'), '2,5 m3');
+    expect(withUnit(2.5, ''), '2,5');
+  });
+
+  test('sameQuantities no depende del orden de las filas', () {
+    final a = {'item_id': 'a', 'location_id': null, 'quantity': 1, 'note': ''};
+    final b = {'item_id': 'b', 'location_id': 'loc', 'quantity': 2, 'note': 'n'};
+    expect(sameQuantities([a, b, a], [b, a, a]), isTrue);
+    expect(sameQuantities([a, b], [a, a]), isFalse);
+    expect(sameQuantities([a], [a, a]), isFalse);
   });
 
   test('sameQuantities compara ítem, ubicación, cantidad y nota', () {
