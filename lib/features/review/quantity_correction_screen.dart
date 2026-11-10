@@ -69,8 +69,13 @@ class _QuantityCorrectionScreenState extends ConsumerState<QuantityCorrectionScr
       return;
     }
     setState(() => _saving = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(appDependenciesProvider).quarantine.correctQuantities(widget.item, _controller.payload());
+    } on Exception {
+      // Es una transacción: nada quedó a medias y el agente puede volver a intentarlo.
+      messenger.showSnackBar(SnackBar(content: Text(l10n.quantityCorrectionFailed)));
+      return;
     } finally {
       if (mounted) setState(() => _saving = false);
     }

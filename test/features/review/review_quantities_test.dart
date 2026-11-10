@@ -203,4 +203,23 @@ void main() {
     expect([for (final row in quantities) (row as Map)['item_id']], ['item-1', 'item-2']);
     expect(find.text('No hay registros para revisar.'), findsOneWidget);
   });
+
+  testWidgets('si guardar la corrección falla, lo dice y se queda en la pantalla', (tester) async {
+    await pumpReview(tester);
+    await tester.tap(find.byKey(const Key('review_correct_quantities')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quantity_remove-q-2')));
+    await tester.pumpAndSettle();
+    // La BD rechaza la escritura de la operación.
+    await tester.runAsync(
+      () => db.customStatement(
+        "CREATE TRIGGER fail_outbox BEFORE UPDATE ON outbox_ops BEGIN SELECT RAISE(ABORT, 'boom'); END",
+      ),
+    );
+    await tester.ensureVisible(find.byKey(const Key('quantity_correction_save')));
+    await tester.tap(find.byKey(const Key('quantity_correction_save')));
+    await tester.pumpAndSettle();
+    expect(find.text('No se pudo guardar la corrección. Inténtalo de nuevo.'), findsOneWidget);
+    expect(find.byKey(const Key('quantity_correction_save')), findsOneWidget);
+  });
 }
