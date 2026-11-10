@@ -139,6 +139,44 @@ void main() {
         {'item_id': 'item-1', 'location_id': null, 'quantity': 3.0, 'note': ''},
       ]);
     });
+
+    test('carga lo guardado en su orden; los planeados sin fila van después, vacíos', () {
+      const rebar = QuantityItem(itemId: 'item-3', code: '2.3', description: 'Formaleta', unit: 'm2');
+      controller.load(
+        const QuantityTaskContext(
+          taskId: 'task-1',
+          planned: [
+            PlannedQuantity(item: _concrete, planned: 10, validated: 0),
+            PlannedQuantity(item: _steel, planned: 5, validated: 0),
+            PlannedQuantity(item: rebar, planned: 3, validated: 0),
+          ],
+        ),
+        stored: [
+          {'item_id': 'item-1', 'location_id': null, 'quantity': 1, 'note': '', 'client_id': 'a'},
+          {'item_id': 'item-1', 'location_id': 'loc-2', 'quantity': 2, 'note': '', 'client_id': 'a2'},
+          {'item_id': 'item-2', 'location_id': null, 'quantity': 3, 'note': '', 'client_id': 'b'},
+        ],
+      );
+      expect(
+        [for (final r in controller.rows) (r.clientId, r.item.code, r.added)],
+        [('a', '2.1', false), ('a2', '2.1', true), ('b', '2.2', false), ('c-3', '2.3', false)],
+      );
+      expect(controller.payload().map((r) => r['client_id']), ['a', 'a2', 'b']);
+    });
+
+    test('touched: solo lo que hace el agente después de cargar', () {
+      controller.load(
+        _task,
+        stored: [
+          {'item_id': 'item-1', 'location_id': null, 'quantity': 2, 'note': '', 'client_id': 'g-1'},
+        ],
+      );
+      expect(controller.touched, isFalse);
+      controller.setNote('g-1', 'n');
+      expect(controller.touched, isTrue);
+      controller.load(_task);
+      expect(controller.touched, isFalse);
+    });
   });
 
   Future<void> pump(WidgetTester tester, {bool correcting = false}) async {
@@ -215,6 +253,44 @@ void main() {
     expect(tester.widget<TextFormField>(find.byKey(const ValueKey('quantity_field-g-1'))).enabled, isFalse);
     expect(find.byKey(const Key('quantity_add_unplanned')), findsNothing);
     expect(find.byKey(const ValueKey('quantity_add_row-g-1')), findsNothing);
+  });
+
+  testWidgets('muestra el número leído: "1.500" es 1,5, no mil quinientos', (tester) async {
+    controller.load(_task);
+    await pump(tester);
+    await tester.enterText(find.byKey(const ValueKey('quantity_field-c-0')), '1.500');
+    await tester.pumpAndSettle();
+    expect(find.text('= 1,5 m3'), findsOneWidget);
+  });
+
+  testWidgets('sin unidad no quedan espacios dobles', (tester) async {
+    controller.load(
+      const QuantityTaskContext(
+        taskId: 't',
+        planned: [
+          PlannedQuantity(
+            item: QuantityItem(itemId: 'i', code: '9', description: 'Global', unit: ''),
+            planned: 10,
+            validated: 8,
+          ),
+        ],
+      ),
+    );
+    await pump(tester);
+    expect(find.text('Planeado 10 · validado 8'), findsOneWidget);
+  });
+
+  testWidgets('una fila guardada en la ubicación de la tarea la muestra como tal', (tester) async {
+    controller.load(
+      _task,
+      stored: [
+        {'item_id': 'item-1', 'location_id': 'loc-1', 'quantity': 2, 'note': '', 'client_id': 'g-1'},
+      ],
+    );
+    await pump(tester);
+    expect(find.text('La de la tarea (Tramo 2)'), findsOneWidget);
+    expect(find.text('Ubicación precisada'), findsNothing);
+    expect(controller.payload().single['location_id'], 'loc-1', reason: 'sin tocar no cambia');
   });
 
   testWidgets('a 390 px los textos largos no desbordan', (tester) async {

@@ -517,16 +517,22 @@
   "formErrorTaskUnknown": "La tarea ya no existe en el cronograma.",
   "reviewUnlinkTask": "Quitar la tarea y reenviar",
   "quantitySectionTitle": "Cantidades de hoy",
+  "quantitiesTitle": "Cantidades",
+  "quantityEcho": "= {value}",
+  "@quantityEcho": {
+    "placeholders": { "value": { "type": "String" } }
+  },
+  "quantityCorrectionFailed": "No se pudo guardar la corrección. Inténtalo de nuevo.",
   "quantityToday": "Cantidad hoy",
-  "quantityPlannedValidated": "Planeado {planned} {unit} · validado {validated} {unit}",
+  "quantityPlannedValidated": "Planeado {planned} · validado {validated}",
   "@quantityPlannedValidated": {
-    "placeholders": { "planned": { "type": "String" }, "validated": { "type": "String" }, "unit": { "type": "String" } }
+    "placeholders": { "planned": { "type": "String" }, "validated": { "type": "String" } }
   },
   "quantityUnplanned": "No planeado en esta tarea",
-  "quantityInvalid": "Escribe un número con hasta 4 decimales.",
-  "quantityOverrun": "Con lo validado llega a {total} {unit} y supera lo planeado ({planned} {unit}). Se guardará y la supervisión lo verá marcado.",
+  "quantityInvalid": "Escribe un número con hasta 4 decimales y 15 cifras.",
+  "quantityOverrun": "Con lo validado llega a {total} y supera lo planeado ({planned}). Se guardará y la supervisión lo verá marcado.",
   "@quantityOverrun": {
-    "placeholders": { "total": { "type": "String" }, "planned": { "type": "String" }, "unit": { "type": "String" } }
+    "placeholders": { "total": { "type": "String" }, "planned": { "type": "String" } }
   },
   "quantityAdjustment": "Cantidad negativa: se registra como ajuste y necesita nota.",
   "quantityLocation": "Ubicación",
@@ -558,10 +564,6 @@
   "quantityDiscardConfirm": "Sí, cambiar",
   "quantityCorrectionTitle": "Corregir cantidades",
   "quantityCorrectionExplain": "El servidor rechazó las filas señaladas. Cambia su ítem o su ubicación, o quítalas; al guardar, el registro se reenvía.",
-  "quantityLineValue": "{quantity} {unit}",
-  "@quantityLineValue": {
-    "placeholders": { "quantity": { "type": "String" }, "unit": { "type": "String" } }
-  },
   "quantityLineLocation": "Ubicación: {location}",
   "@quantityLineLocation": {
     "placeholders": { "location": { "type": "String" } }

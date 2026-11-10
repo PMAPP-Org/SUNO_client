@@ -44,7 +44,7 @@ List<List<String>> quantityTableRows(RecordDetail detail, QuantityTableLabels la
     [
       line.label,
       line.locationId == null ? labels.taskLocation : line.locationLabel ?? labels.refinedLocation,
-      '${formatQuantity(line.quantity)} ${line.unit}'.trim(),
+      withUnit(line.quantity, line.unit),
       line.note,
     ],
 ];
@@ -121,7 +121,8 @@ Uint8List recordGeoJson(RecordDetail detail, FormDefinition? definition, {requir
                 'quantities': [
                   for (final line in detail.quantities)
                     {
-                      'item_code': line.code,
+                      // Sin datos del ítem en el teléfono: sin código (no texto vacío).
+                      'item_code': line.code.isEmpty ? null : line.code,
                       'item_id': line.itemId,
                       'location_id': line.locationId,
                       'quantity': line.quantity,

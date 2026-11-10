@@ -212,7 +212,7 @@ class _ReviewCard extends StatelessWidget {
     String violationLabel(String field) => switch (field) {
       'task_id' => l10n.captureTaskLabel,
       'progress_pct' => l10n.captureProgressLabel,
-      'quantities' => l10n.quantitySectionTitle,
+      'quantities' => l10n.quantitiesTitle,
       _ when field.startsWith('answers.') => label(field.substring('answers.'.length)),
       _ => field,
     };

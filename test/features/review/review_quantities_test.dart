@@ -180,7 +180,7 @@ void main() {
   testWidgets('nombra la fila rechazada y la corrige reasignando el ítem', (tester) async {
     await pumpReview(tester);
     expect(find.text('Fila del ítem 9.9: el ítem no es del presupuesto del proyecto.'), findsOneWidget);
-    expect(find.text('Cantidades de hoy: El ítem no es del presupuesto del proyecto de la tarea.'), findsOneWidget);
+    expect(find.text('Cantidades: El ítem no es del presupuesto del proyecto de la tarea.'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const Key('review_correct_quantities')));

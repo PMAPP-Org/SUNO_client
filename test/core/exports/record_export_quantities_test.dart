@@ -98,6 +98,8 @@ void main() {
         quantities: [
           {'item_id': 'item-1', 'location_id': null, 'quantity': 12.5, 'note': ''},
           {'item_id': 'item-2', 'location_id': 'loc-2', 'quantity': 3.0, 'note': 'sobrante'},
+          // Un ítem del que el teléfono no sabe nada: sin código ni unidad.
+          {'item_id': 'item-9', 'location_id': null, 'quantity': 1.0, 'note': 'x'},
         ],
       ),
     );
@@ -105,6 +107,7 @@ void main() {
     expect(quantityTableRows(detail, _labels), [
       ['2.1 Concreto zapatas', 'La de la tarea', '12,5 m3', ''],
       ['2.2 Acero de refuerzo', 'Tramo 2 / PR 1', '3 kg', 'sobrante'],
+      ['item-9', 'La de la tarea', '1', 'x'],
     ]);
 
     final geo =
@@ -120,6 +123,7 @@ void main() {
         'unit': 'kg',
         'note': 'sobrante',
       },
+      {'item_code': null, 'item_id': 'item-9', 'location_id': null, 'quantity': 1.0, 'unit': '', 'note': 'x'},
     ]);
 
     final pdf = await recordPdf(

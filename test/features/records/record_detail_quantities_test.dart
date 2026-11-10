@@ -88,7 +88,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Cantidades de hoy'), findsOneWidget);
+    expect(find.text('Cantidades'), findsOneWidget);
     expect(find.text('2.1 Concreto zapatas'), findsOneWidget);
     expect(find.text('12,5 m3'), findsOneWidget);
     expect(find.text('Ubicación: La de la tarea'), findsOneWidget);

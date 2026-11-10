@@ -41,10 +41,17 @@ class QuantityCaptureController extends ChangeNotifier {
   Set<String> get overruns => overrunItems(_rows);
   bool isFlagged(String clientId) => _flagged.contains(clientId);
 
-  /// Carga la tarea: una fila vacía por ítem planeado y, encima, las filas [stored] de un
-  /// registro (la primera de cada ítem planeado ocupa su fila; las demás se agregan).
-  /// [known] da código y unidad de los ítems que ya no están en la tarea ni en el
-  /// catálogo; [flaggedRows] son las posiciones en [stored] que rechazó el servidor.
+  /// El agente cambió algo después de [load]: una cantidad, una nota, una ubicación o
+  /// una fila. Sin tocar, editar el registro no reenvía sus cantidades.
+  bool get touched => _touched;
+  bool _touched = false;
+
+  /// Carga la tarea. Sin [stored], una fila vacía por ítem planeado. Con las filas
+  /// [stored] de un registro, esas filas **en su orden** (la primera de cada ítem
+  /// planeado es la suya; las demás, agregadas) y luego una fila vacía por cada ítem
+  /// planeado que no tenía. [known] da código y unidad de los ítems que ya no están en
+  /// la tarea ni en el catálogo; [flaggedRows] son las posiciones en [stored] que rechazó
+  /// el servidor.
   void load(
     QuantityTaskContext task, {
     List<Map<String, Object?>> stored = const [],
@@ -52,39 +59,30 @@ class QuantityCaptureController extends ChangeNotifier {
     bool readOnly = false,
     Set<int> flaggedRows = const {},
   }) {
-    final rows = <QuantityRowDraft>[
-      for (final p in task.planned)
-        QuantityRowDraft(clientId: _newId(), item: p.item, planned: p.planned, validated: p.validated, isPlanned: true),
-    ];
+    final rows = <QuantityRowDraft>[];
     final filled = <String>{};
     final flagged = <String>{};
     for (final (index, json) in stored.indexed) {
       final itemId = json['item_id']! as String;
       final planned = task.plannedFor(itemId);
       final item = planned?.item ?? known[itemId] ?? task.catalogItem(itemId) ?? QuantityItem.unknown(itemId);
-      final slot = planned != null && !filled.contains(itemId)
-          ? rows.indexWhere((r) => r.isPlanned && r.item.itemId == itemId)
-          : -1;
-      final row = QuantityRowDraft.fromStored(
-        json,
-        item: item,
-        planned: planned,
-        fallbackId: _newId(),
-        added: slot < 0,
-      );
-      if (slot >= 0) {
-        rows[slot] = row;
-        filled.add(itemId);
-      } else {
-        rows.add(row);
-      }
+      final first = planned != null && filled.add(itemId);
+      final row = QuantityRowDraft.fromStored(json, item: item, planned: planned, fallbackId: _newId(), added: !first);
+      rows.add(row);
       if (flaggedRows.contains(index)) flagged.add(row.clientId);
+    }
+    for (final p in task.planned) {
+      if (filled.contains(p.item.itemId)) continue;
+      rows.add(
+        QuantityRowDraft(clientId: _newId(), item: p.item, planned: p.planned, validated: p.validated, isPlanned: true),
+      );
     }
     _task = task;
     _rows = rows;
     _flagged = flagged;
     _readOnly = readOnly;
     _check = null;
+    _touched = false;
     notifyListeners();
   }
 
@@ -95,6 +93,7 @@ class QuantityCaptureController extends ChangeNotifier {
     _flagged = const {};
     _readOnly = false;
     _check = null;
+    _touched = false;
     notifyListeners();
   }
 
@@ -102,6 +101,7 @@ class QuantityCaptureController extends ChangeNotifier {
   /// toman sus datos automáticos: hora, lo que la app mostraba y una lectura GPS puntual.
   /// Una fila que ya existía conserva los suyos (ver `QuantityRowDraft.storedCapture`).
   void setQuantity(String clientId, String text) {
+    _touched = true;
     var started = false;
     _replace(clientId, (row) {
       if (row.isStored || row.capturedAt != null || text.trim().isEmpty) return row.copyWith(text: text);
@@ -119,15 +119,20 @@ class QuantityCaptureController extends ChangeNotifier {
     if (started) unawaited(_attachGps(clientId));
   }
 
-  void setNote(String clientId, String note) => _replace(clientId, (row) => row.copyWith(note: note));
+  void setNote(String clientId, String note) {
+    _touched = true;
+    _replace(clientId, (row) => row.copyWith(note: note));
+  }
 
   /// `null`: la ubicación de la tarea.
   void setLocation(String clientId, String? locationId) {
+    _touched = true;
     _flagged = {..._flagged}..remove(clientId);
     _replace(clientId, (row) => row.copyWith(locationId: locationId));
   }
 
   void addUnplanned(QuantityItem item) {
+    _touched = true;
     _rows = [..._rows, QuantityRowDraft(clientId: _newId(), item: item, added: true)];
     _changed();
   }
@@ -136,6 +141,7 @@ class QuantityCaptureController extends ChangeNotifier {
   void addRowLike(String clientId) {
     final index = _rows.indexWhere((r) => r.clientId == clientId);
     if (index < 0) return;
+    _touched = true;
     final source = _rows[index];
     final copy = QuantityRowDraft(
       clientId: _newId(),
@@ -150,6 +156,7 @@ class QuantityCaptureController extends ChangeNotifier {
   }
 
   void removeRow(String clientId) {
+    _touched = true;
     _rows = [
       for (final row in _rows)
         if (row.clientId != clientId) row,
@@ -159,7 +166,11 @@ class QuantityCaptureController extends ChangeNotifier {
   }
 
   /// Corrección de un rechazo: la fila pasa a [item] (planeado o no en la tarea).
+  ///
+  /// Su `seen` sigue siendo el del ítem anterior: es lo que la app mostraba al capturar
+  /// la fila, no lo que se ve al corregirla (la revisión lo compara con la captura).
   void reassignItem(String clientId, QuantityItem item) {
+    _touched = true;
     final planned = _task?.plannedFor(item.itemId);
     _flagged = {..._flagged}..remove(clientId);
     _replace(
@@ -298,7 +309,11 @@ class _QuantityRowCard extends StatelessWidget {
     final taskLabel = taskLocation == null
         ? l10n.quantityLocationTask
         : l10n.quantityLocationTaskNamed(taskLocation.label);
-    final unknownLocation = row.locationId != null && !task.refinements.any((o) => o.id == row.locationId);
+    // Una fila guardada con la ubicación de la propia tarea se muestra como tal (y sigue
+    // guardando ese id mientras el agente no la cambie).
+    final atTask = row.locationId == null || row.locationId == taskLocation?.id;
+    final unknownLocation = !atTask && !task.refinements.any((o) => o.id == row.locationId);
+    final quantity = row.quantity;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.sm),
@@ -309,9 +324,8 @@ class _QuantityRowCard extends StatelessWidget {
             Text(
               row.isPlanned
                   ? l10n.quantityPlannedValidated(
-                      formatQuantity(row.planned ?? 0),
-                      formatQuantity(row.validated ?? 0),
-                      row.item.unit,
+                      withUnit(row.planned ?? 0, row.item.unit),
+                      withUnit(row.validated ?? 0, row.item.unit),
                     )
                   : l10n.quantityUnplanned,
               key: ValueKey('quantity_reference-$id'),
@@ -327,25 +341,28 @@ class _QuantityRowCard extends StatelessWidget {
                 labelText: l10n.quantityToday,
                 suffixText: row.item.unit.isEmpty ? null : row.item.unit,
                 errorText: problem == QuantityRowProblem.invalidNumber ? l10n.quantityInvalid : null,
+                // El número leído: "1.500" es 1,5 (el punto es decimal), no mil quinientos.
+                helperText: quantity == null || row.text.trim().isEmpty
+                    ? null
+                    : l10n.quantityEcho(withUnit(quantity, row.item.unit)),
               ),
               onChanged: (value) => controller.setQuantity(id, value),
             ),
             if (overrun)
               Text(
                 l10n.quantityOverrun(
-                  formatQuantity((row.validated ?? 0) + todayTotal(controller.rows, row.item.itemId)),
-                  formatQuantity(row.planned ?? 0),
-                  row.item.unit,
+                  withUnit((row.validated ?? 0) + todayTotal(controller.rows, row.item.itemId), row.item.unit),
+                  withUnit(row.planned ?? 0, row.item.unit),
                 ),
                 key: ValueKey('quantity_overrun-$id'),
                 style: warning,
               ),
             if (row.isAdjustment)
               Text(l10n.quantityAdjustment, key: ValueKey('quantity_adjustment-$id'), style: theme.textTheme.bodySmall),
-            if (task.refinements.isNotEmpty || row.locationId != null)
+            if (task.refinements.isNotEmpty || !atTask)
               DropdownButtonFormField<String>(
                 key: ValueKey('quantity_location-$id'),
-                initialValue: row.locationId ?? _taskLocationValue,
+                initialValue: atTask ? _taskLocationValue : row.locationId,
                 isExpanded: true,
                 decoration: InputDecoration(labelText: l10n.quantityLocation),
                 items: [
@@ -367,8 +384,13 @@ class _QuantityRowCard extends StatelessWidget {
                 ],
                 onChanged: readOnly
                     ? null
-                    : (value) =>
-                          controller.setLocation(id, value == null || value == _taskLocationValue ? null : value),
+                    : (value) {
+                        if (value == null || value == _taskLocationValue) {
+                          if (!atTask) controller.setLocation(id, null);
+                        } else {
+                          controller.setLocation(id, value);
+                        }
+                      },
               )
             else if (taskLocation != null)
               Text(taskLabel, style: theme.textTheme.bodySmall),

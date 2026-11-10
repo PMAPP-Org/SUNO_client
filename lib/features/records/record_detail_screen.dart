@@ -294,7 +294,7 @@ class _Body extends StatelessWidget {
         // Costos, pieza 4b: un bloque por fila para no desbordar en un teléfono.
         if (detail.quantities.isNotEmpty) ...[
           const AppGap.lg(),
-          Text(l10n.quantitySectionTitle, style: theme.textTheme.titleSmall),
+          Text(l10n.quantitiesTitle, style: theme.textTheme.titleSmall),
           const AppGap.sm(),
           for (final (index, line) in detail.quantities.indexed)
             _Answer(
@@ -303,7 +303,7 @@ class _Body extends StatelessWidget {
               value: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l10n.quantityLineValue(formatQuantity(line.quantity), line.unit).trim()),
+                  Text(withUnit(line.quantity, line.unit)),
                   Text(
                     l10n.quantityLineLocation(
                       line.locationId == null
