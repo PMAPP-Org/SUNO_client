@@ -24,3 +24,13 @@ targets:
         options:
           field_rename: snake
           explicit_to_json: true
+      # Migraciones de Drift (costos, pieza 4b): `dart run drift_dev make-migrations`
+      # exporta el esquema de cada versión a drift_schemas/ y genera los pasos
+      # (lib/data/local/database.steps.dart) y los esquemas para las pruebas
+      # (test/drift/app/). Cada cambio de esquema se exporta antes de tocar las tablas.
+      drift_dev:
+        options:
+          databases:
+            app: lib/data/local/database.dart
+          schema_dir: drift_schemas/
+          test_dir: test/drift/

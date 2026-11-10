@@ -40,7 +40,12 @@ dependencies:
   flutter_riverpod: ^3.4.2
   dio: ^5.11.0
   uuid: ^4.6.0
-  drift: ^2.34.3
+  # Fijada (costos, pieza 4b): `drift_dev` 2.34.0 es el último que admite el
+  # analyzer 12 de `freezed`, y sus herramientas de esquema (`make-migrations`,
+  # `SchemaVerifier`) solo compilan contra drift 2.34.0. Los parches 2.34.1–2.34.4
+  # tocan la web, `MultiExecutor` y tablas virtuales, que la app no usa. Volver a
+  # `^2.34.x` cuando `freezed` permita `drift_dev` >= 2.34.6.
+  drift: 2.34.0
   flutter_secure_storage: ^10.3.1
   path_provider: ^2.1.6
   path: ^1.9.1
