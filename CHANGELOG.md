@@ -4,6 +4,22 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.12.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.11.0...v0.12.0) (2026-11-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* SUNO app (com.suno.app) speaks of records ([#53](https://github.com/PMAPP-Org/SUNO_client/issues/53))
+
+### Agregado
+
+* **equipment:** field equipment: datasheet, readings, preoperational, usage, fuel, trips ([06de511](https://github.com/PMAPP-Org/SUNO_client/commit/06de511096204c3f4ae71f547a4cd8e20d5970bf))
+
+
+### Refactorización
+
+* SUNO app (com.suno.app) speaks of records ([#53](https://github.com/PMAPP-Org/SUNO_client/issues/53)) ([ac74efa](https://github.com/PMAPP-Org/SUNO_client/commit/ac74efaf693886da762e5e0edcf3dbb4678cf8c0))
+
 ## [0.11.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.10.0...v0.11.0) (2026-11-01)
 
 
