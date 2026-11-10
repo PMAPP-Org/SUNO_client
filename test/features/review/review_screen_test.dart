@@ -287,7 +287,7 @@ void main() {
     await pump(tester);
 
     expect(
-      find.text('El registro ya fue validado: su tarea y % no se pueden cambiar desde el teléfono.'),
+      find.text('El registro ya fue validado: su tarea, su % y sus cantidades no se pueden cambiar desde el teléfono.'),
       findsOneWidget,
     );
     expect(find.textContaining('The record was already validated'), findsNothing);
