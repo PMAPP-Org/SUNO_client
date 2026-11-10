@@ -1,5 +1,4 @@
 # Commit de PMAPP-Org/SUNO_server del que se copió contract/ (ver contract/README.md).
 repo=PMAPP-Org/SUNO_server
-# ref: commit de la rama refactor/suno-registro del servidor (PR #60, sin integrar todavía).
-# Al integrar ese PR se cambia por el commit del merge en master.
-ref=0e6713e70d844060a11712e57caf1300d3c65d92
+# ref: commit del merge del PR #60 (renombre a registros, esquema 2) en master.
+ref=390d7eda38833b10f1b89d1ca3c22f8a1e50b74e
