@@ -109,7 +109,6 @@ void main() {
     expect(transport.versions, isEmpty);
   });
 
-
   test('"sin cambios" sin versión enviada no reemplaza nada y no da la lista por vigente', () async {
     transport.responses.add(_page('v1', [_task('t-2', '1.1', 'Localización')]));
     await sync.refresh();
@@ -119,5 +118,85 @@ void main() {
     expect(await sync.refresh(), isFalse);
     expect(transport.versions.last, isNull);
     expect(await labels(_ana), ['1.1 Localización']);
+  });
+
+  group('costos, pieza 4b', () {
+    ScheduleTaskPage measuredPage() => ScheduleTaskPage.fromJson({
+      'version': 'v2',
+      'changed': true,
+      'items': [
+        {
+          'id': 't-3',
+          'project_id': 'p-1',
+          'project_name': 'Obra Norte',
+          'wbs': '1.2',
+          'outline_number': '1.2',
+          'name': 'Descapote',
+          'last_validated_pct': 40,
+          'measured_by': 'quantities',
+          'location': {'id': 'loc-1', 'label': 'Tramo 2'},
+          'location_options': [
+            {'id': 'loc-1', 'label': 'Tramo 2'},
+            {'id': 'loc-2', 'label': 'Tramo 2 / PR 1'},
+          ],
+          'planned_items': [
+            {
+              'item_id': 'item-1',
+              'code': '2.1',
+              'description': 'Concreto zapatas',
+              'unit': 'm3',
+              'planned_quantity': 10,
+              'executed_quantity': 4.5,
+            },
+          ],
+        },
+      ],
+      'project_items': [
+        {
+          'project_id': 'p-1',
+          'items': [
+            {'item_id': 'item-1', 'code': '2.1', 'description': 'Concreto zapatas', 'unit': 'm3'},
+            {'item_id': 'item-2', 'code': '2.2', 'description': 'Acero de refuerzo', 'unit': 'kg'},
+          ],
+        },
+      ],
+    });
+
+    test('guarda cómo se mide la tarea, sus ítems, sus ubicaciones y el catálogo', () async {
+      transport.responses.add(measuredPage());
+      expect(await sync.refresh(), isTrue);
+      final repo = ScheduleTaskRepository(db);
+      final task = (await repo.forUser(orgId: 'org-1', userId: 'ana')).single;
+      expect((task.projectId, task.measuredBy, task.measuredByQuantities), ('p-1', 'quantities', true));
+
+      final context = await repo.quantityContext(taskId: 't-3', projectId: 'p-1');
+      expect(context.planned.single.item.label, '2.1 Concreto zapatas');
+      expect((context.planned.single.planned, context.planned.single.validated), (10.0, 4.5));
+      expect(context.taskLocation?.label, 'Tramo 2');
+      expect([for (final l in context.refinements) l.label], ['Tramo 2 / PR 1']);
+      expect([for (final i in context.catalog) i.code], ['2.1', '2.2']);
+      expect([for (final i in context.unplannedCatalog) i.code], ['2.2']);
+      expect((await repo.knownItems({'item-2'}))['item-2']?.unit, 'kg');
+      expect(await repo.locationLabels({'loc-2', 'loc-9'}), {'loc-2': 'Tramo 2 / PR 1'});
+    });
+
+    test('los ítems conocidos sobreviven a un catálogo nuevo', () async {
+      transport.responses
+        ..add(measuredPage())
+        ..add(_page('v3', [_task('t-3', '1.2', 'Descapote')]));
+      await sync.refresh();
+      await sync.refresh();
+      final repo = ScheduleTaskRepository(db);
+      expect((await repo.quantityContext(taskId: 't-3', projectId: 'p-1')).catalog, isEmpty);
+      expect((await repo.knownItems({'item-1'}))['item-1']?.code, '2.1');
+    });
+
+    test('una tarea sin las claves nuevas se mide por %', () async {
+      transport.responses.add(_page('v1', [_task('t-2', '1.1', 'Localización')]));
+      await sync.refresh();
+      final task = (await ScheduleTaskRepository(db).forUser(orgId: 'org-1', userId: 'ana')).single;
+      expect(task.measuredBy, 'pct');
+      expect(await ScheduleTaskRepository(db).byId('t-2'), isNotNull);
+    });
   });
 }
