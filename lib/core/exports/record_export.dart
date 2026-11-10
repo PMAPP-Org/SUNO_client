@@ -1,14 +1,53 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../data/local/record_status_repository.dart';
 import '../capture/record_capture.dart';
 import '../forms/form_definition.dart';
+import '../schedule/quantity_rows.dart';
 
 bool canExportRecords(List<String> roles) => roles.any(supervisionRoles.contains);
+
+/// Textos de la tabla de cantidades del PDF (costos, pieza 4b).
+@immutable
+class QuantityTableLabels {
+  const QuantityTableLabels({
+    required this.title,
+    required this.item,
+    required this.location,
+    required this.quantity,
+    required this.note,
+    required this.taskLocation,
+    required this.refinedLocation,
+  });
+
+  final String title;
+  final String item;
+  final String location;
+  final String quantity;
+  final String note;
+
+  /// Una fila sin ubicación propia: la de la tarea.
+  final String taskLocation;
+
+  /// Una ubicación precisada que el teléfono no sabe nombrar.
+  final String refinedLocation;
+}
+
+/// Las filas de la tabla de cantidades: ítem, ubicación, cantidad con unidad y nota.
+List<List<String>> quantityTableRows(RecordDetail detail, QuantityTableLabels labels) => [
+  for (final line in detail.quantities)
+    [
+      line.label,
+      line.locationId == null ? labels.taskLocation : line.locationLabel ?? labels.refinedLocation,
+      '${formatQuantity(line.quantity)} ${line.unit}'.trim(),
+      line.note,
+    ],
+];
 
 void _authorize(List<String> roles) {
   if (!canExportRecords(roles)) throw StateError('Export requires supervision');
@@ -78,6 +117,18 @@ Uint8List recordGeoJson(RecordDetail detail, FormDefinition? definition, {requir
                 'answers': detail.answers,
                 'source': 'device',
                 'sync_status': detail.summary.status.name,
+                // Costos, pieza 4b.
+                'quantities': [
+                  for (final line in detail.quantities)
+                    {
+                      'item_code': line.code,
+                      'item_id': line.itemId,
+                      'location_id': line.locationId,
+                      'quantity': line.quantity,
+                      'unit': line.unit,
+                      'note': line.note,
+                    },
+                ],
               },
             },
         ],
@@ -125,6 +176,7 @@ Future<Uint8List> recordPdf(
   required String attachmentsNote,
   required String authorLabel,
   required String versionLabel,
+  QuantityTableLabels? quantityLabels,
 }) async {
   _authorize(roles);
   final font = pw.Font.ttf(fontBytes);
@@ -164,6 +216,17 @@ Future<Uint8List> recordPdf(
           // Short chunks allow long answers and geometries to cross page boundaries.
           for (final chunk in _chunks(value is String ? value : jsonEncode(value)))
             pw.Text(chunk, style: const pw.TextStyle(fontSize: 9)),
+        ],
+        if (quantityLabels != null && detail.quantities.isNotEmpty) ...[
+          pw.SizedBox(height: 16),
+          pw.Text(quantityLabels.title, style: const pw.TextStyle(fontSize: 14)),
+          pw.SizedBox(height: 6),
+          pw.TableHelper.fromTextArray(
+            headers: [quantityLabels.item, quantityLabels.location, quantityLabels.quantity, quantityLabels.note],
+            data: quantityTableRows(detail, quantityLabels),
+            headerStyle: const pw.TextStyle(fontSize: 9),
+            cellStyle: const pw.TextStyle(fontSize: 9),
+          ),
         ],
         pw.SizedBox(height: 16),
         pw.Text(attachmentsNote, style: const pw.TextStyle(fontSize: 8)),

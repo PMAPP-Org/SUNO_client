@@ -19,7 +19,9 @@ import 'package:drift/drift.dart';
 import 'package:meta/meta.dart';
 
 import '../../core/forms/geometry.dart';
+import '../../core/schedule/quantity_rows.dart';
 import 'database.dart';
+import 'schedule_task_repository.dart';
 
 enum RecordSyncStatus { pending, synced, rejected }
 
@@ -70,11 +72,20 @@ class RecordAttachmentView {
 
 @immutable
 class RecordDetail {
-  const RecordDetail({required this.record, required this.summary, required this.attachments});
+  const RecordDetail({
+    required this.record,
+    required this.summary,
+    required this.attachments,
+    this.quantities = const [],
+  });
 
   final Record record;
   final RecordSummary summary;
   final List<RecordAttachmentView> attachments;
+
+  /// Costos, pieza 4b: las cantidades del registro, con los datos del ítem y la etiqueta
+  /// de la ubicación que el teléfono conozca.
+  final List<QuantityLine> quantities;
 
   Map<String, dynamic> get answers => jsonDecode(record.answersJson) as Map<String, dynamic>;
 }
@@ -153,7 +164,7 @@ class RecordStatusRepository {
     return collect(answers).toList();
   }
 
-  /// Un registro con su estado y sus adjuntos; `null` si no existe en [orgId]
+  /// Un registro con su estado, sus adjuntos y sus cantidades; `null` si no existe en [orgId]
   /// o está borrado.
   Future<RecordDetail?> detail({required String orgId, required String recordId}) async {
     final record = await (db.select(
@@ -173,6 +184,13 @@ class RecordStatusRepository {
       )..where((t) => t.sha256.isIn({for (final a in attachments) a.sha256}))).get())
         row.sha256: row,
     };
+    final stored = decodeQuantities(record.quantitiesJson);
+    final schedule = ScheduleTaskRepository(db);
+    final items = await schedule.knownItems({for (final row in stored) row['item_id']! as String});
+    final locationLabels = await schedule.locationLabels({
+      for (final row in stored)
+        if (row['location_id'] is String) row['location_id']! as String,
+    });
     return RecordDetail(
       record: record,
       summary: summary,
@@ -184,6 +202,10 @@ class RecordStatusRepository {
             localPath: queue[a.sha256]?.localPath,
             uploadState: queue[a.sha256]?.state,
           ),
+      ],
+      quantities: [
+        for (final row in stored)
+          QuantityLine.fromStored(row, item: items[row['item_id']], locationLabel: locationLabels[row['location_id']]),
       ],
     );
   }
