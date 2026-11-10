@@ -204,4 +204,123 @@ void main() {
     expect((item.recordValidated, item.quantityRejected), (true, false));
     expect(item.quantityFlags, isEmpty);
   });
+
+  group('conflicto con cantidades', () {
+    const serverRow = {
+      'item_id': 'item-1',
+      'location_id': null,
+      'quantity': 1.0,
+      'note': '',
+      'client_id': null,
+      'captured_at': null,
+      'gps': null,
+      'seen': null,
+      'location_mode': null,
+    };
+
+    /// El registro local (ya en el servidor) con [quantities] y [pct]; el servidor lo
+    /// cambió a la vez con [serverRow]. [payload] es lo que el agente editó.
+    Future<QuarantinedRecord> conflict(
+      Map<String, Object?> payload, {
+      List<Map<String, Object?>> quantities = const [],
+      double? pct,
+    }) async {
+      await db.delete(db.outboxOps).go();
+      await db.delete(db.records).go();
+      await db
+          .into(db.records)
+          .insert(
+            RecordsCompanion.insert(
+              id: 'record-1',
+              orgId: 'org-1',
+              version: 1,
+              templateVersionId: 'tv-1',
+              answersJson: '{}',
+              capturedAt: DateTime.utc(2026, 11, 1),
+              deviceId: 'device-1',
+              createdBy: 'user-1',
+              taskId: const Value('task-1'),
+              progressPct: Value(pct),
+              quantitiesJson: Value(jsonEncode(quantities)),
+            ),
+          );
+      await engine.enqueueRecordOp(
+        entityId: 'record-1',
+        opType: 'update',
+        baseVersion: 1,
+        payload: {'id': 'record-1', ...payload},
+      );
+      final op = await db.select(db.outboxOps).getSingle();
+      transport.pushResponses.add(
+        Result.ok(
+          PushResponse(
+            schemaVersion: 2,
+            results: [
+              PushOpOutcome(
+                opUuid: op.opUuid,
+                status: 'conflict',
+                serverVersion: 3,
+                serverRow: {
+                  'entity': 'record',
+                  'data': {
+                    'id': 'record-1',
+                    'org_id': 'org-1',
+                    'version': 3,
+                    'change_seq': 9,
+                    'deleted_at': null,
+                    'assignment_id': null,
+                    'template_version_id': 'tv-1',
+                    'answers': <String, dynamic>{},
+                    'lat': null,
+                    'lon': null,
+                    'accuracy_m': null,
+                    'altitude_m': null,
+                    'captured_at': '2026-11-01T00:00:00.000Z',
+                    'device_id': 'device-1',
+                    'created_by': 'user-1',
+                    'task_id': 'task-1',
+                    'progress_pct': null,
+                    'quantities': [serverRow],
+                  },
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+      await engine.drainOutbox();
+      return (await service.list(orgId: 'org-1')).single;
+    }
+
+    test('editar solo las cantidades cuenta como editar la tarea y se ve la diferencia', () async {
+      final mine = [_row('q-1', 'item-1')];
+      final item = await conflict({'quantities': mine}, quantities: mine);
+      expect(item.kind, QuarantineKind.conflict);
+      expect(item.editedTask, isTrue);
+      final diff = item.differences.singleWhere((d) => d.field == 'quantities');
+      expect(diff.mine, mine);
+      expect(diff.server, [serverRow]);
+    });
+
+    test('"enviar la mía" manda tarea, % y sus cantidades', () async {
+      final mine = [_row('q-1', 'item-1')];
+      final item = await conflict({'task_id': 'task-1', 'progress_pct': null, 'quantities': mine}, quantities: mine);
+      await service.resendMine(item);
+      final op = await db.select(db.outboxOps).getSingle();
+      expect(op.baseVersion, 3);
+      expect(jsonDecode(op.payloadJson), {
+        'id': 'record-1',
+        'task_id': 'task-1',
+        'progress_pct': null,
+        'quantities': mine,
+      });
+    });
+
+    test('"enviar la mía" sin cantidades locales manda el par sin la clave', () async {
+      final item = await conflict({'task_id': 'task-1', 'progress_pct': 20.0}, pct: 20);
+      await service.resendMine(item);
+      final op = await db.select(db.outboxOps).getSingle();
+      expect(jsonDecode(op.payloadJson), {'id': 'record-1', 'task_id': 'task-1', 'progress_pct': 20.0});
+    });
+  });
 }
