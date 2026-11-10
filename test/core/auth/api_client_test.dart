@@ -3,16 +3,16 @@
 // `HttpClientAdapter` falso (sin red real, ver `fake_http_client_adapter.dart`).
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/data/http/api_client.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/data/http/api_client.dart';
 
 import 'fake_http_client_adapter.dart';
 
 const _deviceInfo = DeviceInfo(deviceId: 'device-1', platform: 'android', appVersion: '1.0.0');
 
 ({Dio dio, AuthApiClient client, FakeHttpClientAdapter adapter}) _clientWith(FakeHttpHandler handler) {
-  final dio = Dio(BaseOptions(baseUrl: 'https://visitacampo.test'));
+  final dio = Dio(BaseOptions(baseUrl: 'https://suno.test'));
   final adapter = FakeHttpClientAdapter(handler);
   dio.httpClientAdapter = adapter;
   return (dio: dio, client: AuthApiClient(dio), adapter: adapter);
@@ -62,7 +62,7 @@ void main() {
     });
 
     test('sin conexión (adapter lanza) -> AuthError.network', () async {
-      final dio = Dio(BaseOptions(baseUrl: 'https://visitacampo.test'));
+      final dio = Dio(BaseOptions(baseUrl: 'https://suno.test'));
       dio.httpClientAdapter = FakeHttpClientAdapter((options) {
         throw const SocketExceptionStub();
       });
@@ -136,8 +136,8 @@ void main() {
         expect(options.headers['Authorization'], 'Bearer access-1');
         return jsonResponseBody({
           'api_version': 'v1',
-          'schema_version': 1,
-          'min_supported_schema_version': 1,
+          'schema_version': 2,
+          'min_supported_schema_version': 2,
           'server_time': '2026-08-03T12:00:00Z',
           'capabilities': {
             'sync_push_max_ops': 500,
@@ -152,7 +152,7 @@ void main() {
       final result = await ctx.client.serverInfo(accessToken: 'access-1');
 
       expect(result, isA<AuthOk<ServerInfo>>());
-      expect((result as AuthOk<ServerInfo>).value.schemaVersion, 1);
+      expect((result as AuthOk<ServerInfo>).value.schemaVersion, 2);
     });
 
     test('401 -> unauthorized', () async {

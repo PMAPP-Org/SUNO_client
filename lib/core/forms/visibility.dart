@@ -1,5 +1,5 @@
 // DSL de visibilidad condicional en el cliente (Paso 21, tarea 3) — espejo de
-// `server/visitacampo/forms/visibility.py` (Paso 20). Léase el docstring de
+// `server/suno/forms/visibility.py` (Paso 20). Léase el docstring de
 // ese archivo: aquí se repite solo lo imprescindible.
 //
 // **Una expresión es dato, nunca código** (ADR-012, RD-06, H-06): un objeto
@@ -13,7 +13,7 @@
 // caso (`true` no es `1`, `0`/`false` no son "vacío", comparar tipos
 // distintos da `false` en vez de fallar). Lo comprueba
 // `test/core/forms/parity_test.dart` con los mismos casos que
-// `server/visitacampo/forms/tests/test_parity.py`
+// `server/suno/forms/tests/test_parity.py`
 // (`server/openapi/fixtures/forms_parity.json`).
 import 'package:meta/meta.dart';
 

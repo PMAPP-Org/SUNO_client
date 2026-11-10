@@ -5,11 +5,11 @@ import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/sync/result.dart';
-import 'package:visitacampo/core/sync/sync_engine.dart';
-import 'package:visitacampo/core/sync/sync_transport.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/data/local/form_template_repository.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_engine.dart';
+import 'package:suno/core/sync/sync_transport.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/data/local/form_template_repository.dart';
 
 import 'fake_sync_transport.dart';
 
@@ -36,8 +36,8 @@ void main() {
 
   tearDown(() => db.close());
 
-  Map<String, dynamic> visitPayload({double lat = 4.6}) => {
-    'id': 'visit-1',
+  Map<String, dynamic> recordPayload({double lat = 4.6}) => {
+    'id': 'record-1',
     'template_version_id': 'template-1',
     'answers': {'altura_cm': 12},
     'captured_at': '2026-01-01T00:00:00.000Z',
@@ -45,8 +45,8 @@ void main() {
     'lat': lat,
   };
 
-  Map<String, dynamic> serverVisitRow({int version = 1, int changeSeq = 42, double lat = 4.6}) => {
-    'id': 'visit-1',
+  Map<String, dynamic> serverRecordRow({int version = 1, int changeSeq = 42, double lat = 4.6}) => {
+    'id': 'record-1',
     'org_id': 'org-1',
     'version': version,
     'change_seq': changeSeq,
@@ -63,25 +63,25 @@ void main() {
     'created_by': 'user-1',
   };
 
-  group('conflicto de una visita (Paso 23: a revisión, sin merge de 3 vías)', () {
+  group('conflicto de un registro (Paso 23: a revisión, sin merge de 3 vías)', () {
     test('va a cuarentena con la fila del servidor guardada, sin pisar la del agente', () async {
       final engine = buildEngine();
-      await engine.enqueueVisitOp(
-        entityId: 'visit-1',
+      await engine.enqueueRecordOp(
+        entityId: 'record-1',
         opType: 'update',
         baseVersion: 1,
-        payload: visitPayload(lat: 4.6),
+        payload: recordPayload(lat: 4.6),
       );
 
       transport.pushResponses.add(
         Result.ok(
           PushResponse(
-            schemaVersion: 1,
+            schemaVersion: 2,
             results: [
               PushOpOutcome(
                 opUuid: 'id-0',
                 status: 'conflict',
-                serverRow: {'entity': 'visit', 'data': serverVisitRow(version: 2, lat: 9.9)},
+                serverRow: {'entity': 'record', 'data': serverRecordRow(version: 2, lat: 9.9)},
               ),
             ],
           ),
@@ -97,16 +97,16 @@ void main() {
       expect(op.errorCode, 'conflict');
       final saved = jsonDecode(op.serverRowJson!) as Map<String, dynamic>;
       expect((saved['data'] as Map)['lat'], 9.9, reason: 'la fila del servidor queda guardada para comparar');
-      expect(await db.select(db.visits).get(), isEmpty, reason: 'nada se aplicó a la BD local');
+      expect(await db.select(db.records).get(), isEmpty, reason: 'nada se aplicó a la BD local');
     });
 
     test('un rechazo guarda el código y solo los pares field/reason de details', () async {
       final engine = buildEngine();
-      await engine.enqueueVisitOp(entityId: 'visit-1', opType: 'create', payload: visitPayload());
+      await engine.enqueueRecordOp(entityId: 'record-1', opType: 'create', payload: recordPayload());
       transport.pushResponses.add(
         Result.ok(
           const PushResponse(
-            schemaVersion: 1,
+            schemaVersion: 2,
             results: [
               PushOpOutcome(
                 opUuid: 'id-0',
@@ -138,11 +138,11 @@ void main() {
 
     test('reintentar asigna un op_uuid nuevo (el servidor recuerda el rechazo del anterior)', () async {
       final engine = buildEngine();
-      await engine.enqueueVisitOp(entityId: 'visit-1', opType: 'create', payload: visitPayload());
+      await engine.enqueueRecordOp(entityId: 'record-1', opType: 'create', payload: recordPayload());
       transport.pushResponses.add(
         Result.ok(
           const PushResponse(
-            schemaVersion: 1,
+            schemaVersion: 2,
             results: [
               PushOpOutcome(
                 opUuid: 'id-0',
@@ -166,16 +166,16 @@ void main() {
   group('rejected → quarantine (nunca se descarta en silencio)', () {
     test('una op rechazada queda visible en quarantine con el motivo', () async {
       final engine = buildEngine();
-      await engine.enqueueVisitOp(
-        entityId: 'visit-1',
+      await engine.enqueueRecordOp(
+        entityId: 'record-1',
         opType: 'create',
-        payload: visitPayload(lat: 999),
+        payload: recordPayload(lat: 999),
       );
 
       transport.pushResponses.add(
         Result.ok(
           PushResponse(
-            schemaVersion: 1,
+            schemaVersion: 2,
             results: [
               const PushOpOutcome(
                 opUuid: 'id-0',
@@ -199,10 +199,10 @@ void main() {
   group('backoff exponencial (inflight → pending, reloj falso)', () {
     test('un fallo de red no reenvía antes de que venza el backoff', () async {
       final engine = buildEngine();
-      await engine.enqueueVisitOp(
-        entityId: 'visit-1',
+      await engine.enqueueRecordOp(
+        entityId: 'record-1',
         opType: 'create',
-        payload: visitPayload(),
+        payload: recordPayload(),
       );
 
       transport.pushResponses.add(const Result.err(SyncError.network('sin conexión')));
@@ -228,9 +228,9 @@ void main() {
       transport.pushResponses.add(
         Result.ok(
           PushResponse(
-            schemaVersion: 1,
+            schemaVersion: 2,
             results: [
-              PushOpOutcome(opUuid: 'id-0', status: 'applied', serverRow: {'entity': 'visit', 'data': serverVisitRow()}),
+              PushOpOutcome(opUuid: 'id-0', status: 'applied', serverRow: {'entity': 'record', 'data': serverRecordRow()}),
             ],
           ),
         ),
@@ -247,18 +247,18 @@ void main() {
   group('idempotencia (reenviar/reprocesar no duplica estado local)', () {
     test('drainOutbox() tras un drenaje exitoso no reenvía ni duplica nada', () async {
       final engine = buildEngine();
-      await engine.enqueueVisitOp(
-        entityId: 'visit-1',
+      await engine.enqueueRecordOp(
+        entityId: 'record-1',
         opType: 'create',
-        payload: visitPayload(),
+        payload: recordPayload(),
       );
 
       transport.pushResponses.add(
         Result.ok(
           PushResponse(
-            schemaVersion: 1,
+            schemaVersion: 2,
             results: [
-              PushOpOutcome(opUuid: 'id-0', status: 'applied', serverRow: {'entity': 'visit', 'data': serverVisitRow()}),
+              PushOpOutcome(opUuid: 'id-0', status: 'applied', serverRow: {'entity': 'record', 'data': serverRecordRow()}),
             ],
           ),
         ),
@@ -273,8 +273,8 @@ void main() {
       expect(second, DrainReport.empty);
       expect(transport.pushCalls, hasLength(1), reason: 'la op aplicada nunca se reenvía');
 
-      final visits = await db.select(db.visits).get();
-      expect(visits, hasLength(1), reason: 'ningún duplicado local');
+      final records = await db.select(db.records).get();
+      expect(records, hasLength(1), reason: 'ningún duplicado local');
     });
   });
 
@@ -283,7 +283,7 @@ void main() {
       final engine = buildEngine();
       transport.pullResponses.add(const Result.err(SyncError.cursorExpired()));
       transport.bootstrapResponses.add(
-        Result.ok(BootstrapResponse(cursor: 'c1:00000000000000000099', visits: [serverVisitRow()])),
+        Result.ok(BootstrapResponse(cursor: 'c1:00000000000000000099', records: [serverRecordRow()])),
       );
 
       final result = await engine.pull();
@@ -291,7 +291,7 @@ void main() {
       expect(result.isOk, isTrue, reason: 'cursor_expired se resuelve, nunca se propaga como error');
       expect(transport.bootstrapCallCount, 1);
       expect(await db.readCursor(), 'c1:00000000000000000099');
-      expect(await db.select(db.visits).get(), hasLength(1));
+      expect(await db.select(db.records).get(), hasLength(1));
     });
 
     test('pull() normal aplica filas y tombstones y guarda next_cursor', () async {
@@ -299,7 +299,7 @@ void main() {
       transport.pullResponses.add(
         Result.ok(
           PullResponse(
-            rows: [PullRow(entity: 'visit', data: serverVisitRow())],
+            rows: [PullRow(entity: 'record', data: serverRecordRow())],
             tombstones: [],
             nextCursor: 'c1:00000000000000000042',
             hasMore: false,
@@ -311,19 +311,19 @@ void main() {
 
       expect(result.isOk, isTrue);
       expect(await db.readCursor(), 'c1:00000000000000000042');
-      expect(await db.select(db.visits).get(), hasLength(1));
+      expect(await db.select(db.records).get(), hasLength(1));
       expect(transport.pullCalls.single.cursor, cursorZero);
     });
   });
 
-  group('adjuntos de visita y server_row (Paso 22)', () {
+  group('adjuntos de registro y server_row (Paso 22)', () {
     Map<String, dynamic> attachmentData({String? deletedAt}) => {
       'id': 'att-1',
       'org_id': 'org-1',
       'version': 1,
       'change_seq': 60,
       'deleted_at': deletedAt,
-      'visit_id': 'visit-1',
+      'record_id': 'record-1',
       'sha256': 'ab' * 32,
       'role': 'foto',
       'caption': null,
@@ -337,7 +337,7 @@ void main() {
           .insert(
             OutboxOpsCompanion.insert(
               opUuid: 'op-att',
-              entity: 'visit_attachment',
+              entity: 'record_attachment',
               entityId: 'att-1',
               opType: 'create',
               payloadJson: '{"id": "att-1"}',
@@ -353,13 +353,13 @@ void main() {
       transport.pushResponses.add(
         Result.ok(
           PushResponse(
-            schemaVersion: 1,
+            schemaVersion: 2,
             results: [
               PushOpOutcome(
                 opUuid: opUuid,
                 status: 'conflict',
                 serverVersion: 1,
-                serverRow: {'entity': 'visit_attachment', 'data': attachmentData()},
+                serverRow: {'entity': 'record_attachment', 'data': attachmentData()},
               ),
             ],
           ),
@@ -368,7 +368,7 @@ void main() {
       final report = await buildEngine().drainOutbox();
       expect(report.conflicted, 1);
       expect(await db.select(db.outboxOps).get(), isEmpty);
-      expect((await db.select(db.visitAttachments).getSingle()).sha256, 'ab' * 32);
+      expect((await db.select(db.recordAttachments).getSingle()).sha256, 'ab' * 32);
     });
 
     test('un server_row que no es un EntityRecord va a cuarentena, no se pierde ni se atasca', () async {
@@ -376,10 +376,10 @@ void main() {
       transport.pushResponses.add(
         Result.ok(
           PushResponse(
-            schemaVersion: 1,
+            schemaVersion: 2,
             results: [
               // La forma que el cliente esperaba antes del Paso 22: `data` suelto.
-              PushOpOutcome(opUuid: opUuid, status: 'conflict', serverRow: serverVisitRow()),
+              PushOpOutcome(opUuid: opUuid, status: 'conflict', serverRow: serverRecordRow()),
             ],
           ),
         ),
@@ -395,7 +395,7 @@ void main() {
         ..add(
           Result.ok(
             PullResponse(
-              rows: [PullRow(entity: 'visit_attachment', data: attachmentData())],
+              rows: [PullRow(entity: 'record_attachment', data: attachmentData())],
               tombstones: [],
               nextCursor: 'c1:00000000000000000060',
               hasMore: false,
@@ -407,7 +407,7 @@ void main() {
             PullResponse(
               rows: [],
               tombstones: [
-                PullTombstone(entity: 'visit_attachment', id: 'att-1', changeSeq: 61, deletedAt: DateTime.utc(2026, 10, 18)),
+                PullTombstone(entity: 'record_attachment', id: 'att-1', changeSeq: 61, deletedAt: DateTime.utc(2026, 10, 18)),
               ],
               nextCursor: 'c1:00000000000000000061',
               hasMore: false,
@@ -416,9 +416,9 @@ void main() {
         );
       final engine = buildEngine();
       await engine.pull();
-      expect((await db.select(db.visitAttachments).getSingle()).position, 0);
+      expect((await db.select(db.recordAttachments).getSingle()).position, 0);
       await engine.pull();
-      expect(await db.select(db.visitAttachments).get(), isEmpty);
+      expect(await db.select(db.recordAttachments).get(), isEmpty);
     });
   });
 
@@ -486,11 +486,11 @@ void main() {
         );
 
       expect((await engine.pull()).isOk, isTrue);
-      expect(latestKey(await engine.templates.latestForNewVisit(orgId: 'org-1', templateId: 'tpl-1')), 'campo_v2');
+      expect(latestKey(await engine.templates.latestForNewRecord(orgId: 'org-1', templateId: 'tpl-1')), 'campo_v2');
 
       expect((await engine.pull()).isOk, isTrue);
       expect(
-        latestKey(await engine.templates.latestForNewVisit(orgId: 'org-1', templateId: 'tpl-1')),
+        latestKey(await engine.templates.latestForNewRecord(orgId: 'org-1', templateId: 'tpl-1')),
         'campo_v1',
         reason: 'la v2 retirada deja de ofrecerse',
       );
@@ -504,20 +504,20 @@ void main() {
         Result.ok(
           BootstrapResponse(
             cursor: 'c1:00000000000000000099',
-            visits: const [],
+            records: const [],
             formTemplateVersions: [templateRow(id: 'v-1', versionNumber: 1)],
           ),
         ),
       );
 
       expect((await engine.pull()).isOk, isTrue);
-      expect(latestKey(await engine.templates.latestForNewVisit(orgId: 'org-1', templateId: 'tpl-1')), 'campo_v1');
+      expect(latestKey(await engine.templates.latestForNewRecord(orgId: 'org-1', templateId: 'tpl-1')), 'campo_v1');
     });
 
     test('BootstrapResponse lee form_template_versions del contrato', () {
       final parsed = BootstrapResponse.fromJson({
         'cursor': 'c1:00000000000000000001',
-        'visits': <dynamic>[],
+        'records': <dynamic>[],
         'form_template_versions': [templateRow(id: 'v-1', versionNumber: 1)],
       });
       expect(parsed.formTemplateVersions, hasLength(1));
@@ -526,13 +526,13 @@ void main() {
 
   group('parseo estricto (RD-02/RD-03): nunca una excepción no capturada', () {
     test('parseJson() produce Err ante un campo requerido ausente', () {
-      final result = parseJson(PushResponse.fromJson, <String, dynamic>{'schema_version': 1});
+      final result = parseJson(PushResponse.fromJson, <String, dynamic>{'schema_version': 2});
       expect(result, isA<Err<PushResponse>>());
     });
 
     test('parseJson() produce Ok con un cuerpo válido', () {
       final result = parseJson(PushResponse.fromJson, <String, dynamic>{
-        'schema_version': 1,
+        'schema_version': 2,
         'results': <dynamic>[],
       });
       expect(result, isA<Ok<PushResponse>>());

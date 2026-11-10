@@ -3,7 +3,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/basemaps/basemap_manager.dart';
+import 'package:suno/core/basemaps/basemap_manager.dart';
 
 import 'fake_basemap_transport.dart';
 

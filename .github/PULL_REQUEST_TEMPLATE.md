@@ -32,7 +32,7 @@ y de él sale el CHANGELOG: usa Conventional Commits, p. ej.
 - [ ] Si se guarda un dato personal nuevo (ubicación, foto, identificador, IP): está justificado y tiene plazo de retención en [`retencion.md`](https://github.com/PMAPP-Org/SUNO_server/blob/master/docs/seguridad/retencion.md).
 
 **Datos locales y compatibilidad**
-- [ ] Si cambia el esquema Drift: sube `schemaVersion` y hay test de migración N-1→N con datos (`test/data/local/migration_test.dart`).
+- [ ] Si cambia el esquema Drift: sube `schemaVersion` y hay test de migración N-1→N con datos (`test/data/local/migration_test.dart`, que nace con la primera migración desde el esquema 1).
 - [ ] Si rompe compatibilidad con datos ya guardados en teléfonos o con el servidor desplegado: el título lleva `!` y se explica la migración.
 
 ## Para quien revisa

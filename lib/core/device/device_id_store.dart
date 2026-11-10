@@ -16,7 +16,7 @@ class DeviceIdStore {
   DeviceIdStore({required this._read, required this._write, Random? random})
     : _random = random ?? Random.secure();
 
-  static const _storageKey = 'visitacampo.device_id.v1';
+  static const _storageKey = 'suno.device_id.v1';
 
   final Future<String?> Function({required String key}) _read;
   final Future<void> Function({required String key, required String value}) _write;

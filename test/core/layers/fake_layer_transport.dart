@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:visitacampo/core/layers/layer_manager.dart';
+import 'package:suno/core/layers/layer_manager.dart';
 
 class FakeLayerTransport implements LayerTransport {
   List<LayerInfo>? offered = [];

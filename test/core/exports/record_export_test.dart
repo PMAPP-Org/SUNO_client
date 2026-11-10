@@ -4,17 +4,17 @@ import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/capture/visit_capture.dart';
-import 'package:visitacampo/core/exports/visit_export.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/core/location/location_source.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/data/local/visit_status_repository.dart';
+import 'package:suno/core/capture/record_capture.dart';
+import 'package:suno/core/exports/record_export.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/core/location/location_source.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/data/local/record_status_repository.dart';
 
 void main() {
   late AppDatabase db;
-  late VisitCapture capture;
-  late VisitStatusRepository repository;
+  late RecordCapture capture;
+  late RecordStatusRepository repository;
   final definition =
       (parseFormDefinition({
                 'fields': [
@@ -66,8 +66,8 @@ void main() {
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    capture = VisitCapture(db: db);
-    repository = VisitStatusRepository(db);
+    capture = RecordCapture(db: db);
+    repository = RecordStatusRepository(db);
   });
   tearDown(() => db.close());
 
@@ -99,11 +99,11 @@ void main() {
       fix: const LocationFix(lat: 4.6, lon: -74.08, accuracyM: 3),
     );
     expect((await db.select(db.attachmentQueue).get()).length, 1);
-    final detail = (await repository.detail(orgId: 'org', visitId: id))!;
+    final detail = (await repository.detail(orgId: 'org', recordId: id))!;
     expect(detail.answers.toString(), isNot(contains('hidden')));
-    expect((await repository.mapVisits(orgId: 'org')).single.geometries.single, line);
+    expect((await repository.mapRecords(orgId: 'org')).single.geometries.single, line);
     final geo =
-        jsonDecode(utf8.decode(visitGeoJson(detail, definition, roles: ['SUPERVISOR']))) as Map<String, dynamic>;
+        jsonDecode(utf8.decode(recordGeoJson(detail, definition, roles: ['SUPERVISOR']))) as Map<String, dynamic>;
     final features = (geo['features'] as List).cast<Map<String, dynamic>>();
     expect(features.length, 3);
     expect((features[0]['geometry'] as Map)['coordinates'], [-74.08, 4.6]);
@@ -111,16 +111,16 @@ void main() {
     expect((features[1]['geometry'] as Map)['type'], 'LineString');
     expect((features[2]['geometry'] as Map)['coordinates'], [-74.2, 4.5]);
     expect((features[0]['properties'] as Map)['sync_status'], 'pending');
-    expect(() => visitGeoJson(detail, definition, roles: ['FIELD_AGENT']), throwsStateError);
-    expect(await repository.detail(orgId: 'other', visitId: id), isNull);
+    expect(() => recordGeoJson(detail, definition, roles: ['FIELD_AGENT']), throwsStateError);
+    expect(await repository.detail(orgId: 'other', recordId: id), isNull);
     expect(reportAnswers(definition, detail.answers, 'es').first.$1, 'Activos / 1 / Código');
-    final pdf = await visitPdf(
+    final pdf = await recordPdf(
       detail,
       definition,
       roles: ['ADMIN'],
       fontBytes: ByteData.sublistView(File('assets/fonts/Inter-Regular.ttf').readAsBytesSync()),
       locale: 'es',
-      title: 'Informe de visita',
+      title: 'Informe de registro',
       sourceNote: 'Pendiente de sincronizar',
       locationLabel: 'Ubicación',
       noLocation: 'Sin ubicación.',
@@ -132,7 +132,7 @@ void main() {
     expect(ascii.decode(pdf.take(5).toList()), '%PDF-');
     // Disposable QA artifact; parsed and rendered by the verification workflow.
     Directory('.git/c56-qa').createSync(recursive: true);
-    File('.git/c56-qa/app-visit.pdf').writeAsBytesSync(pdf);
+    File('.git/c56-qa/app-record.pdf').writeAsBytesSync(pdf);
   });
 
   test('a field named type does not turn the answers into one geometry on the map', () async {
@@ -161,10 +161,10 @@ void main() {
       captured: const {},
       fix: const LocationFix(lat: 4.6, lon: -74.08, accuracyM: 3),
     );
-    expect((await repository.mapVisits(orgId: 'org')).single.geometries, [line]);
+    expect((await repository.mapRecords(orgId: 'org')).single.geometries, [line]);
   });
 
-  test('a visit without GPS is preserved with null geometry, defaults do not rewrite it', () async {
+  test('a record without GPS is preserved with null geometry, defaults do not rewrite it', () async {
     final id = await capture.save(
       identity: identity,
       templateVersionId: 'tv',
@@ -176,10 +176,10 @@ void main() {
       },
       captured: const {},
     );
-    final detail = (await repository.detail(orgId: 'org', visitId: id))!;
-    final geo = jsonDecode(utf8.decode(visitGeoJson(detail, null, roles: ['OWNER']))) as Map<String, dynamic>;
+    final detail = (await repository.detail(orgId: 'org', recordId: id))!;
+    final geo = jsonDecode(utf8.decode(recordGeoJson(detail, null, roles: ['OWNER']))) as Map<String, dynamic>;
     expect(((geo['features'] as List).single as Map<String, dynamic>)['geometry'], isNull);
     expect(reportAnswers(null, detail.answers, 'es').single.$1, 'rows');
-    expect(canExportVisits([]), isFalse);
+    expect(canExportRecords([]), isFalse);
   });
 }

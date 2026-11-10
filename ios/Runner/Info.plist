@@ -67,8 +67,8 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>SUNO necesita tu ubicación para registrar dónde se capturó cada visita.</string>
+	<string>SUNO necesita tu ubicación para registrar dónde se capturó cada registro.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>SUNO necesita la cámara para adjuntar una foto a cada visita.</string>
+	<string>SUNO necesita la cámara para adjuntar una foto a cada registro.</string>
 </dict>
 </plist>

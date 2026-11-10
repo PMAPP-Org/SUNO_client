@@ -3,9 +3,9 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/session/device_handover.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/session/device_handover.dart';
+import 'package:suno/data/local/database.dart';
 
 const _ana = UserProfile(id: 'ana', username: 'ana', orgId: 'org-1', roles: ['agent']);
 const _beto = UserProfile(id: 'beto', username: 'beto', orgId: 'org-1', roles: ['agent']);
@@ -44,7 +44,7 @@ void main() {
       result,
       isA<HandoverBlocked>()
           .having((r) => r.inspections, 'inspections', 1)
-          .having((r) => r.visits, 'visits', 0)
+          .having((r) => r.records, 'records', 0)
           .having((r) => r.readings, 'readings', 0),
     );
   });

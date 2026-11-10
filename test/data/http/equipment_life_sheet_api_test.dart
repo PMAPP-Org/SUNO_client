@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/data/http/equipment_api_client.dart';
+import 'package:suno/data/http/equipment_api_client.dart';
 
 void main() {
   test('el cliente HTTP pide el PDF con el bearer y trata 404 o sin red como "sin documento"', () async {

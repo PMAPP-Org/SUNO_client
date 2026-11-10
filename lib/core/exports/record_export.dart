@@ -4,14 +4,14 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-import '../../data/local/visit_status_repository.dart';
-import '../capture/visit_capture.dart';
+import '../../data/local/record_status_repository.dart';
+import '../capture/record_capture.dart';
 import '../forms/form_definition.dart';
 
-bool canExportVisits(List<String> roles) => roles.any(supervisionRoles.contains);
+bool canExportRecords(List<String> roles) => roles.any(supervisionRoles.contains);
 
 void _authorize(List<String> roles) {
-  if (!canExportVisits(roles)) throw StateError('Export requires supervision');
+  if (!canExportRecords(roles)) throw StateError('Export requires supervision');
 }
 
 Iterable<(String, Map<String, Object?>)> _geometries(
@@ -42,21 +42,21 @@ Iterable<(String, Map<String, Object?>)> _geometries(
   }
 }
 
-Uint8List visitGeoJson(VisitDetail detail, FormDefinition? definition, {required List<String> roles}) {
+Uint8List recordGeoJson(RecordDetail detail, FormDefinition? definition, {required List<String> roles}) {
   _authorize(roles);
-  final visit = detail.visit;
+  final record = detail.record;
   final geometries = <(String, Map<String, Object?>?)>[
-    if (visit.lat != null && visit.lon != null)
+    if (record.lat != null && record.lon != null)
       (
-        'visit',
+        'record',
         {
           'type': 'Point',
-          'coordinates': [visit.lon, visit.lat],
+          'coordinates': [record.lon, record.lat],
         },
       ),
     if (definition != null) ..._geometries(definition, detail.answers),
   ];
-  if (geometries.isEmpty) geometries.add(('visit', null));
+  if (geometries.isEmpty) geometries.add(('record', null));
   return Uint8List.fromList(
     utf8.encode(
       jsonEncode({
@@ -65,16 +65,16 @@ Uint8List visitGeoJson(VisitDetail detail, FormDefinition? definition, {required
           for (final (path, geometry) in geometries)
             {
               'type': 'Feature',
-              'id': '${visit.id}:$path',
+              'id': '${record.id}:$path',
               'geometry': geometry,
               'properties': {
-                'visit_id': visit.id,
+                'record_id': record.id,
                 'field': path,
-                'captured_at': visit.capturedAt.toIso8601String(),
+                'captured_at': record.capturedAt.toIso8601String(),
                 'template': detail.summary.templateName,
-                'template_version_id': visit.templateVersionId,
-                'created_by': visit.createdBy,
-                'accuracy_m': visit.accuracyM,
+                'template_version_id': record.templateVersionId,
+                'created_by': record.createdBy,
+                'accuracy_m': record.accuracyM,
                 'answers': detail.answers,
                 'source': 'device',
                 'sync_status': detail.summary.status.name,
@@ -111,8 +111,8 @@ Iterable<(String, Object?)> reportAnswers(
   }
 }
 
-Future<Uint8List> visitPdf(
-  VisitDetail detail,
+Future<Uint8List> recordPdf(
+  RecordDetail detail,
   FormDefinition? definition, {
   required List<String> roles,
   required ByteData fontBytes,
@@ -129,7 +129,7 @@ Future<Uint8List> visitPdf(
   _authorize(roles);
   final font = pw.Font.ttf(fontBytes);
   final document = pw.Document(title: title, author: 'SUNO');
-  final visit = detail.visit;
+  final record = detail.record;
   final lines = reportAnswers(definition, detail.answers, locale).toList();
   document.addPage(
     pw.MultiPage(
@@ -140,21 +140,21 @@ Future<Uint8List> visitPdf(
       maxPages: 1000,
       theme: pw.ThemeData.withFont(base: font, bold: font),
       footer: (ctx) =>
-          pw.Text('${visit.id} · ${ctx.pageNumber}/${ctx.pagesCount}', style: const pw.TextStyle(fontSize: 8)),
+          pw.Text('${record.id} · ${ctx.pageNumber}/${ctx.pagesCount}', style: const pw.TextStyle(fontSize: 8)),
       build: (_) => [
         pw.Text('SUNO · $title', style: const pw.TextStyle(fontSize: 20)),
         pw.SizedBox(height: 12),
-        pw.Text(detail.summary.templateName ?? visit.templateVersionId),
-        pw.Text(visit.capturedAt.toIso8601String()),
-        pw.Text(visit.id),
-        pw.Text('$authorLabel: ${visit.createdBy}'),
-        pw.Text('$versionLabel: ${visit.templateVersionId}'),
+        pw.Text(detail.summary.templateName ?? record.templateVersionId),
+        pw.Text(record.capturedAt.toIso8601String()),
+        pw.Text(record.id),
+        pw.Text('$authorLabel: ${record.createdBy}'),
+        pw.Text('$versionLabel: ${record.templateVersionId}'),
         pw.Text(sourceNote, style: const pw.TextStyle(fontSize: 9)),
         pw.SizedBox(height: 12),
         pw.Text(
-          visit.lat != null && visit.lon != null
-              ? '$locationLabel · EPSG:4326: ${visit.lat}, ${visit.lon}'
-                    '${visit.accuracyM != null ? ' (±${visit.accuracyM} m)' : ''}'
+          record.lat != null && record.lon != null
+              ? '$locationLabel · EPSG:4326: ${record.lat}, ${record.lon}'
+                    '${record.accuracyM != null ? ' (±${record.accuracyM} m)' : ''}'
               : '$locationLabel: $noLocation',
         ),
         pw.SizedBox(height: 12),

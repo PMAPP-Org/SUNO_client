@@ -1,8 +1,8 @@
 // Validación de `answers` en el dispositivo (Paso 21, tarea 4): espejo de
-// `server/visitacampo/forms/answers.py`.
+// `server/suno/forms/answers.py`.
 //
 // **Solo UX** (ADR-012, RD-03): señala en pantalla qué falta o está mal antes
-// de guardar. La autoridad es el servidor, que revalida cada visita en el push
+// de guardar. La autoridad es el servidor, que revalida cada registro en el push
 // contra la definición de **su** `template_version_id`. Las reglas y los
 // `reason` son los mismos que allí, para que lo que se marca en pantalla sea
 // lo que el servidor rechazaría:

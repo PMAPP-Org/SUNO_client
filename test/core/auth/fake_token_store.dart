@@ -3,7 +3,7 @@
 // sin un binding de plataforma. Este fake permite verificar directamente
 // "login exitoso guarda tokens" / "login fallido no persiste nada"
 // (verificación explícita del Paso 13) sin mockear un plugin nativo.
-import 'package:visitacampo/core/auth/token_store.dart';
+import 'package:suno/core/auth/token_store.dart';
 
 class FakeTokenStore implements TokenStore {
   final Map<String, String> _byDeviceId = {};

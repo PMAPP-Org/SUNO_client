@@ -1,35 +1,35 @@
-// Lista de visitas recientes con su estado de sincronización (Paso 22,
+// Lista de registros recientes con su estado de sincronización (Paso 22,
 // tarea 6): pendiente, sincronizada o rechazada, y cuántos adjuntos faltan
-// por subir. La visita aparece aquí en cuanto se guarda, sin red (UI
+// por subir. El registro aparece aquí en cuanto se guarda, sin red (UI
 // optimista); el estado cambia tras sincronizar.
 import 'package:flutter/material.dart';
 
-import '../../data/local/visit_status_repository.dart';
+import '../../data/local/record_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_theme.dart';
 import '../../ui/theme/app_icons.dart';
 import '../../ui/theme/app_tokens.dart';
 
-class VisitStatusList extends StatelessWidget {
-  const VisitStatusList({
+class RecordStatusList extends StatelessWidget {
+  const RecordStatusList({
     super.key,
-    required this.visits,
+    required this.records,
     this.onOpen,
     this.emptyText,
   });
 
-  final List<VisitSummary> visits;
+  final List<RecordSummary> records;
 
-  /// Abre el detalle de la visita (Fase A).
-  final void Function(VisitSummary visit)? onOpen;
+  /// Abre el detalle del registro (Fase A).
+  final void Function(RecordSummary record)? onOpen;
 
-  /// Texto sin visitas; por defecto, "todavía no hay visitas".
+  /// Texto sin registros; por defecto, "todavía no hay registros".
   final String? emptyText;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    if (visits.isEmpty) {
+    if (records.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
         child: Row(
@@ -41,8 +41,8 @@ class VisitStatusList extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
-                emptyText ?? l10n.homeNoVisits,
-                key: const Key('home_no_visits'),
+                emptyText ?? l10n.homeNoRecords,
+                key: const Key('home_no_records'),
               ),
             ),
           ],
@@ -53,30 +53,30 @@ class VisitStatusList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final visit in visits)
+        for (final record in records)
           ListTile(
-            key: ValueKey('visit-${visit.id}'),
+            key: ValueKey('record-${record.id}'),
             contentPadding: EdgeInsets.zero,
-            title: Text(visit.templateName ?? l10n.homeVisitUntitled),
+            title: Text(record.templateName ?? l10n.homeRecordUntitled),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   [
-                    _when(localizations, visit.capturedAt.toLocal()),
-                    if (visit.attachments > 0)
-                      l10n.homeVisitAttachments(visit.attachments),
-                    if (visit.pendingUploads > 0)
-                      l10n.homeVisitPendingUploads(visit.pendingUploads),
-                    if (visit.failedUploads > 0)
-                      l10n.homeVisitFailedUploads(visit.failedUploads),
+                    _when(localizations, record.capturedAt.toLocal()),
+                    if (record.attachments > 0)
+                      l10n.homeRecordAttachments(record.attachments),
+                    if (record.pendingUploads > 0)
+                      l10n.homeRecordPendingUploads(record.pendingUploads),
+                    if (record.failedUploads > 0)
+                      l10n.homeRecordFailedUploads(record.failedUploads),
                   ].join(' · '),
                 ),
-                VisitStatusChip(status: visit.status),
+                RecordStatusChip(status: record.status),
               ],
             ),
             leading: const Icon(AppIcons.records),
-            onTap: onOpen == null ? null : () => onOpen!(visit),
+            onTap: onOpen == null ? null : () => onOpen!(record),
           ),
       ],
     );
@@ -86,10 +86,10 @@ class VisitStatusList extends StatelessWidget {
 String _when(MaterialLocalizations localizations, DateTime local) =>
     '${localizations.formatShortDate(local)} ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
 
-class VisitStatusChip extends StatelessWidget {
-  const VisitStatusChip({super.key, required this.status});
+class RecordStatusChip extends StatelessWidget {
+  const RecordStatusChip({super.key, required this.status});
 
-  final VisitSyncStatus status;
+  final RecordSyncStatus status;
 
   @override
   Widget build(BuildContext context) {
@@ -97,18 +97,18 @@ class VisitStatusChip extends StatelessWidget {
     final colors = context.statusColors;
     final scheme = Theme.of(context).colorScheme;
     final (label, background, foreground) = switch (status) {
-      VisitSyncStatus.pending => (
-        l10n.visitStatusPending,
+      RecordSyncStatus.pending => (
+        l10n.recordStatusPending,
         colors.warning,
         colors.onWarning,
       ),
-      VisitSyncStatus.synced => (
-        l10n.visitStatusSynced,
+      RecordSyncStatus.synced => (
+        l10n.recordStatusSynced,
         colors.success,
         colors.onSuccess,
       ),
-      VisitSyncStatus.rejected => (
-        l10n.visitStatusRejected,
+      RecordSyncStatus.rejected => (
+        l10n.recordStatusRejected,
         scheme.error,
         scheme.onError,
       ),

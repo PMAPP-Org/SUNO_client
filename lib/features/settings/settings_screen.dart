@@ -51,7 +51,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final dependencies = ref.read(appDependenciesProvider);
     final auth = dependencies.authController.state;
     final l10n = context.l10n;
-    final unsent = auth is Authenticated ? await dependencies.handover.unsentVisitsOf(auth.user) : 0;
+    final unsent = auth is Authenticated ? await dependencies.handover.unsentRecordsOf(auth.user) : 0;
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,

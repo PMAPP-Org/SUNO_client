@@ -1,4 +1,4 @@
-// Tokens de diseño de VisitaCampo: la única fuente de medidas de la UI.
+// Tokens de diseño de SUNO: la única fuente de medidas de la UI.
 //
 // Las pantallas (`lib/features/`) no escriben números de espaciado, radios
 // ni tamaños: usan estos tokens. Lo comprueba `infra/scripts/lint_ui_tokens.sh`
@@ -46,7 +46,7 @@ abstract final class AppSizes {
   static const double signatureHeight = 240;
   static const double signatureStroke = 3;
 
-  /// Miniatura de una foto o firma en el detalle de una visita.
+  /// Miniatura de una foto o firma en el detalle de un registro.
   static const double thumbnail = 120;
 
   /// Icono de un punto en el mapa (dentro de su área táctil de 48).

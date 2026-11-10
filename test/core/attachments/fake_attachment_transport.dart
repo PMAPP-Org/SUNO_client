@@ -8,8 +8,8 @@
 // corta a mitad. Así se prueba que el servicio cierra el archivo igualmente.
 import 'dart:async';
 
-import 'package:visitacampo/core/attachments/attachment_result.dart';
-import 'package:visitacampo/core/attachments/attachment_transport.dart';
+import 'package:suno/core/attachments/attachment_result.dart';
+import 'package:suno/core/attachments/attachment_transport.dart';
 
 class FakeAttachmentTransport implements AttachmentTransport {
   final List<AttachmentResult<PresignData>> presignResponses = [];

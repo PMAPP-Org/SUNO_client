@@ -5,7 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
-import 'package:visitacampo/data/map/mbtiles_tile_provider.dart';
+import 'package:suno/data/map/mbtiles_tile_provider.dart';
 
 void main() {
   late Directory dir;

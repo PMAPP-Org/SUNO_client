@@ -1,7 +1,7 @@
 // Ley 1581: la autorización del titular, en el teléfono y su envío al servidor.
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/privacy/consent.dart';
+import 'package:suno/core/privacy/consent.dart';
 
 class FakeConsentTransport implements ConsentTransport {
   final List<Map<String, Object>> calls = [];
@@ -90,7 +90,7 @@ void main() {
 
   test('un registro ilegible se trata como no aceptado', () async {
     FlutterSecureStorage.setMockInitialValues({
-      'visitacampo.privacy_consent.v1': '{no-json',
+      'suno.privacy_consent.v1': '{no-json',
     });
     expect(await service().isAcceptedForCurrentVersion(), isFalse);
   });

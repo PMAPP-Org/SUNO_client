@@ -32,7 +32,7 @@ class SecureTokenStore implements TokenStore {
 
   final FlutterSecureStorage _storage;
 
-  static const _keyPrefix = 'visitacampo.refresh_token.v1.';
+  static const _keyPrefix = 'suno.refresh_token.v1.';
 
   String _keyFor(String deviceId) => '$_keyPrefix$deviceId';
 

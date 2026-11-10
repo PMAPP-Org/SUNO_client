@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:visitacampo/core/equipment/equipment_models.dart';
-import 'package:visitacampo/core/equipment/equipment_transport.dart';
+import 'package:suno/core/equipment/equipment_models.dart';
+import 'package:suno/core/equipment/equipment_transport.dart';
 
 /// Un equipo tal como lo entrega `GET /v1/equipment`.
 Map<String, dynamic> equipmentJson({

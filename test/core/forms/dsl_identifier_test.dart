@@ -2,7 +2,7 @@
 // (`visitacampo/form@1` → `suno/form@1`): el cliente adopta el nuevo y sigue
 // leyendo el viejo, que es el de las plantillas ya guardadas en el teléfono.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
+import 'package:suno/core/forms/form_definition.dart';
 
 Map<String, Object?> _template(String dsl) => {
   'dsl': dsl,

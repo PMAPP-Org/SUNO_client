@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/data/http/schedule_task_api_client.dart';
+import 'package:suno/data/http/schedule_task_api_client.dart';
 
 void main() {
   late HttpServer server;

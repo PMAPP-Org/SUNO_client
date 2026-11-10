@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/schedule/progress_input.dart';
+import 'package:suno/core/schedule/progress_input.dart';
 
 void main() {
   test('acepta 0..100 con hasta dos decimales, con coma o punto', () {

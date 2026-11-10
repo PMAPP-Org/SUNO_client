@@ -5,7 +5,7 @@
 // mismo valor. Se prueba con un `FlutterSecureStorage` en memoria (fake),
 // mismo criterio que `test/core/auth/fake_token_store.dart`.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/device/device_id_store.dart';
+import 'package:suno/core/device/device_id_store.dart';
 
 class _InMemorySecureStorage {
   final Map<String, String> _values = {};
@@ -26,7 +26,7 @@ void main() {
       final id = await store.getOrCreateId();
 
       expect(id, isNotEmpty);
-      expect(await storage.read(key: 'visitacampo.device_id.v1'), id);
+      expect(await storage.read(key: 'suno.device_id.v1'), id);
     });
 
     test('en llamadas posteriores devuelve siempre el mismo id', () async {

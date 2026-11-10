@@ -17,7 +17,7 @@
 # En toda lib/: ninguna parte de la app tiene motivo para usarlos, y una
 # allow-list por archivo invitaría a "solo esta vez". Mismo enfoque que
 # lint_no_tls_bypass.sh. El servidor tiene su equivalente por AST en
-# PMAPP-Org/SUNO_server, server/visitacampo/forms/tests/ (Paso 20).
+# PMAPP-Org/SUNO_server, server/suno/forms/tests/ (Paso 20).
 #
 # Uso: bash tool/lint_no_dynamic_code.sh   (sale con 1 si hay violaciones)
 set -uo pipefail

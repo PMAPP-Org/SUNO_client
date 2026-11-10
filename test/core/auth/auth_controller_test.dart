@@ -4,10 +4,10 @@
 // mitad se prueba a nivel de `AuthInterceptor`, ver `auth_interceptor_test.dart`;
 // aquí se prueba el mecanismo de single-flight de `refreshOnce()` en sí).
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/auth/auth_controller.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/core/auth/auth_state.dart';
+import 'package:suno/core/auth/auth_controller.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/core/auth/auth_state.dart';
 
 import 'fake_auth_transport.dart';
 import 'fake_token_store.dart';

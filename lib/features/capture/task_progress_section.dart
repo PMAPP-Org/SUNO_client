@@ -22,7 +22,7 @@ class TaskProgressSection extends StatelessWidget {
 
   final List<ScheduleTaskItem> tasks;
 
-  /// La tarea elegida; puede no estar en [tasks] al editar una visita cuya
+  /// La tarea elegida; puede no estar en [tasks] al editar un registro cuya
   /// tarea ya no está en la lista del agente.
   final String? selectedId;
   final TextEditingController controller;

@@ -2,7 +2,7 @@
 //
 // Antes se guardaba la primera lectura que daba el sistema: en campo, recién
 // encendido el GPS, esa lectura puede tener ±80 m (o venir de la red celular)
-// y quedar como evidencia de la visita. Ahora:
+// y quedar como evidencia del registro. Ahora:
 // - se descartan para el promedio las lecturas peores que
 //   [GpsPolicy.targetAccuracyM];
 // - con [GpsPolicy.samples] lecturas buenas se promedian y se termina;
@@ -12,7 +12,7 @@
 //
 // La precisión que se informa del promedio es la media de las precisiones
 // usadas, no `media / √n`: los errores del GPS están correlacionados en el
-// tiempo y el valor optimista engañaría a quien revisa la visita.
+// tiempo y el valor optimista engañaría a quien revisa el registro.
 import 'dart:async';
 
 import 'location_source.dart';

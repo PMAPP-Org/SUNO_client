@@ -11,18 +11,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:visitacampo/core/app_dependencies.dart';
-import 'package:visitacampo/core/auth/auth_controller.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/core/capture/photo_capture.dart';
-import 'package:visitacampo/core/capture/visit_capture.dart';
-import 'package:visitacampo/core/location/gps_sampler.dart';
-import 'package:visitacampo/core/location/location_source.dart';
-import 'package:visitacampo/core/providers.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/data/local/form_template_repository.dart';
-import 'package:visitacampo/features/capture/capture_screen.dart';
+import 'package:suno/core/app_dependencies.dart';
+import 'package:suno/core/auth/auth_controller.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/core/capture/photo_capture.dart';
+import 'package:suno/core/capture/record_capture.dart';
+import 'package:suno/core/location/gps_sampler.dart';
+import 'package:suno/core/location/location_source.dart';
+import 'package:suno/core/providers.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/data/local/form_template_repository.dart';
+import 'package:suno/features/capture/capture_screen.dart';
 
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
@@ -175,8 +175,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('capture_save_button')));
     await tester.pumpAndSettle();
-    final visit = await db.select(db.visits).getSingle();
-    expect(visit.assignmentId, 'asg-1');
+    final record = await db.select(db.records).getSingle();
+    expect(record.assignmentId, 'asg-1');
   });
 
   testWidgets('captura completa offline: formulario, foto del campo, GPS y foto adicional', (tester) async {
@@ -206,20 +206,20 @@ void main() {
     await tester.pumpAndSettle();
 
     // Todo quedó en la BD local, sin red: la UI puede mostrarlo ya.
-    final visit = await db.select(db.visits).getSingle();
-    expect(visit.templateVersionId, 'tv-1');
-    expect(visit.lat, 4.6);
-    final answers = jsonDecode(visit.answersJson) as Map<String, dynamic>;
+    final record = await db.select(db.records).getSingle();
+    expect(record.templateVersionId, 'tv-1');
+    expect(record.lat, 4.6);
+    final answers = jsonDecode(record.answersJson) as Map<String, dynamic>;
     expect(answers['tiene_planta'], true);
     expect(answers['altura_cm'], 35);
-    final attachments = await db.select(db.visitAttachments).get();
+    final attachments = await db.select(db.recordAttachments).get();
     expect(attachments.map((a) => a.id), contains(answers['foto_planta']));
     expect(attachments, hasLength(2), reason: 'la del campo y la adicional');
     expect(await db.select(db.attachmentQueue).get(), hasLength(2));
     expect((await db.select(db.outboxOps).get()).map((o) => o.entity), [
-      'visit',
-      'visit_attachment',
-      'visit_attachment',
+      'record',
+      'record_attachment',
+      'record_attachment',
     ]);
   });
 
@@ -234,7 +234,7 @@ void main() {
 
     expect(find.text('Revisa los campos marcados antes de guardar.'), findsOneWidget);
     expect(find.text('Este campo es obligatorio.'), findsOneWidget, reason: 'la foto obligatoria');
-    expect(await db.select(db.visits).get(), isEmpty);
+    expect(await db.select(db.records).get(), isEmpty);
     expect(await db.select(db.outboxOps).get(), isEmpty);
   });
 
@@ -261,8 +261,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('capture_save_button')));
     await tester.pumpAndSettle();
-    final visit = await db.select(db.visits).getSingle();
-    expect(visit.lat, isNull);
+    final record = await db.select(db.records).getSingle();
+    expect(record.lat, isNull);
   });
 
   Future<void> addTask({double? lastValidated}) => db.replaceScheduleTasks(
@@ -293,7 +293,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('avance de campo: vincula la visita a una tarea con su % (costos, etapa 1)', (tester) async {
+  testWidgets('avance de campo: vincula el registro a una tarea con su % (costos, etapa 1)', (tester) async {
     final dependencies = await buildDependencies();
     await addTask(lastValidated: 40);
     await pumpCapture(tester, dependencies);
@@ -308,8 +308,8 @@ void main() {
     await tester.tap(find.byKey(const Key('capture_save_button')));
     await tester.pumpAndSettle();
 
-    final visit = await db.select(db.visits).getSingle();
-    expect((visit.taskId, visit.progressPct), ('task-1', 35.5));
+    final record = await db.select(db.records).getSingle();
+    expect((record.taskId, record.progressPct), ('task-1', 35.5));
     final payload = jsonDecode((await db.select(db.outboxOps).getSingle()).payloadJson) as Map<String, dynamic>;
     expect((payload['task_id'], payload['progress_pct']), ('task-1', 35.5));
   });
@@ -330,7 +330,7 @@ void main() {
     await tester.tap(find.byKey(const Key('capture_save_button')));
     await tester.pumpAndSettle();
     expect(find.text('Escribe un número entre 0 y 100, con hasta dos decimales.'), findsOneWidget);
-    expect(await db.select(db.visits).get(), isEmpty);
+    expect(await db.select(db.records).get(), isEmpty);
   });
 
   testWidgets('sin tareas asignadas no aparece la sección', (tester) async {
@@ -372,11 +372,11 @@ void main() {
     expect(tester.widget<TextField>(find.byKey(const Key('capture_progress_field'))).controller!.text, isEmpty);
   });
 
-  group('editar una visita ya vinculada', () {
-    Future<String> linkedVisit(AppDependencies dependencies) async {
+  group('editar un registro ya vinculado', () {
+    Future<String> linkedRecord(AppDependencies dependencies) async {
       await addTask(lastValidated: 40);
-      final lookup = await dependencies.formTemplates.forVisit(orgId: 'org-1', templateVersionId: 'tv-1');
-      return dependencies.visitCapture.save(
+      final lookup = await dependencies.formTemplates.forRecord(orgId: 'org-1', templateVersionId: 'tv-1');
+      return dependencies.recordCapture.save(
         identity: const CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1', roles: ['agent']),
         templateVersionId: 'tv-1',
         definition: (lookup as TemplateReady).definition,
@@ -388,8 +388,8 @@ void main() {
 
     testWidgets('carga la tarea y el %; guardar sin tocar nada no envía el par', (tester) async {
       final dependencies = await buildDependencies();
-      final visitId = await linkedVisit(dependencies);
-      await pumpCapture(tester, dependencies, screen: CaptureScreen(editVisitId: visitId));
+      final recordId = await linkedRecord(dependencies);
+      await pumpCapture(tester, dependencies, screen: CaptureScreen(editRecordId: recordId));
 
       expect(find.text('1.2 Descapote'), findsOneWidget);
       expect(tester.widget<TextField>(find.byKey(const Key('capture_progress_field'))).controller!.text, '35,5');
@@ -401,8 +401,8 @@ void main() {
 
     testWidgets('"Sin tarea" desvincula: viaja el par en null', (tester) async {
       final dependencies = await buildDependencies();
-      final visitId = await linkedVisit(dependencies);
-      await pumpCapture(tester, dependencies, screen: CaptureScreen(editVisitId: visitId));
+      final recordId = await linkedRecord(dependencies);
+      await pumpCapture(tester, dependencies, screen: CaptureScreen(editRecordId: recordId));
 
       await tester.tap(find.byKey(const Key('capture_task_picker')));
       await tester.pumpAndSettle();
@@ -413,9 +413,9 @@ void main() {
 
       final ops = await db.select(db.outboxOps).get();
       expect(ops, hasLength(2));
-      expect(jsonDecode(ops.last.payloadJson), {'id': visitId, 'task_id': null, 'progress_pct': null});
-      final visit = await db.select(db.visits).getSingle();
-      expect((visit.taskId, visit.progressPct), (null, null));
+      expect(jsonDecode(ops.last.payloadJson), {'id': recordId, 'task_id': null, 'progress_pct': null});
+      final record = await db.select(db.records).getSingle();
+      expect((record.taskId, record.progressPct), (null, null));
     });
   });
 }

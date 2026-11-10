@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# VisitaCampo — lint anti-bypass de validación TLS (RD-01, ADR-009).
+# SUNO — lint anti-bypass de validación TLS (RD-01, ADR-009).
 #
 # Hallazgo que este script mitiga (CRITICAL, docs/07-hallazgos-revision-codigo.md,
 # tabla de hallazgos N-14 / "TLS bypass para self-hosted"): QField (referencia de
 # arquitectura) aceptaba certificados inválidos incondicionalmente vía
-# `ignoreSslErrors()`. docs/08-arquitectura-propuesta-visitacampo.md lo traduce a
+# `ignoreSslErrors()`. docs/08-arquitectura-propuesta-suno.md lo traduce a
 # restricción de diseño RD-01 y a esta regla de CI explícita (ADR-009, línea 530):
 #
 #   "Prohibido cualquier bypass de validación de certificado. En Dart,

@@ -30,12 +30,12 @@ Ritmo de 4/8 px, márgenes de 24 px en móvil, botones de al menos 48 dp y esqui
 
 ## Iconografía
 
-Iconos funcionales de línea y un significado estable por acción: persona (usuario), candado (contraseña), ubicación con signo más (visita), flechas circulares (sincronizar), documento (registros) y alerta (revisión). Flutter centraliza Material Icons Outlined en `lib/ui/theme/app_icons.dart`. La web usa SVG locales de línea, 24 × 24, trazo 1.6 y sin relleno. Django conserva sus iconos de acciones y estado para respetar su comportamiento nativo. No se utilizan emojis como iconos de producto.
+Iconos funcionales de línea y un significado estable por acción: persona (usuario), candado (contraseña), ubicación con signo más (registro), flechas circulares (sincronizar), documento (registros) y alerta (revisión). Flutter centraliza Material Icons Outlined en `lib/ui/theme/app_icons.dart`. La web usa SVG locales de línea, 24 × 24, trazo 1.6 y sin relleno. Django conserva sus iconos de acciones y estado para respetar su comportamiento nativo. No se utilizan emojis como iconos de producto.
 
 ## Archivos y mantenimiento
 
 - Cliente: `lib/ui/theme/`, `lib/ui/widgets/app_brand.dart`, `assets/brand/`, `assets/fonts/`.
-- Servidor: `server/visitacampo/core/static/suno/` y `server/visitacampo/core/templates/`.
+- Servidor: `server/suno/core/static/suno/` y `server/suno/core/templates/`.
 - Los PNG originales y la referencia se conservan sin modificación en ambos repositorios. La app empaqueta solo los activos declarados en `pubspec.yaml`.
 - Principal para fondos claros, variantes para fondos oscuros y monocromáticas disponibles para futuras piezas. Nunca estirar, recolorear ni añadir sombras al emblema. Área de respeto mínima: un cuarto de la altura del símbolo.
 - Cualquier cambio de paleta debe reflejarse en `app_colors.dart` y en `tokens.css`/`admin.css`. No hay dependencia de ejecución entre los dos repositorios.
@@ -49,5 +49,5 @@ La app mantiene su arquitectura móvil nativa, almacenamiento sin conexión, con
 ## Verificación
 
 - Flutter: `flutter pub get --enforce-lockfile`, `dart run build_runner build`, `flutter analyze`, `flutter test --concurrency=1`, `bash tool/lint_ui_tokens.sh`.
-- Django: `python manage.py check`, `python manage.py test visitacampo.core.tests.test_branding`, `python manage.py collectstatic --noinput`.
+- Django: `python manage.py check`, `python manage.py test suno.core.tests.test_branding`, `python manage.py collectstatic --noinput`.
 - Antes de publicar: revisar portada y panel a 390 px y escritorio, temas claro/oscuro y campos de autenticación con OTP. Los cambios locales no equivalen a un despliegue.

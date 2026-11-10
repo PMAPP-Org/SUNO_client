@@ -5,14 +5,14 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/app_dependencies.dart';
-import 'package:visitacampo/core/auth/auth_controller.dart';
-import 'package:visitacampo/core/location/coordinate_system.dart';
-import 'package:visitacampo/core/location/location_source.dart';
-import 'package:visitacampo/core/location/navigation_target.dart';
-import 'package:visitacampo/core/providers.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/features/assignments/assignment_navigation_screen.dart';
+import 'package:suno/core/app_dependencies.dart';
+import 'package:suno/core/auth/auth_controller.dart';
+import 'package:suno/core/location/coordinate_system.dart';
+import 'package:suno/core/location/location_source.dart';
+import 'package:suno/core/location/navigation_target.dart';
+import 'package:suno/core/providers.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/features/assignments/assignment_navigation_screen.dart';
 
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
@@ -79,7 +79,7 @@ void main() {
     expect(find.byKey(const Key('navigation_near')), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     expect(gps.controller.hasListener, isFalse, reason: 'salir apaga el GPS');
-    expect(await db.select(db.visits).get(), isEmpty, reason: 'orientarse no crea ni cumple una visita');
+    expect(await db.select(db.records).get(), isEmpty, reason: 'orientarse no crea ni cumple un registro');
   });
 
   testWidgets('señala precisión baja y GPS simulado; no muestra datos caducados', (tester) async {

@@ -4,3 +4,4 @@
 #
 # Nombre de la entrada de secure storage, no la clave de cifrado.
 738db923c4b89ba5bc625dd432f50a9c68157868:lib/data/local/encryption_key_store.dart:generic-api-key:26
+74ac3493ad9aad52ebb8562e11f66b1f35417cab:lib/data/local/encryption_key_store.dart:generic-api-key:26

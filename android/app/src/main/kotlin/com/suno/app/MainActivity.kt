@@ -1,4 +1,4 @@
-package com.visitacampo.visitacampo
+package com.suno.app
 
 import io.flutter.embedding.android.FlutterActivity
 

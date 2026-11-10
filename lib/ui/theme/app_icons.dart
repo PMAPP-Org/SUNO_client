@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 abstract final class AppIcons {
   static const user = Icons.person_outline;
   static const password = Icons.lock_outline;
-  static const visit = Icons.add_location_alt_outlined;
+  static const record = Icons.add_location_alt_outlined;
   static const sync = Icons.sync_outlined;
   static const review = Icons.report_problem_outlined;
   static const field = Icons.landscape_outlined;

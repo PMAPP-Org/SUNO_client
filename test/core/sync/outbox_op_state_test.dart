@@ -1,7 +1,7 @@
 // Máquina de estados del outbox (doc 08 §4.3), Paso 12 — pura, sin BD ni
 // red: exactamente el tipo de test que el brief pide ("dominio puro").
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/sync/outbox_op_state.dart';
+import 'package:suno/core/sync/outbox_op_state.dart';
 
 void main() {
   group('pending → inflight', () {

@@ -1,7 +1,7 @@
 // Fase C: longitud y área frente a `pyproj.Geod` (elipsoide WGS84). Lo
 // esférico se acepta con un error relativo < 0,5 %.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/location/geo.dart';
+import 'package:suno/core/location/geo.dart';
 
 void main() {
   test('longitud de una línea', () {

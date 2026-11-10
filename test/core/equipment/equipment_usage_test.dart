@@ -1,9 +1,9 @@
 // Reporte de uso desde campo: validación local, solape, cola idempotente.
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/equipment/equipment_manager.dart';
-import 'package:visitacampo/core/equipment/equipment_transport.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/core/equipment/equipment_manager.dart';
+import 'package:suno/core/equipment/equipment_transport.dart';
+import 'package:suno/data/local/database.dart';
 
 import 'fake_equipment_transport.dart';
 

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/ui/forms/form_controller.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/ui/forms/form_controller.dart';
 
 FormDefinition parse(Map<String, Object?> raw) => (parseFormDefinition(raw) as DefinitionOk).definition;
 

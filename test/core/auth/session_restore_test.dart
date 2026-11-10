@@ -2,11 +2,11 @@
 // vigente; con la sesión caducada o revocada, login.
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/auth/auth_controller.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/core/auth/auth_state.dart';
-import 'package:visitacampo/core/auth/session_store.dart';
+import 'package:suno/core/auth/auth_controller.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/core/auth/auth_state.dart';
+import 'package:suno/core/auth/session_store.dart';
 
 import 'fake_auth_transport.dart';
 import 'fake_token_store.dart';
@@ -207,7 +207,7 @@ void main() {
 
     test('un registro ilegible es "sin sesión"', () async {
       FlutterSecureStorage.setMockInitialValues({
-        'visitacampo.session.v1.device-1': '{roto',
+        'suno.session.v1.device-1': '{roto',
       });
       expect(
         await const SecureSessionStore(FlutterSecureStorage()).read('device-1'),

@@ -3,8 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/features/capture/signature_screen.dart';
-import 'package:visitacampo/ui/widgets/signature_pad.dart';
+import 'package:suno/features/capture/signature_screen.dart';
+import 'package:suno/ui/widgets/signature_pad.dart';
 
 import '../../support/test_app.dart';
 

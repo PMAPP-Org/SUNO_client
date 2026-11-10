@@ -3,10 +3,10 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/attachments/attachment_upload_service.dart';
-import 'package:visitacampo/core/sync/result.dart';
-import 'package:visitacampo/core/sync/sync_coordinator.dart';
-import 'package:visitacampo/core/sync/sync_engine.dart';
+import 'package:suno/core/attachments/attachment_upload_service.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_coordinator.dart';
+import 'package:suno/core/sync/sync_engine.dart';
 
 class _Steps {
   final calls = <String>[];
@@ -95,7 +95,7 @@ void main() {
     steps.drainGate = Completer<void>();
     final first = c.syncNow();
     await pumpEventQueue();
-    // Se guarda una visita mientras sincroniza: no se pierde ni se duplica.
+    // Se guarda un registro mientras sincroniza: no se pierde ni se duplica.
     final second = c.syncNow(force: true);
     final third = c.syncNow();
     expect(steps.calls, ['drain'], reason: 'el segundo espera al primero');

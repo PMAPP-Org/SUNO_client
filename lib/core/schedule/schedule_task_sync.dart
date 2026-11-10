@@ -1,5 +1,5 @@
-// Tareas del cronograma (costos, etapa 1) que el agente puede vincular a una
-// visita: las vigentes de detalle de las que es responsable, con su último %
+// Tareas del cronograma (costos, etapa 1) que el agente puede vincular a un
+// registro: las vigentes de detalle de las que es responsable, con su último %
 // validado.
 //
 // Mismo ciclo que las capas de referencia (`layers/layer_manager.dart`): el

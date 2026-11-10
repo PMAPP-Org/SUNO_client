@@ -1,9 +1,9 @@
-// Pantalla posterior al login: "Nueva visita", "Sincronizar" y las visitas
+// Pantalla posterior al login: "Nuevo registro", "Sincronizar" y los registros
 // recientes con su estado.
 //
 // - La sincronización es automática (Fase A, `SyncCoordinator`): arranca con
 //   esta pantalla, al volver a primer plano, cada 5 minutos y tras guardar
-//   una visita. "Sincronizar" fuerza un ciclo ya y muestra su resultado.
+//   un registro. "Sincronizar" fuerza un ciclo ya y muestra su resultado.
 // - Los adjuntos además se suben solos (Paso 18): el planificador arranca con
 //   esta pantalla, vuelve a drenar cuando la app pasa a primer plano y cada
 //   minuto. La lista se refresca tras cada drenaje y cada ciclo.
@@ -18,7 +18,7 @@ import '../../core/basemaps/basemap_manager.dart';
 import '../../core/providers.dart';
 import '../../core/sync/sync_coordinator.dart';
 import '../../data/local/assignment_repository.dart';
-import '../../data/local/visit_status_repository.dart';
+import '../../data/local/record_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_icons.dart';
 import '../../ui/theme/app_tokens.dart';
@@ -32,8 +32,8 @@ import '../equipment/equipment_screen.dart';
 import '../map/map_screen.dart';
 import '../review/review_screen.dart';
 import '../settings/settings_screen.dart';
-import '../visits/visit_detail_screen.dart';
-import 'visit_status_list.dart';
+import '../records/record_detail_screen.dart';
+import 'record_status_list.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -45,8 +45,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _isSyncing = false;
 
-  /// Visitas recientes con su estado (Paso 22). `null` mientras se cargan.
-  List<VisitSummary>? _visits;
+  /// Registros recientes con su estado (Paso 22). `null` mientras se cargan.
+  List<RecordSummary>? _records;
 
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<void>? _drained;
@@ -62,16 +62,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadVisits();
+    _loadRecords();
     final dependencies = ref.read(appDependenciesProvider);
     _scheduler = dependencies.uploadScheduler;
     _coordinator = dependencies.syncCoordinator;
-    _drained = _scheduler.drained.listen((_) => _loadVisits());
+    _drained = _scheduler.drained.listen((_) => _loadRecords());
     _cycles = _coordinator.completed.listen((report) {
-      unawaited(_loadVisits());
+      unawaited(_loadRecords());
       // Fase B: con red, el mapa base de la organización llega solo (también
       // tras el primer login). Aparte del ciclo: un paquete de cientos de MB
-      // no retrasa el envío de las visitas.
+      // no retrasa el envío de los registros.
       if (report.pullOk) {
         unawaited(dependencies.basemaps.syncAll());
         // Fase C: las capas de referencia llegan igual, solas.
@@ -126,7 +126,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  /// Visitas en cuarentena (Paso 23): el aviso "N para revisar".
+  /// Registros en cuarentena (Paso 23): el aviso "N para revisar".
   int _toReview = 0;
 
   /// Asignaciones del agente (Fase B): `null` si no tiene ninguna; si no,
@@ -139,14 +139,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _limit = _pageSize;
   String _query = '';
 
-  Future<void> _loadVisits() async {
+  Future<void> _loadRecords() async {
     final dependencies = ref.read(appDependenciesProvider);
     final authState = dependencies.authController.state;
     final orgId = authState is Authenticated ? authState.user.orgId : null;
     final query = _query;
-    final visits = orgId == null
-        ? const <VisitSummary>[]
-        : await dependencies.visitStatus.recentVisits(
+    final records = orgId == null
+        ? const <RecordSummary>[]
+        : await dependencies.recordStatus.recentRecords(
             orgId: orgId,
             limit: _limit,
             query: query,
@@ -163,7 +163,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Una búsqueda más nueva ya está en camino: este resultado está viejo.
     if (mounted && query == _query) {
       setState(() {
-        _visits = visits;
+        _records = records;
         _toReview = toReview;
         _pendingAssignments = assignments.isEmpty ? null : assignments.where((a) => !a.done).length;
       });
@@ -172,27 +172,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _openAssignments() async {
     await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AssignmentsScreen()));
-    await _loadVisits();
+    await _loadRecords();
   }
 
   void _search(String query) {
     _query = query;
     _limit = _pageSize;
-    unawaited(_loadVisits());
+    unawaited(_loadRecords());
   }
 
   void _loadMore() {
     _limit += _pageSize;
-    unawaited(_loadVisits());
+    unawaited(_loadRecords());
   }
 
-  Future<void> _openVisit(VisitSummary visit) async {
+  Future<void> _openRecord(RecordSummary record) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => VisitDetailScreen(visitId: visit.id),
+        builder: (_) => RecordDetailScreen(recordId: record.id),
       ),
     );
-    await _loadVisits();
+    await _loadRecords();
   }
 
   Future<void> _openReview() async {
@@ -203,7 +203,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         builder: (_) => ReviewScreen(orgId: authState.user.orgId),
       ),
     );
-    await _loadVisits();
+    await _loadRecords();
   }
 
   Future<void> _sync() async {
@@ -244,7 +244,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // Defensa en profundidad: pase lo que pase arriba, el botón nunca debe
       // quedar deshabilitado permanentemente (hallazgo de revisión Tarea 7).
       if (mounted) setState(() => _isSyncing = false);
-      await _loadVisits();
+      await _loadRecords();
     }
   }
 
@@ -293,7 +293,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: const Icon(Icons.map_outlined),
             onPressed: () async {
               await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const MapScreen()));
-              await _loadVisits();
+              await _loadRecords();
             },
           ),
           IconButton(
@@ -321,15 +321,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(l10n.homeIntro, style: Theme.of(context).textTheme.bodyMedium),
           const AppGap.lg(),
           AppButton(
-            key: const Key('home_new_visit_button'),
-            label: l10n.homeNewVisit,
-            icon: AppIcons.visit,
+            key: const Key('home_new_record_button'),
+            label: l10n.homeNewRecord,
+            icon: AppIcons.record,
             onPressed: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const CaptureScreen()),
               );
-              // UI optimista: la visita recién guardada aparece ya, sin red.
-              await _loadVisits();
+              // UI optimista: el registro recién guardado aparece ya, sin red.
+              await _loadRecords();
             },
           ),
           const AppGap.sm(),
@@ -392,7 +392,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const Divider(),
           Text(
-            l10n.homeRecentVisits,
+            l10n.homeRecentRecords,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const AppGap.sm(),
@@ -405,16 +405,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             textInputAction: TextInputAction.search,
             onChanged: _search,
           ),
-          if (_visits == null)
+          if (_records == null)
             const Center(child: CircularProgressIndicator())
           else ...[
-            VisitStatusList(
-              visits: _visits!,
-              onOpen: _openVisit,
+            RecordStatusList(
+              records: _records!,
+              onOpen: _openRecord,
               emptyText: _query.trim().isEmpty ? null : l10n.homeNoResults,
             ),
             // Página llena: puede haber más.
-            if (_visits!.length >= _limit)
+            if (_records!.length >= _limit)
               TextButton(
                 key: const Key('home_load_more'),
                 onPressed: _loadMore,

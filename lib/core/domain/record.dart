@@ -1,16 +1,16 @@
 // Modelo de ejemplo del Paso 10: valida que el pipeline de codegen (freezed +
 // json_serializable) funciona antes de construir el dominio real en el
-// Paso 12. Espejo mínimo de `VisitData` (contrato `server/openapi/v1.yaml`,
-// server/visitacampo/sync/schemas.py::VisitData) — solo los campos que
+// Paso 12. Espejo mínimo de `RecordData` (contrato `server/openapi/v1.yaml`,
+// server/suno/sync/schemas.py::RecordData) — solo los campos que
 // bastan para probar el codegen, no el modelo completo del Paso 12.
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part 'visit.freezed.dart';
-part 'visit.g.dart';
+part 'record.freezed.dart';
+part 'record.g.dart';
 
 @freezed
-abstract class Visit with _$Visit {
-  const factory Visit({
+abstract class Record with _$Record {
+  const factory Record({
     required String id,
     required String orgId,
     required int version,
@@ -25,7 +25,7 @@ abstract class Visit with _$Visit {
     required DateTime capturedAt,
     required String deviceId,
     required String createdBy,
-  }) = _Visit;
+  }) = _Record;
 
-  factory Visit.fromJson(Map<String, dynamic> json) => _$VisitFromJson(json);
+  factory Record.fromJson(Map<String, dynamic> json) => _$RecordFromJson(json);
 }

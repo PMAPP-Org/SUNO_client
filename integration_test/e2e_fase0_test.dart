@@ -6,14 +6,14 @@
 //   E2E:READY_FOR_OFFLINE  → el script activa el modo avión
 //   E2E:SAVED_OFFLINE      → el script lo desactiva
 //   E2E:SYNCED             → el script verifica en el servidor
-//   (la visita lleva la tarea 1.1 con 35 % de avance acumulado)
+//   (el registro lleva la tarea 1.1 con 35 % de avance acumulado)
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:visitacampo/features/home/visit_status_list.dart';
-import 'package:visitacampo/main.dart' as app;
+import 'package:suno/features/home/record_status_list.dart';
+import 'package:suno/main.dart' as app;
 
 const _username = String.fromEnvironment('E2E_USERNAME');
 const _password = String.fromEnvironment('E2E_PASSWORD');
@@ -23,7 +23,7 @@ const _host = String.fromEnvironment('E2E_HOST', defaultValue: '10.0.2.2');
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('una visita creada en modo avión llega al servidor al reconectar', (tester) async {
+  testWidgets('un registro creado en modo avión llega al servidor al reconectar', (tester) async {
     expect(
       _username.isNotEmpty && _password.isNotEmpty && _marker.isNotEmpty,
       isTrue,
@@ -52,7 +52,7 @@ void main() {
     await _pumpUntil(tester, find.byKey(const Key('tofu_trust_button')));
     await _tapVisible(tester, find.byKey(const Key('tofu_compared_check')));
     await _tapVisible(tester, find.byKey(const Key('tofu_trust_button')));
-    await _pumpUntil(tester, find.byKey(const Key('home_new_visit_button')), timeout: const Duration(seconds: 60));
+    await _pumpUntil(tester, find.byKey(const Key('home_new_record_button')), timeout: const Duration(seconds: 60));
 
     // Sincronización inicial: trae la plantilla publicada.
     await _tapVisible(tester, find.byKey(const Key('home_sync_button')));
@@ -63,7 +63,7 @@ void main() {
     await _waitUntilOffline(tester);
 
     // Captura offline.
-    await _tapVisible(tester, find.byKey(const Key('home_new_visit_button')));
+    await _tapVisible(tester, find.byKey(const Key('home_new_record_button')));
     await _pumpUntil(tester, find.byKey(const Key('capture_save_button')));
     final notas = find.descendant(of: find.byKey(const ValueKey('form-field-notas')), matching: find.byType(TextField));
     await tester.enterText(notas, _marker);
@@ -78,14 +78,14 @@ void main() {
     await tester.enterText(find.byKey(const Key('capture_progress_field')), '35');
     await tester.pump();
     await _tapVisible(tester, find.byKey(const Key('capture_save_button')));
-    await _pumpUntil(tester, find.byKey(const Key('home_new_visit_button')));
+    await _pumpUntil(tester, find.byKey(const Key('home_new_record_button')));
     await _pumpUntil(tester, _chip('Pendiente'));
     _mark('SAVED_OFFLINE');
 
-    // Con red: sincroniza hasta que la visita quede confirmada.
+    // Con red: sincroniza hasta que el registro quede confirmado.
     final deadline = DateTime.now().add(const Duration(seconds: 120));
-    while (_chip('Sincronizada').evaluate().isEmpty) {
-      if (DateTime.now().isAfter(deadline)) fail('La visita no pasó a Sincronizada en 120 s');
+    while (_chip('Sincronizado').evaluate().isEmpty) {
+      if (DateTime.now().isAfter(deadline)) fail('El registro no pasó a Sincronizado en 120 s');
       await _tapVisible(tester, find.byKey(const Key('home_sync_button')));
       await _pumpFor(tester, const Duration(seconds: 10));
     }
@@ -93,7 +93,7 @@ void main() {
   });
 }
 
-Finder _chip(String label) => find.descendant(of: find.byType(VisitStatusChip), matching: find.text(label));
+Finder _chip(String label) => find.descendant(of: find.byType(RecordStatusChip), matching: find.text(label));
 
 /// Hace visible el widget antes de tocarlo: en la pantalla del emulador el
 /// botón de confiar del TOFU, las casillas del aviso y el de guardar quedan

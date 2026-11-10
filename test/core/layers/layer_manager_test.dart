@@ -3,7 +3,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/layers/layer_manager.dart';
+import 'package:suno/core/layers/layer_manager.dart';
 
 import 'fake_layer_transport.dart';
 

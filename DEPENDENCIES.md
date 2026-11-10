@@ -1,4 +1,4 @@
-# Presupuesto de dependencias — VisitaCampo (app/)
+# Presupuesto de dependencias — SUNO (app/)
 
 Doc 08 ADR-001 ("Negativas"): la dependencia de la salud del proyecto Flutter
 y de paquetes de terceros se mitiga con un **presupuesto de dependencias**.
@@ -67,7 +67,7 @@ se comprobaron en los archivos LICENSE publicados, el 2026-10-19.
 |---|---|---|
 | `flutter_lints` | Generado por `flutter create`; base de `analysis_options.yaml`, extendida con reglas más estrictas en este mismo paso. | Paquete oficial de flutter.dev. |
 | `build_runner` | Motor de codegen que ejecuta `freezed`/`json_serializable`. | Paquete oficial de dart.dev. |
-| `freezed` | Generador de código de `@freezed` (tipos sellados, `copyWith`, unions — RD-02/RD-03). Anclado a una versión `3.2.6-dev.1` porque la serie estable 3.x más reciente en el momento de este paso también resolvía con macros; el `dev` elegido genera código con el backend `build_runner` clásico (verificado: `dart run build_runner build` produjo `visit.freezed.dart`/`visit.g.dart` sin usar macros). Revisar cuando `freezed` publique una serie 3.x estable sin ese requisito. | >1k likes, mantenimiento muy activo (paquete de referencia para tipos sellados en Dart). |
+| `freezed` | Generador de código de `@freezed` (tipos sellados, `copyWith`, unions — RD-02/RD-03). Anclado a una versión `3.2.6-dev.1` porque la serie estable 3.x más reciente en el momento de este paso también resolvía con macros; el `dev` elegido genera código con el backend `build_runner` clásico (verificado: `dart run build_runner build` produjo `record.freezed.dart`/`record.g.dart` sin usar macros). Revisar cuando `freezed` publique una serie 3.x estable sin ese requisito. | >1k likes, mantenimiento muy activo (paquete de referencia para tipos sellados en Dart). |
 | `json_serializable` | Generador de `fromJson`/`toJson` para los modelos `freezed`/`json_annotation`. | >1k likes, mantenimiento activo. |
 | `drift_dev` | Generador de código del esquema Drift (Paso 11): produce `database.g.dart` a partir de `tables.dart`/`database.dart`. | Paquete hermano oficial de `drift`, mantenimiento muy activo. |
 | `sqlite3` | Uso directo (no vía Drift) solo en `test/data/local/encryption_smoke_test.dart`, para abrir el archivo `.sqlite` en crudo y confirmar que es ilegible sin la clave — es la misma dependencia transitiva de `drift`, promovida a directa porque el test la importa explícitamente. | Paquete oficial del mismo mantenedor de `drift`, mantenimiento muy activo. |

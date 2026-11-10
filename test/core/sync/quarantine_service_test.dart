@@ -5,13 +5,13 @@ import 'dart:convert';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/capture/visit_capture.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/core/sync/quarantine_service.dart';
-import 'package:visitacampo/core/sync/result.dart';
-import 'package:visitacampo/core/sync/sync_engine.dart';
-import 'package:visitacampo/core/sync/sync_transport.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/core/capture/record_capture.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/core/sync/quarantine_service.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_engine.dart';
+import 'package:suno/core/sync/sync_transport.dart';
+import 'package:suno/data/local/database.dart';
 
 import 'fake_sync_transport.dart';
 
@@ -59,13 +59,13 @@ void main() {
   Future<void> pushWith(PushOpOutcome Function(OutboxOp op) outcome) async {
     final pending = await ops();
     transport.pushResponses.add(
-      Result.ok(PushResponse(schemaVersion: 1, results: [for (final op in pending) outcome(op)])),
+      Result.ok(PushResponse(schemaVersion: 2, results: [for (final op in pending) outcome(op)])),
     );
     await engine.drainOutbox();
   }
 
   group('rechazo', () {
-    late String visitId;
+    late String recordId;
 
     setUp(() async {
       final photo = PendingAttachment(
@@ -76,19 +76,19 @@ void main() {
         role: 'foto',
         capturedAt: DateTime.utc(2026, 10, 17),
       );
-      visitId = await VisitCapture(db: db, idGenerator: () => 'cap-${ids++}').save(
+      recordId = await RecordCapture(db: db, idGenerator: () => 'cap-${ids++}').save(
         identity: const CaptureIdentity(orgId: _org, userId: 'user-1', deviceId: 'device-1'),
         templateVersionId: 'tv-1',
         definition: _definition(),
         answers: {'altura_cm': 900, 'foto': 'att-1'},
         captured: {'att-1': photo},
       );
-      // El servidor rechaza la visita por una respuesta y, por tanto, el adjunto.
+      // El servidor rechaza el registro por una respuesta y, por tanto, el adjunto.
       await pushWith(
         (op) => PushOpOutcome(
           opUuid: op.opUuid,
           status: 'rejected',
-          error: op.entity == 'visit'
+          error: op.entity == 'record'
               ? const PushOpError(
                   code: 'validation_error',
                   message: 'Answers do not match the form template version schema.',
@@ -100,41 +100,41 @@ void main() {
                 )
               : const PushOpError(
                   code: 'not_found',
-                  message: 'Referenced visit_id does not exist in this organization.',
-                  details: {'field': 'visit_id', 'reason': 'unknown_reference'},
+                  message: 'Referenced record_id does not exist in this organization.',
+                  details: {'field': 'record_id', 'reason': 'unknown_reference'},
                 ),
         ),
       );
     });
 
-    test('se agrupa por visita, con el campo que corregir', () async {
+    test('se agrupa por registro, con el campo que corregir', () async {
       final items = await service.list(orgId: _org);
 
       expect(items, hasLength(1));
       final item = items.single;
-      expect((item.visit.id, item.kind, item.code), (visitId, QuarantineKind.rejected, 'validation_error'));
-      expect(item.ops.map((o) => o.entity), ['visit', 'visit_attachment'], reason: 'el adjunto viaja con su visita');
+      expect((item.record.id, item.kind, item.code), (recordId, QuarantineKind.rejected, 'validation_error'));
+      expect(item.ops.map((o) => o.entity), ['record', 'record_attachment'], reason: 'el adjunto viaja con su registro');
       expect(item.answerViolations, {'altura_cm': 'out_of_range'});
       expect(item.canCorrect, isTrue);
       expect(await service.count(orgId: _org), 1);
       expect(await service.list(orgId: 'otra-org'), isEmpty);
     });
 
-    test('corregir: respuestas nuevas, op_uuid nuevos y la visita antes que su adjunto', () async {
+    test('corregir: respuestas nuevas, op_uuid nuevos y el registro antes que su adjunto', () async {
       final item = (await service.list(orgId: _org)).single;
       final oldUuids = {for (final op in item.ops) op.opUuid};
 
       await service.correct(item, {'altura_cm': 120, 'foto': 'att-1'});
 
-      final visit = await db.select(db.visits).getSingle();
-      expect(jsonDecode(visit.answersJson), {'altura_cm': 120, 'foto': 'att-1'});
+      final record = await db.select(db.records).getSingle();
+      expect(jsonDecode(record.answersJson), {'altura_cm': 120, 'foto': 'att-1'});
       final pending = await ops();
       expect(pending.every((op) => op.state == 'pending' && !oldUuids.contains(op.opUuid)), isTrue);
 
       transport.pushResponses.add(const Result.err(SyncError.network('sin red')));
       await engine.drainOutbox();
       final sent = transport.pushCalls.last.ops;
-      expect(sent.map((op) => op.entity), ['visit', 'visit_attachment']);
+      expect(sent.map((op) => op.entity), ['record', 'record_attachment']);
       expect(sent.first.payload['answers'], {'altura_cm': 120, 'foto': 'att-1'});
       expect(await service.list(orgId: _org), isEmpty);
     });
@@ -148,15 +148,15 @@ void main() {
       expect(pending.map((op) => op.opUuid).toSet().intersection({for (final op in item.ops) op.opUuid}), isEmpty);
     });
 
-    test('descartar: se va la visita con sus adjuntos y sus fotos sin subir', () async {
-      // Otra visita que comparte la misma foto: su subida no se toca.
+    test('descartar: se va el registro con sus adjuntos y sus fotos sin subir', () async {
+      // Otro registro que comparte la misma foto: su subida no se toca.
       await db
-          .into(db.visitAttachments)
+          .into(db.recordAttachments)
           .insert(
-            VisitAttachmentsCompanion.insert(
+            RecordAttachmentsCompanion.insert(
               id: 'att-otra',
               orgId: _org,
-              visitId: 'visita-otra',
+              recordId: 'registro-otra',
               sha256: 'f' * 64,
               role: 'foto',
               capturedAt: DateTime.utc(2026),
@@ -171,16 +171,16 @@ void main() {
 
       await service.discard((await service.list(orgId: _org)).single);
 
-      expect(await (db.select(db.visits)..where((t) => t.id.equals(visitId))).get(), isEmpty);
+      expect(await (db.select(db.records)..where((t) => t.id.equals(recordId))).get(), isEmpty);
       expect(await ops(), isEmpty);
-      expect((await db.select(db.visitAttachments).get()).map((a) => a.id), ['att-otra']);
+      expect((await db.select(db.recordAttachments).get()).map((a) => a.id), ['att-otra']);
       expect((await db.select(db.attachmentQueue).get()).map((u) => u.sha256), ['f' * 64]);
     });
   });
 
   group('conflicto', () {
     Map<String, dynamic> serverData({Map<String, Object?> answers = const {'altura_cm': 20}, double lat = 4.7}) => {
-      'id': 'visit-1',
+      'id': 'record-1',
       'org_id': _org,
       'version': 3,
       'change_seq': 90,
@@ -199,10 +199,10 @@ void main() {
 
     Future<void> conflictWith(Map<String, dynamic> server) async {
       await db
-          .into(db.visits)
+          .into(db.records)
           .insert(
-            VisitsCompanion.insert(
-              id: 'visit-1',
+            RecordsCompanion.insert(
+              id: 'record-1',
               orgId: _org,
               version: 1,
               templateVersionId: 'tv-1',
@@ -214,12 +214,12 @@ void main() {
               createdBy: 'user-1',
             ),
           );
-      await engine.enqueueVisitOp(
-        entityId: 'visit-1',
+      await engine.enqueueRecordOp(
+        entityId: 'record-1',
         opType: 'update',
         baseVersion: 1,
         payload: {
-          'id': 'visit-1',
+          'id': 'record-1',
           'answers': {'altura_cm': 10},
         },
       );
@@ -228,7 +228,7 @@ void main() {
           opUuid: op.opUuid,
           status: 'conflict',
           serverVersion: 3,
-          serverRow: {'entity': 'visit', 'data': server},
+          serverRow: {'entity': 'record', 'data': server},
           error: const PushOpError(code: 'conflict', message: 'The row changed on the server since base_version.'),
         ),
       );
@@ -243,9 +243,9 @@ void main() {
         (field: 'altura_cm', mine: 10, server: 20),
         (field: 'lat', mine: 4.6, server: 4.7),
       ]);
-      final visit = await db.select(db.visits).getSingle();
-      expect(visit.version, 1, reason: 'nada se pisó');
-      expect(jsonDecode(visit.answersJson), {'altura_cm': 10});
+      final record = await db.select(db.records).getSingle();
+      expect(record.version, 1, reason: 'nada se pisó');
+      expect(jsonDecode(record.answersJson), {'altura_cm': 10});
     });
 
     test('enviar mi versión: update sobre la versión actual del servidor, solo lo que difiere', () async {
@@ -255,11 +255,11 @@ void main() {
       final op = (await ops()).single;
       expect((op.opType, op.baseVersion, op.state), ('update', 3, 'pending'));
       expect(jsonDecode(op.payloadJson), {
-        'id': 'visit-1',
+        'id': 'record-1',
         'answers': {'altura_cm': 10},
         'lat': 4.6,
       });
-      expect((await db.select(db.visits).getSingle()).version, 3);
+      expect((await db.select(db.records).getSingle()).version, 3);
     });
 
     test('quedarme con la del servidor: la fila local pasa a ser la del servidor', () async {
@@ -267,9 +267,9 @@ void main() {
       await service.acceptServer((await service.list(orgId: _org)).single);
 
       expect(await ops(), isEmpty);
-      final visit = await db.select(db.visits).getSingle();
-      expect((visit.version, visit.lat), (3, 4.7));
-      expect(jsonDecode(visit.answersJson), {'altura_cm': 20});
+      final record = await db.select(db.records).getSingle();
+      expect((record.version, record.lat), (3, 4.7));
+      expect(jsonDecode(record.answersJson), {'altura_cm': 20});
     });
 
     test('si ya no difieren, enviar mi versión equivale a aceptar la del servidor', () async {
@@ -277,7 +277,7 @@ void main() {
       await service.resendMine((await service.list(orgId: _org)).single);
 
       expect(await ops(), isEmpty, reason: 'no se envía un update vacío');
-      expect((await db.select(db.visits).getSingle()).version, 3);
+      expect((await db.select(db.records).getSingle()).version, 3);
     });
   });
 }

@@ -6,9 +6,9 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/equipment/equipment_models.dart';
-import 'package:visitacampo/core/equipment/equipment_transport.dart';
-import 'package:visitacampo/data/http/equipment_api_client.dart';
+import 'package:suno/core/equipment/equipment_models.dart';
+import 'package:suno/core/equipment/equipment_transport.dart';
+import 'package:suno/data/http/equipment_api_client.dart';
 
 import '../../core/equipment/fake_equipment_transport.dart';
 

@@ -1,13 +1,13 @@
 // Paridad cliente ↔ servidor del DSL de formularios (Paso 21): los mismos
-// casos que `server/visitacampo/forms/tests/test_parity.py` de SUNO_server,
+// casos que `server/suno/forms/tests/test_parity.py` de SUNO_server,
 // leídos de la copia fijada del contrato (`contract/fixtures/forms_parity.json`,
 // ver `contract/README.md`).
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/forms/answers.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
+import 'package:suno/core/forms/answers.dart';
+import 'package:suno/core/forms/form_definition.dart';
 
 Map<String, dynamic> _fixture() {
   final file = File('contract/fixtures/forms_parity.json');
@@ -50,7 +50,7 @@ void main() {
 
   group('solo en el cliente', () {
     test('un dialecto futuro se distingue de una plantilla corrupta', () {
-      final result = parseFormDefinition({'dsl': 'visitacampo/form@2', 'fields': <Object?>[]});
+      final result = parseFormDefinition({'dsl': 'suno/form@2', 'fields': <Object?>[]});
       expect(result, isA<DefinitionInvalid>().having((r) => r.unsupportedDialect, 'unsupportedDialect', isTrue));
 
       final corrupt = parseFormDefinition({'fields': 'no-es-una-lista'});
