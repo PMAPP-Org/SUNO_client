@@ -100,6 +100,18 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   /// Las tareas leídas de la BD (la edición las espera para saber cómo se mide la suya).
   late final Future<void> _tasksReady;
 
+  /// La tarea con que se abrió el registro que se edita.
+  String? _originalTaskId;
+
+  /// Cuenta las tareas elegidas: una carga que termina después de otra elección se ignora.
+  int _taskSelection = 0;
+
+  /// Las cantidades no viajan: el registro está validado, o se edita sin haber tocado sus
+  /// cantidades ni su tarea (otra respuesta, una foto…). Así un registro viejo se sigue
+  /// guardando aunque su tarea ya no esté en la lista o ahora se mida distinto.
+  bool get _keepQuantities =>
+      _quantityTask && (_quantities.readOnly || (_editing && _taskId == _originalTaskId && !_quantities.touched));
+
   @override
   void initState() {
     super.initState();
@@ -144,6 +156,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       final discard = await _confirmDiscardQuantities();
       if (!discard || !mounted) return;
     }
+    final selection = ++_taskSelection;
     final task = _tasks.where((t) => t.id == id).firstOrNull;
     final byQuantities = task?.measuredByQuantities ?? false;
     if (byQuantities) {
@@ -151,7 +164,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           .read(appDependenciesProvider)
           .scheduleTaskRepository
           .quantityContext(taskId: task!.id, projectId: task.projectId);
-      if (!mounted) return;
+      // Otra tarea elegida mientras esta cargaba: gana la última.
+      if (!mounted || selection != _taskSelection) return;
       _quantities.load(quantityContext);
     } else {
       _quantities.clear();
@@ -198,7 +212,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       return (ok: true, value: null);
     }
     if (_quantityTask) {
-      if (_quantities.readOnly) return (ok: true, value: null);
+      if (_keepQuantities) return (ok: true, value: null);
       return _quantities.validate()
           ? (ok: true, value: TaskProgress(taskId: taskId, quantities: _quantities.payload()))
           : (ok: false, value: null);
@@ -251,8 +265,27 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       orgId: orgId,
       templateVersionId: detail.record.templateVersionId,
     );
-    if (!mounted) return;
     final record = detail.record;
+
+    // Costos, pieza 4b: cómo se editó el avance. Con cantidades guardadas, por cantidades
+    // (sobre su tarea si sigue en la lista); un registro por % sigue por %, aunque su
+    // tarea se mida ahora por cantidades. Se decide antes de mostrar nada, para que el %
+    // no aparezca un instante.
+    await _tasksReady;
+    final stored = decodeQuantities(record.quantitiesJson);
+    final taskId = record.taskId;
+    final task = _tasks.where((t) => t.id == taskId).firstOrNull;
+    final byQuantities =
+        taskId != null &&
+        (stored.isNotEmpty || (record.progressPct == null && (task?.measuredByQuantities ?? false)));
+    if (byQuantities) {
+      final schedule = dependencies.scheduleTaskRepository;
+      final quantityContext = await schedule.quantityContext(taskId: taskId, projectId: task?.projectId);
+      final known = await schedule.knownItems({for (final row in stored) row['item_id']! as String});
+      if (!mounted) return;
+      _quantities.load(quantityContext, stored: stored, known: known, readOnly: record.knownValidated);
+    }
+    if (!mounted) return;
     setState(() {
       _lookup = lookup;
       _templates = lookup is TemplateReady ? [lookup.info] : const [];
@@ -261,21 +294,10 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           ? null
           : LocationFix(lat: record.lat!, lon: record.lon!, accuracyM: record.accuracyM ?? 0, altitudeM: record.altitudeM);
       _taskId = record.taskId;
+      _originalTaskId = record.taskId;
+      _quantityTask = byQuantities;
       if (record.progressPct != null) _progressController.text = formatProgressPct(record.progressPct!);
     });
-
-    // Costos, pieza 4b: las cantidades del registro, sobre su tarea si sigue en la lista.
-    await _tasksReady;
-    final stored = decodeQuantities(record.quantitiesJson);
-    final taskId = record.taskId;
-    final task = _tasks.where((t) => t.id == taskId).firstOrNull;
-    if (taskId == null || !mounted || (stored.isEmpty && !(task?.measuredByQuantities ?? false))) return;
-    final schedule = dependencies.scheduleTaskRepository;
-    final quantityContext = await schedule.quantityContext(taskId: taskId, projectId: task?.projectId);
-    final known = await schedule.knownItems({for (final row in stored) row['item_id']! as String});
-    if (!mounted) return;
-    _quantities.load(quantityContext, stored: stored, known: known, readOnly: record.knownValidated);
-    setState(() => _quantityTask = true);
   }
 
   @override
@@ -446,8 +468,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           captured: Map.of(_captured),
           extraPhotos: List.of(_extraPhotos),
           fix: _fix,
-          // Un registro validado no toca su tarea ni sus cantidades.
-          progress: _quantityTask && _quantities.readOnly ? null : (value: progress.value),
+          // Un registro validado, o editado sin tocar sus cantidades, no toca su tarea
+          // ni sus cantidades.
+          progress: _keepQuantities ? null : (value: progress.value),
         );
       } else {
         await dependencies.recordCapture.save(

@@ -16,11 +16,15 @@ import 'package:suno/core/auth/auth_result.dart';
 import 'package:suno/core/location/location_source.dart';
 import 'package:suno/core/location/spot_location.dart';
 import 'package:suno/core/providers.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_engine.dart';
+import 'package:suno/core/sync/sync_transport.dart';
 import 'package:suno/data/local/database.dart';
 import 'package:suno/features/capture/capture_screen.dart';
 
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
+import '../../core/sync/fake_sync_transport.dart';
 import '../../support/test_app.dart';
 
 class _FakeSpot implements SpotLocation {
@@ -117,8 +121,31 @@ void main() {
           name: 'Descapote',
           position: 1,
         ),
+        ScheduleTasksCompanion.insert(
+          id: 'task-q2',
+          orgId: 'org-1',
+          userId: 'user-1',
+          projectId: 'p-1',
+          projectName: 'Obra Norte',
+          wbs: '1.4',
+          outlineNumber: '1.4',
+          name: 'Rellenos',
+          position: 2,
+          measuredBy: const Value('quantities'),
+        ),
       ],
       planned: [
+        for (final (position, (id, code)) in [('item-1', '1.1'), ('item-2', '1.2')].indexed)
+          TaskPlannedItemsCompanion.insert(
+            taskId: 'task-q2',
+            itemId: id,
+            code: code,
+            description: 'Ítem $code',
+            unit: 'm3',
+            plannedQuantity: 100,
+            validatedQuantity: 0,
+            position: position,
+          ),
         TaskPlannedItemsCompanion.insert(
           taskId: 'task-q',
           itemId: 'item-1',
@@ -187,7 +214,12 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> insertRecord(List<Map<String, Object?>> quantities, {bool validated = false}) => db
+  Future<void> insertRecord(
+    List<Map<String, Object?>> quantities, {
+    bool validated = false,
+    String taskId = 'task-q',
+    double? pct,
+  }) => db
       .into(db.records)
       .insert(
         RecordsCompanion.insert(
@@ -200,11 +232,22 @@ void main() {
           deviceId: 'device-1',
           createdBy: 'user-1',
           serverDataJson: const Value('{}'),
-          taskId: const Value('task-q'),
+          taskId: Value(taskId),
+          progressPct: Value(pct),
           quantitiesJson: Value(jsonEncode(quantities)),
           knownValidated: Value(validated),
         ),
       );
+
+  Future<Map<String, dynamic>> lastPayload() async {
+    final ops = await db.select(db.outboxOps).get();
+    return jsonDecode(ops.last.payloadJson) as Map<String, dynamic>;
+  }
+
+  Future<void> editAnswer(WidgetTester tester, String text) async {
+    await tester.enterText(find.widgetWithText(TextField, 'Notas'), text);
+    await tester.pumpAndSettle();
+  }
 
   testWidgets('se guardan las cantidades con sus datos automáticos y progress_pct null', (tester) async {
     final dependencies = await buildDependencies();
@@ -326,5 +369,135 @@ void main() {
     expect(rows.first, {'item_id': 'item-1', 'location_id': null, 'quantity': 6.0, 'note': ''});
     expect(rows.last['item_id'], 'item-2');
     expect(rows.last['client_id'], isA<String>());
+  });
+
+  testWidgets('volver a abrir un registro con filas reordenables y cambiar solo una respuesta no reenvía cantidades', (
+    tester,
+  ) async {
+    // Revisión: [A, A', B] se recargaba como [A, B, A'] y la comparación por orden
+    // reenviaba tarea y cantidades (rechazo `record_validated` en uno validado).
+    final dependencies = await buildDependencies();
+    await pumpCapture(tester, dependencies);
+    await pickTask(tester, 'task-q2');
+    await tester.enterText(_byKeyPrefix('quantity_field-').at(0), '1');
+    await tester.pumpAndSettle();
+    await tester.tap(_byKeyPrefix('quantity_add_row-').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(_byKeyPrefix('quantity_field-').at(1), '2');
+    await tester.enterText(_byKeyPrefix('quantity_field-').at(2), '3');
+    await tester.pumpAndSettle();
+    await save(tester);
+    final record = await db.select(db.records).getSingle();
+    expect([for (final row in jsonDecode(record.quantitiesJson) as List) (row as Map)['quantity']], [1.0, 2.0, 3.0]);
+
+    // Otra pantalla, desde cero (guardar cerró la de alta).
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpCapture(tester, dependencies, screen: CaptureScreen(editRecordId: record.id));
+    expect(
+      [for (final w in tester.widgetList<TextFormField>(_byKeyPrefix('quantity_field-'))) w.initialValue],
+      ['1', '2', '3'],
+    );
+    await editAnswer(tester, 'otra nota');
+    await save(tester);
+    final payload = await lastPayload();
+    expect(payload['answers'], {'notas': 'otra nota'});
+    expect(payload.keys, isNot(contains('quantities')));
+    expect(payload.keys, isNot(contains('task_id')));
+  });
+
+  testWidgets('un registro por % de una tarea que ahora se mide por cantidades se sigue editando por %', (
+    tester,
+  ) async {
+    final dependencies = await buildDependencies();
+    await insertRecord(const [], pct: 40);
+    await pumpCapture(tester, dependencies, screen: const CaptureScreen(editRecordId: 'record-1'));
+    expect(find.byKey(const Key('quantity_section')), findsNothing);
+    expect(find.byKey(const Key('capture_progress_field')), findsOneWidget);
+    await editAnswer(tester, 'otra nota');
+    await save(tester);
+    final payload = await lastPayload();
+    expect(payload.keys, isNot(contains('quantities')));
+    expect(payload.keys, isNot(contains('task_id')));
+  });
+
+  testWidgets('sin tocar las cantidades de una tarea que ya no está en la lista, se guarda sin validarlas', (
+    tester,
+  ) async {
+    final dependencies = await buildDependencies();
+    await insertRecord(const [
+      {'item_id': 'item-1', 'location_id': null, 'quantity': 4, 'note': '', 'client_id': 'g-1'},
+    ], taskId: 'task-gone');
+    await pumpCapture(tester, dependencies, screen: const CaptureScreen(editRecordId: 'record-1'));
+    expect(find.byKey(const Key('quantity_section')), findsOneWidget);
+    await editAnswer(tester, 'otra nota');
+    await save(tester);
+    expect(find.text('Escribe una nota: el ítem no está planeado o la cantidad es negativa.'), findsNothing);
+    final payload = await lastPayload();
+    expect(payload['answers'], {'notas': 'otra nota'});
+    expect(payload.keys, isNot(contains('quantities')));
+  });
+
+  testWidgets('quitar la tarea con cantidades escritas pide confirmar y la deja sin tarea', (tester) async {
+    final dependencies = await buildDependencies();
+    await pumpCapture(tester, dependencies);
+    await pickTask(tester, 'task-q');
+    await tester.enterText(_byKeyPrefix('quantity_field-').first, '5');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('capture_task_picker')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('task_picker_none')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quantity_discard_confirm')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('quantity_section')), findsNothing);
+    await save(tester);
+    final record = await db.select(db.records).getSingle();
+    expect((record.taskId, record.quantitiesJson), (null, '[]'));
+  });
+
+  testWidgets('un rechazo record_validated deja la captura del registro de solo lectura', (tester) async {
+    final dependencies = await buildDependencies();
+    final row = {'item_id': 'item-1', 'location_id': null, 'quantity': 4, 'note': '', 'client_id': 'g-1'};
+    await insertRecord([row]);
+    final transport = FakeSyncTransport();
+    var ids = 0;
+    final engine = SyncEngine(db: db, transport: transport, deviceId: 'device-1', idGenerator: () => 'op-${ids++}');
+    await engine.enqueueRecordOp(
+      entityId: 'record-1',
+      opType: 'update',
+      baseVersion: 2,
+      payload: {
+        'id': 'record-1',
+        'task_id': 'task-q',
+        'progress_pct': null,
+        'quantities': [
+          {...row, 'quantity': 5},
+        ],
+      },
+    );
+    final op = await db.select(db.outboxOps).getSingle();
+    transport.pushResponses.add(
+      Result.ok(
+        PushResponse(
+          schemaVersion: 2,
+          results: [
+            PushOpOutcome(
+              opUuid: op.opUuid,
+              status: 'rejected',
+              error: const PushOpError(
+                code: 'validation_error',
+                message: 'Validated.',
+                details: {'field': 'quantities', 'reason': 'record_validated'},
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    await engine.drainOutbox();
+
+    await pumpCapture(tester, dependencies, screen: const CaptureScreen(editRecordId: 'record-1'));
+    expect(find.byKey(const Key('quantity_read_only')), findsOneWidget);
+    expect(tester.widget<TextFormField>(find.byKey(const ValueKey('quantity_field-g-1'))).enabled, isFalse);
   });
 }
