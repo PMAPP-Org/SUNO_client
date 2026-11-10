@@ -2,4 +2,4 @@
 repo=PMAPP-Org/SUNO_server
 # ref: commit de la rama refactor/suno-registro del servidor (PR #60, sin integrar todavía).
 # Al integrar ese PR se cambia por el commit del merge en master.
-ref=1d102145ccdfd83ca0b6f88c66e9d5c577328f0f
+ref=0e6713e70d844060a11712e57caf1300d3c65d92
