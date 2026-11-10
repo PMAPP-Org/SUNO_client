@@ -290,6 +290,7 @@ void main() {
       find.text('El registro ya fue validado: su tarea y % no se pueden cambiar desde el teléfono.'),
       findsOneWidget,
     );
+    expect(find.textContaining('The record was already validated'), findsNothing);
     expect(find.byKey(const Key('review_unlink_task')), findsNothing);
     expect(find.byKey(const Key('review_retry')), findsNothing);
     expect(find.byKey(const Key('review_discard')), findsOneWidget);
@@ -312,6 +313,7 @@ void main() {
     await pump(tester);
 
     expect(find.text('El registro ya fue validado: no se puede borrar desde el teléfono.'), findsOneWidget);
+    expect(find.textContaining('The record was already validated'), findsNothing);
     expect(find.byKey(const Key('review_retry')), findsNothing);
   });
 

@@ -219,7 +219,8 @@ class _ReviewCard extends StatelessWidget {
               isConflict ? l10n.reviewKindConflict : l10n.reviewKindRejected,
               style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.error),
             ),
-            if (isConflict) Text(l10n.reviewConflictExplain) else if (item.message.isNotEmpty) Text(l10n.reviewServerSays(item.message)),
+            // El mensaje del servidor (en inglés) sobra cuando el motivo ya tiene texto propio.
+            if (isConflict) Text(l10n.reviewConflictExplain) else if (item.message.isNotEmpty && !item.recordValidated) Text(l10n.reviewServerSays(item.message)),
             for (final v in item.violations)
               // El registro validado no depende de un campo: el mensaje va solo.
               Text(switch ((v.reason, v.field)) {

@@ -438,9 +438,9 @@
   "formScanQr": "Escanear QR",
   "formQrUnavailable": "No se pudo abrir la cámara. Revisa el permiso o escribe el código manualmente.",
   "formQrRetry": "Reintentar",
-  "formAddRow": "Añadir registro",
-  "formRemoveRow": "Eliminar registro",
-  "formRepeatRow": "Registro {number}",
+  "formAddRow": "Añadir fila",
+  "formRemoveRow": "Eliminar fila",
+  "formRepeatRow": "Fila {number}",
   "@formRepeatRow": {
     "placeholders": {
       "number": {
@@ -464,8 +464,8 @@
   "recordExportSynced": "sincronizado",
   "recordExportRejected": "rechazado",
   "recordExportAttachments": "Las referencias de fotos y firmas identifican los adjuntos. Este informe no incorpora sus archivos.",
-  "formErrorTooFewRows": "Añade los registros mínimos requeridos.",
-  "formErrorTooManyRows": "Hay más registros de los permitidos.",
+  "formErrorTooFewRows": "Añade las filas mínimas requeridas.",
+  "formErrorTooManyRows": "Hay más filas de las permitidas.",
   "recordExportAuthor": "Autor",
   "recordExportVersion": "Versión del formulario",
   "captureTaskSection": "Avance del cronograma",

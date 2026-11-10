@@ -112,11 +112,11 @@ void main() {
     await pumpForm(tester, controller, media: media);
     expect(find.text('Bogotá'), findsOneWidget);
     for (var i = 0; i < 3; i++) {
-      await tester.tap(find.text('Añadir registro'));
+      await tester.tap(find.text('Añadir fila'));
       await tester.pump();
-      await tester.enterText(find.widgetWithText(TextField, 'Nombre').last, 'Fila $i');
+      await tester.enterText(find.widgetWithText(TextField, 'Nombre').last, 'Persona $i');
     }
-    final add = tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Añadir registro'));
+    final add = tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Añadir fila'));
     expect(add.onPressed, isNull);
     await tester.tap(find.text('Escanear QR').first);
     await tester.pumpAndSettle();
@@ -124,13 +124,13 @@ void main() {
     expect(controller.validate(), isFalse);
     await tester.pump();
     expect(controller.displayedErrors.keys, containsAll(['rows.1.code', 'rows.2.code']));
-    await tester.tap(find.byTooltip('Eliminar registro').at(1));
+    await tester.tap(find.byTooltip('Eliminar fila').at(1));
     await tester.pump();
-    expect(find.text('Fila 1'), findsNothing);
-    expect(find.text('Fila 2'), findsOneWidget);
+    expect(find.text('Persona 1'), findsNothing);
+    expect(find.text('Persona 2'), findsOneWidget);
     final rows = controller.valueOf('rows')! as List<Object?>;
     expect(rows.length, 2);
-    expect((rows.last! as Map<String, Object?>)['name'], 'Fila 2');
+    expect((rows.last! as Map<String, Object?>)['name'], 'Persona 2');
     await tester.tap(find.text('Escanear QR').last);
     await tester.pumpAndSettle();
     expect(controller.validate(), isTrue);
