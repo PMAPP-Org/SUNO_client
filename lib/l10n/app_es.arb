@@ -512,10 +512,85 @@
   "formErrorTaskIsSummary": "Elige una tarea de detalle, no un resumen.",
   "formErrorNotResponsible": "Ya no eres responsable de esta tarea.",
   "formErrorTaskProgressPair": "La tarea y el % de avance van juntos.",
-  "formErrorRecordValidated": "El registro ya fue validado: su tarea y % no se pueden cambiar desde el teléfono.",
+  "formErrorRecordValidated": "El registro ya fue validado: su tarea, su % y sus cantidades no se pueden cambiar desde el teléfono.",
   "formErrorRecordValidatedDelete": "El registro ya fue validado: no se puede borrar desde el teléfono.",
   "formErrorTaskUnknown": "La tarea ya no existe en el cronograma.",
   "reviewUnlinkTask": "Quitar la tarea y reenviar",
+  "quantitySectionTitle": "Cantidades de hoy",
+  "quantityToday": "Cantidad hoy",
+  "quantityPlannedValidated": "Planeado {planned} {unit} · validado {validated} {unit}",
+  "@quantityPlannedValidated": {
+    "placeholders": { "planned": { "type": "String" }, "validated": { "type": "String" }, "unit": { "type": "String" } }
+  },
+  "quantityUnplanned": "No planeado en esta tarea",
+  "quantityInvalid": "Escribe un número con hasta 4 decimales.",
+  "quantityOverrun": "Con lo validado llega a {total} {unit} y supera lo planeado ({planned} {unit}). Se guardará y la supervisión lo verá marcado.",
+  "@quantityOverrun": {
+    "placeholders": { "total": { "type": "String" }, "planned": { "type": "String" }, "unit": { "type": "String" } }
+  },
+  "quantityAdjustment": "Cantidad negativa: se registra como ajuste y necesita nota.",
+  "quantityLocation": "Ubicación",
+  "quantityLocationTask": "La de la tarea",
+  "quantityLocationTaskNamed": "La de la tarea ({label})",
+  "@quantityLocationTaskNamed": {
+    "placeholders": { "label": { "type": "String" } }
+  },
+  "quantityLocationRefined": "Ubicación precisada",
+  "quantityNote": "Nota (opcional)",
+  "quantityNoteRequiredLabel": "Nota (obligatoria)",
+  "quantityNoteRequired": "Escribe una nota: el ítem no está planeado o la cantidad es negativa.",
+  "quantityNoteTooLong": "La nota admite hasta 500 caracteres.",
+  "quantityAddRow": "Otra fila de este ítem",
+  "quantityRemoveRow": "Quitar fila",
+  "quantityReassign": "Cambiar ítem",
+  "quantityAddUnplanned": "Agregar ítem no planeado",
+  "quantityNoneEntered": "Escribe al menos una cantidad distinta de 0.",
+  "quantityTooManyRows": "Un registro admite hasta {max} filas de cantidad.",
+  "@quantityTooManyRows": {
+    "placeholders": { "max": { "type": "int" } }
+  },
+  "quantityReadOnly": "El registro ya fue validado: sus cantidades no se pueden cambiar.",
+  "quantityRowFlagged": "El servidor rechazó esta fila: cambia el ítem o la ubicación, o quítala.",
+  "quantityItemSearch": "Buscar por código o descripción",
+  "quantityItemEmpty": "No hay ítems que coincidan.",
+  "quantityDiscardTitle": "¿Cambiar de tarea?",
+  "quantityDiscardBody": "Se descartarán las cantidades que escribiste para esta tarea.",
+  "quantityDiscardConfirm": "Sí, cambiar",
+  "quantityCorrectionTitle": "Corregir cantidades",
+  "quantityCorrectionExplain": "El servidor rechazó las filas señaladas. Cambia su ítem o su ubicación, o quítalas; al guardar, el registro se reenvía.",
+  "quantityLineValue": "{quantity} {unit}",
+  "@quantityLineValue": {
+    "placeholders": { "quantity": { "type": "String" }, "unit": { "type": "String" } }
+  },
+  "quantityLineLocation": "Ubicación: {location}",
+  "@quantityLineLocation": {
+    "placeholders": { "location": { "type": "String" } }
+  },
+  "quantityLineNote": "Nota: {note}",
+  "@quantityLineNote": {
+    "placeholders": { "note": { "type": "String" } }
+  },
+  "formErrorItemNotInProject": "El ítem no es del presupuesto del proyecto de la tarea.",
+  "formErrorLocationOutsideTask": "La ubicación no es del proyecto de la tarea.",
+  "formErrorDuplicateClientId": "Dos filas de cantidad tienen el mismo identificador.",
+  "reviewCorrectQuantities": "Corregir cantidades",
+  "reviewQuantityItemRow": "Fila del ítem {code}: el ítem no es del presupuesto del proyecto.",
+  "@reviewQuantityItemRow": {
+    "placeholders": { "code": { "type": "String" } }
+  },
+  "reviewQuantityLocationRow": "Fila del ítem {code}: la ubicación no es del proyecto de la tarea.",
+  "@reviewQuantityLocationRow": {
+    "placeholders": { "code": { "type": "String" } }
+  },
+  "reviewQuantityUnknownItem": "sin código",
+  "reviewQuantityRows": "{count, plural, =1{1 fila} other{{count} filas}}",
+  "@reviewQuantityRows": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "recordExportQuantities": "Cantidades",
+  "recordExportItem": "Ítem",
+  "recordExportQuantity": "Cantidad",
+  "recordExportNote": "Nota",
   "loginHandoverBlockedReadings": "{count, plural, =1{Este teléfono tiene 1 lectura de medidor sin enviar de otro usuario.} other{Este teléfono tiene {count} lecturas de medidor sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
   "@loginHandoverBlockedReadings": {
     "placeholders": { "count": { "type": "int" } }
