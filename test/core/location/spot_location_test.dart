@@ -37,4 +37,27 @@ void main() {
     expect(await spot.read(), isNull);
     expect(source.reads, 2);
   });
+
+  test('dos filas a la vez comparten la misma lectura en curso', () async {
+    final source = _CountingSpot(const LocationFix(lat: 4.6, lon: -74.08, accuracyM: 7));
+    final spot = CachedSpotLocation(source);
+    final results = await Future.wait([spot.read(), spot.read()]);
+    expect(source.reads, 1);
+    expect([for (final fix in results) fix?.accuracyM], [7, 7]);
+  });
+
+  test('una lectura simulada, no finita, fuera de rango o con precisión negativa no vale', () {
+    const good = LocationFix(lat: 4.6, lon: -74.08, accuracyM: 7);
+    expect(usableSpotFix(good), same(good));
+    for (final bad in [
+      const LocationFix(lat: 4.6, lon: -74.08, accuracyM: 7, isMocked: true),
+      const LocationFix(lat: double.nan, lon: -74.08, accuracyM: 7),
+      const LocationFix(lat: 4.6, lon: double.infinity, accuracyM: 7),
+      const LocationFix(lat: 4.6, lon: -74.08, accuracyM: -1),
+      const LocationFix(lat: 4.6, lon: -74.08, accuracyM: double.nan),
+      const LocationFix(lat: 91, lon: -74.08, accuracyM: 7),
+    ]) {
+      expect(usableSpotFix(bad), isNull, reason: '${bad.lat} ${bad.lon} ${bad.accuracyM} ${bad.isMocked}');
+    }
+  });
 }

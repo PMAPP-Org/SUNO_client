@@ -22,12 +22,15 @@ class GeolocatorSpotLocation implements SpotLocation {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: LocationSettings(accuracy: LocationAccuracy.high, timeLimit: timeLimit),
       );
-      return LocationFix(
-        lat: position.latitude,
-        lon: position.longitude,
-        accuracyM: position.accuracy,
-        altitudeM: position.altitude,
-        isMocked: position.isMocked,
+      // Simulada, no finita o con precisión negativa: la fila va sin GPS.
+      return usableSpotFix(
+        LocationFix(
+          lat: position.latitude,
+          lon: position.longitude,
+          accuracyM: position.accuracy,
+          altitudeM: position.altitude,
+          isMocked: position.isMocked,
+        ),
       );
     } on Exception {
       // Tiempo agotado, servicio apagado a mitad, permiso revocado: la fila va sin GPS.
