@@ -300,6 +300,13 @@ class SyncEngine {
                   ),
                 ),
               );
+          // Costos, pieza 4b: el servidor dice que el registro ya está validado; desde
+          // ahora la captura muestra sus cantidades de solo lectura.
+          if (row.entity == 'record' && fields.any((f) => f.reason == 'record_validated')) {
+            await (db.update(db.records)..where((t) => t.id.equals(row.entityId))).write(
+              const RecordsCompanion(knownValidated: Value(true)),
+            );
+          }
           quarantined++;
         } else {
           // Estado que el contrato no documenta: tampoco se descarta en
@@ -455,6 +462,10 @@ class SyncEngine {
       // Costos, etapa 1. Un servidor anterior no envía las claves: `null`.
       taskId: Value(serverRow['task_id'] as String?),
       progressPct: Value((serverRow['progress_pct'] as num?)?.toDouble()),
+      // Costos, pieza 4b: tal como llegan (forma `RecordQuantity`, con los datos
+      // automáticos en `null` si la fila no los tiene: se reenvían igual). Un servidor
+      // anterior no envía la clave: `[]`. `knownValidated` no viaja: un pull no la toca.
+      quantitiesJson: Value(jsonEncode(serverRow['quantities'] ?? const <Object?>[])),
     );
     if (!overwrite && await _hasLocalChanges(id, except: confirmedBy)) {
       await (db.update(db.records)..where((t) => t.id.equals(id))).write(
