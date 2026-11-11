@@ -130,6 +130,7 @@ adb logcat -s flutter:I >"$WORK/logcat.log" 2>/dev/null &
 LOGCAT_PID=$!
 offline=0
 approved=0
+broken=0
 while kill -0 "$TEST_PID" 2>/dev/null; do
   if [[ $offline -eq 0 ]] && grep -q 'E2E:READY_FOR_OFFLINE' "$WORK/logcat.log"; then
     log "Modo avión: ON"
@@ -152,6 +153,17 @@ print("registro", record.pk, "validado")
 ' || die "No se pudo validar el registro $RUN_ID."
     approved=1
   fi
+  if [[ $FLOW == quantities && $broken -eq 0 ]] && grep -q 'E2E:BREAK_ITEM' "$WORK/logcat.log"; then
+    # Rechazo forzado: el 1.2 pasa a capítulo en la versión aplicada del presupuesto.
+    log "Volviendo capítulo el ítem 1.2 (rechazo item_not_in_project)"
+    "${COMPOSE[@]}" exec -T -e E2E_MARKER="$RUN_ID" api python manage.py shell -c '
+import os
+from suno.core.models import BudgetItemVersion
+rows = BudgetItemVersion.objects.filter(item__code="1.2", item__budget__project__org__name="E2E " + os.environ["E2E_MARKER"])
+print("filas", rows.update(kind="chapter", quantity=None, unit_price=None))
+' || die "No se pudo volver capítulo el ítem 1.2."
+    broken=1
+  fi
   if [[ -n "$SHOTS" ]]; then
     while IFS= read -r shot; do
       [[ -f "$SHOTS/$shot.png" ]] && continue
@@ -169,6 +181,7 @@ tail -n 25 "$WORK/flutter.log"
 grep -q 'E2E:SYNCED' "$WORK/logcat.log" || die "La prueba terminó sin la marca E2E:SYNCED."
 if [[ $FLOW == quantities ]]; then
   grep -q 'E2E:VALIDATED_SEEN' "$WORK/logcat.log" || die "La prueba terminó sin ver lo validado en la tarea."
+  grep -q 'E2E:CORRECTED' "$WORK/logcat.log" || die "La prueba terminó sin corregir el registro rechazado."
 fi
 
 # --- Verificación en el servidor ---------------------------------------------
@@ -214,4 +227,21 @@ for r in rows:
     print("fila", r["item_id"], r["quantity"], repr(r["note"]), r.get("location_mode"), "gps" if r.get("gps") else "sin gps")
 sys.exit(0 if ok else 1)
 ' || die "El registro $RUN_ID no está en el servidor como se esperaba (12,5 y 3 m3, validado)."
+  log "Verificando el registro rechazado y corregido"
+  "${COMPOSE[@]}" exec -T -e E2E_MARKER="$RUN_ID" api python manage.py shell -c '
+import os, sys
+from suno.core.models import BudgetItem, Record
+marker = os.environ["E2E_MARKER"] + "-r"
+records = list(Record.objects.filter(answers__notas=marker, deleted_at__isnull=True))
+rows = records[0].quantities if len(records) == 1 else []
+codes = {str(i.pk): i.code for i in BudgetItem.objects.filter(pk__in=[r["item_id"] for r in rows])}
+ok = (
+    len(records) == 1
+    and [(codes.get(r["item_id"]), r["quantity"], r["note"]) for r in rows] == [("1.1", "2.0000", "rechazo E2E")]
+    and all(r.get("client_id") for r in rows)
+)
+for r in rows:
+    print("fila corregida", codes.get(r["item_id"]), r["quantity"], repr(r["note"]))
+sys.exit(0 if ok else 1)
+' || die "El registro corregido $RUN_ID-r no está en el servidor con su fila en el 1.1."
 fi

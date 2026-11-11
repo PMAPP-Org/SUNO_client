@@ -181,6 +181,7 @@ void main() {
     await pumpReview(tester);
     expect(find.text('Fila del ítem 9.9: el ítem no es del presupuesto del proyecto.'), findsOneWidget);
     expect(find.text('Cantidades: El ítem no es del presupuesto del proyecto de la tarea.'), findsOneWidget);
+    expect(find.textContaining('measurable item'), findsNothing, reason: 'el motivo ya tiene texto propio');
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const Key('review_correct_quantities')));

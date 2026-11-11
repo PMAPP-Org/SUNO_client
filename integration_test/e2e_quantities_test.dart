@@ -96,7 +96,7 @@ void main() {
     await tester.ensureVisible(find.text('Cantidades'));
     await tester.pump();
     await _shot(tester, 'detalle-registro');
-    await tester.pageBack();
+    await _back(tester, find.text('Cantidades'));
     await _pumpUntil(tester, find.byKey(const Key('home_new_record_button')));
     _mark('SYNCED');
 
@@ -111,14 +111,80 @@ void main() {
       await _pumpUntil(tester, find.textContaining('Planeado 100 m3'));
       if (find.textContaining('validado 12,5 m3').evaluate().isNotEmpty) break;
       if (DateTime.now().isAfter(validated)) fail('La tarea no mostró lo validado en 180 s');
-      await tester.pageBack();
+      await _back(tester, find.byKey(const Key('capture_save_button')));
       await _pumpUntil(tester, find.byKey(const Key('home_new_record_button')));
     }
     await tester.ensureVisible(find.textContaining('validado 12,5 m3'));
     await tester.pump();
     await _shot(tester, 'tarea-validada');
     _mark('VALIDATED_SEEN');
+    await _back(tester, find.byKey(const Key('capture_save_button')));
+    await _pumpUntil(tester, find.byKey(const Key('home_new_record_button')));
+
+    // Rechazo y corrección: el script vuelve capítulo el 1.2 en el servidor; el teléfono
+    // todavía lo tiene en su catálogo, así que el registro sale y vuelve rechazado
+    // (`item_not_in_project`). Se corrige en "Para revisar" pasando la fila al 1.1.
+    _mark('BREAK_ITEM');
+    await _pumpFor(tester, const Duration(seconds: 20));
+    await _tapVisible(tester, find.byKey(const Key('home_new_record_button')));
+    await _pumpUntil(tester, find.byKey(const Key('capture_save_button')));
+    await tester.enterText(
+      find.descendant(of: find.byKey(const ValueKey('form-field-notas')), matching: find.byType(TextField)),
+      '$_marker-r',
+    );
+    await _pickExcavation(tester);
+    await _tapVisible(tester, find.byKey(const Key('quantity_add_unplanned')));
+    await _pumpUntil(tester, find.byKey(const Key('quantity_item_search')));
+    await _tapVisible(tester, find.textContaining('Retiro de sobrantes'));
+    await _pumpUntil(tester, find.text('No planeado en esta tarea'));
+    await tester.enterText(_byKeyPrefix('quantity_field-').last, '2');
+    await tester.enterText(_byKeyPrefix('quantity_note-').last, 'rechazo E2E');
+    await tester.pump();
+    await _tapVisible(tester, find.byKey(const Key('capture_save_button')));
+    await _pumpUntil(tester, find.byKey(const Key('home_new_record_button')));
+
+    final rejected = DateTime.now().add(const Duration(seconds: 120));
+    while (find.byKey(const Key('home_review_button')).evaluate().isEmpty) {
+      if (DateTime.now().isAfter(rejected)) fail('El registro no llegó a "Para revisar" en 120 s');
+      await _tapVisible(tester, find.byKey(const Key('home_sync_button')));
+      await _pumpFor(tester, const Duration(seconds: 10));
+    }
+    // Una sincronización más: el catálogo ya sin el 1.2 señala la fila.
+    await _tapVisible(tester, find.byKey(const Key('home_sync_button')));
+    await _pumpFor(tester, const Duration(seconds: 10));
+    await _tapVisible(tester, find.byKey(const Key('home_review_button')));
+    await _pumpUntil(tester, find.byKey(const Key('review_correct_quantities')));
+    await _pumpUntil(tester, find.textContaining('Fila del ítem 1.2'));
+    await _shot(tester, 'revision-rechazo');
+    await _tapVisible(tester, find.byKey(const Key('review_correct_quantities')));
+    await _pumpUntil(tester, find.byKey(const Key('quantity_correction_save')));
+    await _pumpUntil(tester, _byKeyPrefix('quantity_reassign-'));
+    await tester.ensureVisible(_byKeyPrefix('quantity_reassign-').first);
+    await tester.pump();
+    await _shot(tester, 'correccion-cantidades');
+    await _tapVisible(tester, _byKeyPrefix('quantity_reassign-').first);
+    await _pumpUntil(tester, find.byKey(const Key('quantity_item_search')));
+    await _tapVisible(tester, find.textContaining('Excavación mecánica').last);
+    await _pumpFor(tester, const Duration(seconds: 1));
+    await _tapVisible(tester, find.byKey(const Key('quantity_correction_save')));
+    await _pumpUntil(tester, find.byKey(const Key('review_empty')));
+    await _back(tester, find.byKey(const Key('review_empty')));
+    await _pumpUntil(tester, find.byKey(const Key('home_new_record_button')));
+
+    final corrected = DateTime.now().add(const Duration(seconds: 120));
+    while (_chip('Sincronizado').evaluate().length < 2) {
+      if (DateTime.now().isAfter(corrected)) fail('El registro corregido no pasó a Sincronizado en 120 s');
+      await _tapVisible(tester, find.byKey(const Key('home_sync_button')));
+      await _pumpFor(tester, const Duration(seconds: 10));
+    }
+    _mark('CORRECTED');
   });
+}
+
+/// Cierra la pantalla que contiene [inside].
+Future<void> _back(WidgetTester tester, Finder inside) async {
+  await Navigator.of(tester.element(inside.first)).maybePop();
+  await tester.pump();
 }
 
 Future<void> _pickExcavation(WidgetTester tester) async {

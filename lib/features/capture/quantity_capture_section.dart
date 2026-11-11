@@ -12,6 +12,7 @@ import '../../core/schedule/quantity_rows.dart';
 import '../../data/local/schedule_task_repository.dart' show foldForSearch;
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_tokens.dart';
+import '../../ui/widgets/app_page_body.dart';
 
 class QuantityCaptureController extends ChangeNotifier {
   QuantityCaptureController({required this._newId, required this._readGps, DateTime Function()? clock})
@@ -332,6 +333,7 @@ class _QuantityRowCard extends StatelessWidget {
               style: theme.textTheme.bodySmall,
             ),
             if (flagged) Text(l10n.quantityRowFlagged, key: ValueKey('quantity_flagged-$id'), style: warning),
+            const AppGap.sm(),
             TextFormField(
               key: ValueKey('quantity_field-$id'),
               initialValue: row.text,
@@ -359,6 +361,7 @@ class _QuantityRowCard extends StatelessWidget {
               ),
             if (row.isAdjustment)
               Text(l10n.quantityAdjustment, key: ValueKey('quantity_adjustment-$id'), style: theme.textTheme.bodySmall),
+            const AppGap.sm(),
             if (task.refinements.isNotEmpty || !atTask)
               DropdownButtonFormField<String>(
                 key: ValueKey('quantity_location-$id'),
@@ -394,6 +397,8 @@ class _QuantityRowCard extends StatelessWidget {
               )
             else if (taskLocation != null)
               Text(taskLabel, style: theme.textTheme.bodySmall),
+            // Aire entre campos: la etiqueta flotante del siguiente no pisa la ayuda.
+            const AppGap.sm(),
             TextFormField(
               key: ValueKey('quantity_note-$id'),
               initialValue: row.note,
