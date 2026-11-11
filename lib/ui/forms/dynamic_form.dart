@@ -111,6 +111,10 @@ String formErrorMessage(AppLocalizations l10n, String reason) => switch (reason)
   'not_responsible' => l10n.formErrorNotResponsible,
   'task_progress_pair' => l10n.formErrorTaskProgressPair,
   'record_validated' => l10n.formErrorRecordValidated,
+  // Costos, pieza 4b: rechazos de las filas de cantidad.
+  'item_not_in_project' => l10n.formErrorItemNotInProject,
+  'location_outside_task' => l10n.formErrorLocationOutsideTask,
+  'duplicate_client_id' => l10n.formErrorDuplicateClientId,
   'greater_than_equal' || 'less_than_equal' => l10n.formErrorOutOfRange,
   _ => l10n.formErrorInvalid,
 };

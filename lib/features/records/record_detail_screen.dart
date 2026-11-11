@@ -20,6 +20,7 @@ import '../../core/forms/form_definition.dart';
 import '../../core/forms/geometry.dart';
 import '../../core/location/coordinate_system.dart';
 import '../../core/providers.dart';
+import '../../core/schedule/quantity_rows.dart';
 import '../../data/local/form_template_repository.dart';
 import '../../data/local/record_status_repository.dart';
 import '../../l10n/l10n.dart';
@@ -70,6 +71,15 @@ class _RecordDetailScreenState extends ConsumerState<RecordDetailScreen> {
               attachmentsNote: l10n.recordExportAttachments,
               authorLabel: l10n.recordExportAuthor,
               versionLabel: l10n.recordExportVersion,
+              quantityLabels: QuantityTableLabels(
+                title: l10n.recordExportQuantities,
+                item: l10n.recordExportItem,
+                location: l10n.quantityLocation,
+                quantity: l10n.recordExportQuantity,
+                note: l10n.recordExportNote,
+                taskLocation: l10n.quantityLocationTask,
+                refinedLocation: l10n.quantityLocationRefined,
+              ),
             )
           : recordGeoJson(detail, loaded!.definition, roles: identity.roles);
       if (!mounted) return;
@@ -281,6 +291,31 @@ class _Body extends StatelessWidget {
                 label: field.label.resolve(locale),
                 value: _value(context, field, answers[field.key], attachments, locale),
               ),
+        // Costos, pieza 4b: un bloque por fila para no desbordar en un teléfono.
+        if (detail.quantities.isNotEmpty) ...[
+          const AppGap.lg(),
+          Text(l10n.quantitiesTitle, style: theme.textTheme.titleSmall),
+          const AppGap.sm(),
+          for (final (index, line) in detail.quantities.indexed)
+            _Answer(
+              key: ValueKey('record_quantity-$index'),
+              label: line.label,
+              value: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(withUnit(line.quantity, line.unit)),
+                  Text(
+                    l10n.quantityLineLocation(
+                      line.locationId == null
+                          ? l10n.quantityLocationTask
+                          : line.locationLabel ?? l10n.quantityLocationRefined,
+                    ),
+                  ),
+                  if (line.note.isNotEmpty) Text(l10n.quantityLineNote(line.note)),
+                ],
+              ),
+            ),
+        ],
         if (_extraPhotos(answers, attachments).isNotEmpty) ...[
           const AppGap.lg(),
           Text(l10n.recordExtraPhotos, style: theme.textTheme.titleSmall),
@@ -404,7 +439,7 @@ class _Body extends StatelessWidget {
 }
 
 class _Answer extends StatelessWidget {
-  const _Answer({required this.label, required this.value});
+  const _Answer({super.key, required this.label, required this.value});
 
   final String label;
   final Widget value;

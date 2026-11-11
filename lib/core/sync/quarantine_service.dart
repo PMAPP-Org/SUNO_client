@@ -23,6 +23,7 @@ import 'package:meta/meta.dart';
 import '../../data/local/database.dart';
 import '../../data/local/schedule_task_repository.dart';
 import '../schedule/progress_input.dart';
+import '../schedule/quantity_rows.dart';
 import 'sync_engine.dart';
 import 'sync_transport.dart';
 
@@ -30,6 +31,20 @@ enum QuarantineKind { conflict, rejected }
 
 /// Un campo que difiere entre la versión del agente y la del servidor.
 typedef FieldDiff = ({String field, Object? mine, Object? server});
+
+/// Costos, pieza 4b: motivos de rechazo de una fila de cantidad que se corrigen
+/// reasignando el ítem o la ubicación, o quitando la fila.
+const quantityRejectionReasons = {'item_not_in_project', 'location_outside_task'};
+
+/// Una fila de cantidad que el servidor rechazó, identificada en el teléfono (el rechazo
+/// no dice cuál): su posición en `Records.quantitiesJson`, el código del ítem (`''` si no
+/// se conoce) y el motivo.
+typedef QuantityFlag = ({int index, String code, String reason});
+
+List<Map<String, Object?>> _quantitiesOf(Object? value) => [
+  for (final row in value is List ? value : const [])
+    if (row is Map) row.cast<String, Object?>(),
+];
 
 @immutable
 class QuarantinedRecord {
@@ -43,6 +58,7 @@ class QuarantinedRecord {
     required this.serverData,
     required this.ops,
     this.taskLabels = const {},
+    this.quantityFlags = const [],
   });
 
   /// El registro tal como está en el teléfono (la versión del agente).
@@ -74,12 +90,23 @@ class QuarantinedRecord {
   /// Etiqueta (EDT y nombre) de las tareas conocidas en el teléfono, por id.
   final Map<String, String> taskLabels;
 
-  /// ¿El agente editó la tarea o el % de este registro? Solo entonces su
-  /// versión los lleva; si no, "enviar la mía" respeta lo que tenga el servidor.
+  /// Costos, pieza 4b: las filas de cantidad señaladas.
+  final List<QuantityFlag> quantityFlags;
+
+  /// El servidor rechazó una fila de cantidad (ítem o ubicación): se corrige en
+  /// `QuantityCorrectionScreen`. No si el registro ya está validado.
+  bool get quantityRejected =>
+      kind == QuarantineKind.rejected &&
+      !recordValidated &&
+      violations.any((v) => v.field == 'quantities' && quantityRejectionReasons.contains(v.reason));
+
+  /// ¿El agente editó la tarea, el % o las cantidades de este registro? Solo entonces
+  /// su versión los lleva; si no, "enviar la mía" respeta lo que tenga el servidor.
   bool get editedTask => ops.any((op) {
     if (op.entity != 'record' || op.opType == 'delete') return false;
     final payload = jsonDecode(op.payloadJson);
-    return payload is Map && (payload.containsKey('task_id') || payload.containsKey('progress_pct'));
+    return payload is Map &&
+        (payload.containsKey('task_id') || payload.containsKey('progress_pct') || payload.containsKey('quantities'));
   });
 
   Map<String, Object?> get localAnswers => (jsonDecode(record.answersJson) as Map).cast<String, Object?>();
@@ -129,6 +156,9 @@ class QuarantinedRecord {
       if (!_sameJson(record.progressPct, serverPct is num ? serverPct.toDouble() : serverPct)) {
         diffs.add((field: 'progress_pct', mine: pct(record.progressPct), server: pct(serverPct)));
       }
+      final mine = _quantitiesOf(jsonDecode(record.quantitiesJson));
+      final theirs = _quantitiesOf(server['quantities']);
+      if (!sameQuantities(mine, theirs)) diffs.add((field: 'quantities', mine: mine, server: theirs));
     }
     return diffs;
   }
@@ -190,7 +220,13 @@ class QuarantineService {
 
     return [
       for (final record in records)
-        _describe(record, names[record.templateVersionId], byRecord[record.id]!, taskLabels),
+        _describe(
+          record,
+          names[record.templateVersionId],
+          byRecord[record.id]!,
+          taskLabels,
+          await _quantityFlags(record, byRecord[record.id]!),
+        ),
     ];
   }
 
@@ -223,12 +259,13 @@ class QuarantineService {
     }
   });
 
-  /// Rechazo por la tarea: el registro se queda sin tarea y se reenvía. En un
-  /// alta los dos campos se quitan; en una edición viajan en `null`
-  /// (desvincular, que no exige ser responsable).
+  /// Rechazo por la tarea: el registro se queda sin tarea ni cantidades y se reenvía.
+  /// En un alta los campos se quitan; en una edición el par viaja en `null`
+  /// (desvincular, que no exige ser responsable) y sin cantidades (un `update` con el
+  /// par en `null` deja las cantidades vacías en el servidor).
   Future<void> unlinkTask(QuarantinedRecord item) => db.transaction(() async {
     await (db.update(db.records)..where((t) => t.id.equals(item.record.id))).write(
-      const RecordsCompanion(taskId: Value(null), progressPct: Value(null)),
+      const RecordsCompanion(taskId: Value(null), progressPct: Value(null), quantitiesJson: Value('[]')),
     );
     for (final op in item.ops) {
       if (op.entity == 'record' && op.opType != 'delete') {
@@ -236,10 +273,14 @@ class QuarantineService {
         if (op.opType == 'create') {
           payload
             ..remove('task_id')
-            ..remove('progress_pct');
-        } else if (payload.containsKey('task_id') || payload.containsKey('progress_pct')) {
+            ..remove('progress_pct')
+            ..remove('quantities');
+        } else if (payload.containsKey('task_id') ||
+            payload.containsKey('progress_pct') ||
+            payload.containsKey('quantities')) {
           payload['task_id'] = null;
           payload['progress_pct'] = null;
+          payload.remove('quantities');
         }
         await (db.update(db.outboxOps)..where((t) => t.opUuid.equals(op.opUuid))).write(
           OutboxOpsCompanion(payloadJson: Value(jsonEncode(payload))),
@@ -262,14 +303,73 @@ class QuarantineService {
     for (final op in later) {
       if (quarantined.contains(op.opUuid)) continue;
       final payload = (jsonDecode(op.payloadJson) as Map).cast<String, Object?>();
-      if (!payload.containsKey('task_id') && !payload.containsKey('progress_pct')) continue;
+      if (!payload.containsKey('task_id') &&
+          !payload.containsKey('progress_pct') &&
+          !payload.containsKey('quantities')) {
+        continue;
+      }
       payload['task_id'] = null;
       payload['progress_pct'] = null;
+      payload.remove('quantities');
       await (db.update(db.outboxOps)..where((t) => t.opUuid.equals(op.opUuid))).write(
         OutboxOpsCompanion(payloadJson: Value(jsonEncode(payload))),
       );
     }
   });
+
+  /// Costos, pieza 4b: corrige las cantidades de un registro rechazado (ítem o ubicación
+  /// reasignados, filas quitadas) y reenvía el grupo. [rows] son las filas ya corregidas
+  /// (`RecordQuantityPayload`).
+  Future<void> correctQuantities(QuarantinedRecord item, List<Map<String, Object?>> rows) =>
+      db.transaction(() async {
+        await (db.update(db.records)..where((t) => t.id.equals(item.record.id))).write(
+          RecordsCompanion(quantitiesJson: Value(jsonEncode(rows))),
+        );
+        for (final op in item.ops) {
+          if (op.entity == 'record' && op.opType != 'delete') {
+            final payload = (jsonDecode(op.payloadJson) as Map).cast<String, Object?>();
+            if (payload.containsKey('quantities')) {
+              payload['quantities'] = rows;
+              await (db.update(db.outboxOps)..where((t) => t.opUuid.equals(op.opUuid))).write(
+                OutboxOpsCompanion(payloadJson: Value(jsonEncode(payload))),
+              );
+            }
+          }
+          await engine.retryQuarantined(op.opUuid);
+        }
+      });
+
+  /// Las filas que el servidor pudo rechazar por [ops]: el rechazo solo dice el motivo,
+  /// así que se buscan con lo que sabe el teléfono. `item_not_in_project`: ítem que no
+  /// está ni en el plan de la tarea ni en el catálogo de su proyecto.
+  /// `location_outside_task`: ubicación que no es una de las opciones de la tarea.
+  Future<List<QuantityFlag>> _quantityFlags(Record record, List<OutboxOp> ops) async {
+    final reasons = {
+      for (final op in ops)
+        for (final v in _violations(op.errorFieldsJson))
+          if (v.field == 'quantities' && quantityRejectionReasons.contains(v.reason)) v.reason,
+    };
+    final taskId = record.taskId;
+    if (reasons.isEmpty || taskId == null) return const [];
+    final rows = decodeQuantities(record.quantitiesJson);
+    final schedule = ScheduleTaskRepository(db);
+    final task = await schedule.byId(taskId);
+    final context = await schedule.quantityContext(taskId: taskId, projectId: task?.projectId);
+    final known = await schedule.knownItems({for (final row in rows) row['item_id']! as String});
+    final measurable = {for (final i in context.allItems) i.itemId};
+    final locations = {for (final l in context.locations) l.id};
+    String code(Map<String, Object?> row) => known[row['item_id']]?.code ?? '';
+    return [
+      for (final (index, row) in rows.indexed) ...[
+        if (reasons.contains('item_not_in_project') && !measurable.contains(row['item_id']))
+          (index: index, code: code(row), reason: 'item_not_in_project'),
+        if (reasons.contains('location_outside_task') &&
+            row['location_id'] is String &&
+            !locations.contains(row['location_id']))
+          (index: index, code: code(row), reason: 'location_outside_task'),
+      ],
+    ];
+  }
 
   /// Conflicto: la versión del agente gana. Se envía como `update` sobre la
   /// versión **actual** del servidor (su `version` como `base_version`), con
@@ -302,6 +402,9 @@ class QuarantineService {
           );
       return;
     }
+    // Tal como están guardadas: una fila sin datos automáticos (del pull) se reenvía
+    // sin ellos.
+    final localQuantities = decodeQuantities(record.quantitiesJson);
     final changed = <String, Object?>{};
     if (!_sameJson(item.localAnswers, server['answers'])) changed['answers'] = item.localAnswers;
     for (final (key, mine) in [
@@ -314,10 +417,20 @@ class QuarantineService {
     ]) {
       if (!_sameJson(mine, server[key])) changed[key] = mine;
     }
-    // El servidor exige `task_id` y `progress_pct` juntos.
-    if (changed.containsKey('task_id') || changed.containsKey('progress_pct')) {
+    // Costos, pieza 4b: las cantidades, si el agente las editó y difieren.
+    if (item.editedTask && !sameQuantities(localQuantities, _quantitiesOf(server['quantities']))) {
+      changed['quantities'] = localQuantities;
+    }
+    // El servidor exige `task_id` y `progress_pct` juntos; las cantidades viajan con ellos
+    // (sin la clave, el servidor deja la lista vacía).
+    if (changed.containsKey('task_id') || changed.containsKey('progress_pct') || changed.containsKey('quantities')) {
       changed['task_id'] = record.taskId;
       changed['progress_pct'] = record.progressPct;
+      if (localQuantities.isEmpty) {
+        changed.remove('quantities');
+      } else {
+        changed['quantities'] = localQuantities;
+      }
     }
     if (changed.isEmpty) {
       await _acceptServer(item, server);
@@ -426,6 +539,7 @@ class QuarantineService {
     String? templateName,
     List<OutboxOp> ops,
     Map<String, String> taskLabels,
+    List<QuantityFlag> quantityFlags,
   ) {
     final recordOp = ops.where((op) => op.entity == 'record').firstOrNull;
     final lead = recordOp ?? ops.first;
@@ -443,6 +557,7 @@ class QuarantineService {
           : null,
       ops: ops,
       taskLabels: taskLabels,
+      quantityFlags: quantityFlags,
     );
   }
 

@@ -45,6 +45,16 @@ class Records extends Table {
   TextColumn get taskId => text().nullable()();
   RealColumn get progressPct => real().nullable()();
 
+  /// Costos, pieza 4b: las cantidades ejecutadas, JSON con la forma del contrato
+  /// (`RecordQuantityPayload` al capturar, `RecordQuantity` tras el pull). `[]` sin
+  /// cantidades. Ver `core/schedule/quantity_rows.dart`.
+  TextColumn get quantitiesJson => text().withDefault(const Constant('[]'))();
+
+  /// El servidor rechazó un cambio porque el registro ya está validado
+  /// (`record_validated`): desde entonces sus cantidades son de solo lectura en la
+  /// captura. Solo local: el contrato no publica la revisión.
+  BoolColumn get knownValidated => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -265,6 +275,10 @@ class ScheduleTasks extends Table {
   /// % del último registro validado de la tarea; `null` si no hay.
   RealColumn get lastValidatedPct => real().nullable()();
 
+  /// Costos, pieza 4b: `quantities` si la tarea tiene ítems planeados (la captura
+  /// pide cantidades en vez del %); `pct` en el resto.
+  TextColumn get measuredBy => text().withDefault(const Constant('pct'))();
+
   /// Orden en que llegó (proyecto y orden del Project).
   IntColumn get position => integer()();
 
@@ -284,6 +298,71 @@ class ScheduleTaskState extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Costos, pieza 4b: ítems planeados de cada tarea (`FieldTask.planned_items`). Se
+/// reemplazan junto con la lista de tareas.
+@DataClassName('TaskPlannedItemRow')
+class TaskPlannedItems extends Table {
+  TextColumn get taskId => text()();
+  TextColumn get itemId => text()();
+  TextColumn get code => text()();
+  TextColumn get description => text()();
+  TextColumn get unit => text()();
+  RealColumn get plannedQuantity => real()();
+
+  /// Lo validado en la tarea a la fecha de la última descarga (`executed_quantity`).
+  RealColumn get validatedQuantity => real()();
+  IntColumn get position => integer()();
+
+  @override
+  Set<Column> get primaryKey => {taskId, itemId};
+}
+
+/// Costos, pieza 4b: dónde se puede precisar la ubicación de una fila de cantidad
+/// (`FieldTask.location_options`): la ubicación de la tarea y sus descendientes.
+@DataClassName('TaskLocationOptionRow')
+class TaskLocationOptions extends Table {
+  TextColumn get taskId => text()();
+  TextColumn get locationId => text()();
+  TextColumn get label => text()();
+
+  /// Es la ubicación de la propia tarea (`FieldTask.location`); las demás la precisan.
+  BoolColumn get isTaskLocation => boolean()();
+  IntColumn get position => integer()();
+
+  @override
+  Set<Column> get primaryKey => {taskId, locationId};
+}
+
+/// Costos, pieza 4b: ítems medibles del presupuesto vigente de cada proyecto
+/// (`FieldTaskList.project_items`), para "Agregar ítem no planeado".
+@DataClassName('ProjectItemRow')
+class ProjectItems extends Table {
+  TextColumn get projectId => text()();
+  TextColumn get itemId => text()();
+  TextColumn get code => text()();
+  TextColumn get description => text()();
+  TextColumn get unit => text()();
+  IntColumn get position => integer()();
+
+  @override
+  Set<Column> get primaryKey => {projectId, itemId};
+}
+
+/// Costos, pieza 4b: código, descripción y unidad de cada ítem visto alguna vez. A
+/// diferencia del catálogo, no se reemplaza: un ítem que sale del presupuesto vigente
+/// (p. ej. se volvió capítulo) se sigue pudiendo nombrar en el detalle de un registro o
+/// en un rechazo del servidor.
+@DataClassName('KnownItemRow')
+class KnownItems extends Table {
+  TextColumn get itemId => text()();
+  TextColumn get code => text()();
+  TextColumn get description => text()();
+  TextColumn get unit => text()();
+
+  @override
+  Set<Column> get primaryKey => {itemId};
 }
 
 /// Espejo local de la lista de equipos visibles (`GET /v1/equipment`), para

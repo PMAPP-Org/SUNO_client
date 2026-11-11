@@ -9,6 +9,8 @@
 //   precisión) y fotos adicionales.
 // - Guardar es local e inmediato (`RecordCapture.save`): el registro aparece en
 //   la pantalla de inicio sin esperar a la red.
+// - Costos, pieza 4b: en una tarea medida por cantidades, las cantidades por ítem en
+//   lugar del % (`QuantityCaptureSection`).
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -24,6 +26,7 @@ import '../../core/forms/geometry.dart';
 import '../../core/location/location_source.dart';
 import '../../core/providers.dart';
 import '../../core/schedule/progress_input.dart';
+import '../../core/schedule/quantity_rows.dart';
 import '../../data/local/assignment_repository.dart';
 import '../../data/local/form_template_repository.dart';
 import '../../data/local/schedule_task_repository.dart';
@@ -37,6 +40,7 @@ import 'geometry_capture_screen.dart';
 import 'location_capture_sheet.dart';
 import 'signature_screen.dart';
 import 'qr_capture_screen.dart';
+import 'quantity_capture_section.dart';
 import 'task_progress_section.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
@@ -89,10 +93,34 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   final _progressController = TextEditingController();
   String? _progressError;
 
+  /// Costos, pieza 4b: la tarea elegida se mide por cantidades.
+  bool _quantityTask = false;
+  late final QuantityCaptureController _quantities;
+
+  /// Las tareas leídas de la BD (la edición las espera para saber cómo se mide la suya).
+  late final Future<void> _tasksReady;
+
+  /// La tarea con que se abrió el registro que se edita.
+  String? _originalTaskId;
+
+  /// Cuenta las tareas elegidas: una carga que termina después de otra elección se ignora.
+  int _taskSelection = 0;
+
+  /// Las cantidades no viajan: el registro está validado, o se edita sin haber tocado sus
+  /// cantidades ni su tarea (otra respuesta, una foto…). Así un registro viejo se sigue
+  /// guardando aunque su tarea ya no esté en la lista o ahora se mida distinto.
+  bool get _keepQuantities =>
+      _quantityTask && (_quantities.readOnly || (_editing && _taskId == _originalTaskId && !_quantities.touched));
+
   @override
   void initState() {
     super.initState();
-    _loadTasks();
+    // En `initState` y no perezoso: `dispose` no puede usar `ref` para crearlo.
+    _quantities = QuantityCaptureController(
+      newId: ref.read(appDependenciesProvider).recordCapture.newAttachmentId,
+      readGps: _spotGps,
+    );
+    _tasksReady = _loadTasks();
     if (_editing) {
       _loadForEdit(widget.editRecordId!);
     } else if (widget.assignmentId != null) {
@@ -115,12 +143,79 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     }
   }
 
-  /// Sin tarea: `ok` y nada que enviar. Con tarea: el % leído, o el error en pantalla.
+  Future<GpsReading?> _spotGps() async {
+    final fix = await ref.read(appDependenciesProvider).spotLocation.read();
+    return fix == null ? null : GpsReading(lat: fix.lat, lon: fix.lon, accuracyM: fix.accuracyM);
+  }
+
+  /// Elegir otra tarea. Si había cantidades escritas, se confirma antes de descartarlas;
+  /// una tarea por cantidades carga sus ítems, ubicaciones y catálogo.
+  Future<void> _selectTask(String? id) async {
+    if (id == _taskId) return;
+    if (_quantityTask && _quantities.hasCaptured) {
+      final discard = await _confirmDiscardQuantities();
+      if (!discard || !mounted) return;
+    }
+    final selection = ++_taskSelection;
+    final task = _tasks.where((t) => t.id == id).firstOrNull;
+    final byQuantities = task?.measuredByQuantities ?? false;
+    if (byQuantities) {
+      final quantityContext = await ref
+          .read(appDependenciesProvider)
+          .scheduleTaskRepository
+          .quantityContext(taskId: task!.id, projectId: task.projectId);
+      // Otra tarea elegida mientras esta cargaba: gana la última.
+      if (!mounted || selection != _taskSelection) return;
+      _quantities.load(quantityContext);
+    } else {
+      _quantities.clear();
+    }
+    setState(() {
+      // Otra tarea, otro avance: el % de la anterior no vale.
+      _progressController.clear();
+      _taskId = id;
+      _progressError = null;
+      _quantityTask = byQuantities;
+    });
+  }
+
+  Future<bool> _confirmDiscardQuantities() async {
+    final l10n = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.quantityDiscardTitle),
+        content: Text(l10n.quantityDiscardBody),
+        actions: [
+          TextButton(
+            key: const Key('quantity_discard_cancel'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.reviewConfirmCancel),
+          ),
+          FilledButton(
+            key: const Key('quantity_discard_confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.quantityDiscardConfirm),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  /// Sin tarea: `ok` y nada que enviar. Con tarea: el % o las cantidades leídas, o el
+  /// error en pantalla. Un registro validado (cantidades de solo lectura) no envía nada.
   ({bool ok, TaskProgress? value}) _readProgress(AppLocalizations l10n) {
     final taskId = _taskId;
     if (taskId == null) {
       setState(() => _progressError = null);
       return (ok: true, value: null);
+    }
+    if (_quantityTask) {
+      if (_keepQuantities) return (ok: true, value: null);
+      return _quantities.validate()
+          ? (ok: true, value: TaskProgress(taskId: taskId, quantities: _quantities.payload()))
+          : (ok: false, value: null);
     }
     final text = _progressController.text.trim();
     final pct = parseProgressPct(text);
@@ -130,7 +225,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
         ? l10n.captureProgressInvalid
         : null;
     setState(() => _progressError = error);
-    return error == null ? (ok: true, value: TaskProgress(taskId: taskId, pct: pct!)) : (ok: false, value: null);
+    return error == null ? (ok: true, value: TaskProgress(taskId: taskId, pct: pct)) : (ok: false, value: null);
   }
 
   Future<void> _loadForAssignment(String assignmentId) async {
@@ -170,8 +265,27 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       orgId: orgId,
       templateVersionId: detail.record.templateVersionId,
     );
-    if (!mounted) return;
     final record = detail.record;
+
+    // Costos, pieza 4b: cómo se editó el avance. Con cantidades guardadas, por cantidades
+    // (sobre su tarea si sigue en la lista); un registro por % sigue por %, aunque su
+    // tarea se mida ahora por cantidades. Se decide antes de mostrar nada, para que el %
+    // no aparezca un instante.
+    await _tasksReady;
+    final stored = decodeQuantities(record.quantitiesJson);
+    final taskId = record.taskId;
+    final task = _tasks.where((t) => t.id == taskId).firstOrNull;
+    final byQuantities =
+        taskId != null &&
+        (stored.isNotEmpty || (record.progressPct == null && (task?.measuredByQuantities ?? false)));
+    if (byQuantities) {
+      final schedule = dependencies.scheduleTaskRepository;
+      final quantityContext = await schedule.quantityContext(taskId: taskId, projectId: task?.projectId);
+      final known = await schedule.knownItems({for (final row in stored) row['item_id']! as String});
+      if (!mounted) return;
+      _quantities.load(quantityContext, stored: stored, known: known, readOnly: record.knownValidated);
+    }
+    if (!mounted) return;
     setState(() {
       _lookup = lookup;
       _templates = lookup is TemplateReady ? [lookup.info] : const [];
@@ -180,6 +294,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           ? null
           : LocationFix(lat: record.lat!, lon: record.lon!, accuracyM: record.accuracyM ?? 0, altitudeM: record.altitudeM);
       _taskId = record.taskId;
+      _originalTaskId = record.taskId;
+      _quantityTask = byQuantities;
       if (record.progressPct != null) _progressController.text = formatProgressPct(record.progressPct!);
     });
   }
@@ -188,6 +304,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   void dispose() {
     _form?.dispose();
     _progressController.dispose();
+    _quantities.dispose();
     super.dispose();
   }
 
@@ -351,7 +468,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           captured: Map.of(_captured),
           extraPhotos: List.of(_extraPhotos),
           fix: _fix,
-          progress: (value: progress.value),
+          // Un registro validado, o editado sin tocar sus cantidades, no toca su tarea
+          // ni sus cantidades.
+          progress: _keepQuantities ? null : (value: progress.value),
         );
       } else {
         await dependencies.recordCapture.save(
@@ -444,12 +563,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
                   selectedId: _taskId,
                   controller: _progressController,
                   errorText: _progressError,
-                  onSelected: (id) => setState(() {
-                    // Otra tarea, otro avance: el % de la anterior no vale.
-                    if (id != _taskId) _progressController.clear();
-                    _taskId = id;
-                    _progressError = null;
-                  }),
+                  locked: _quantityTask && _quantities.readOnly,
+                  quantities: _quantityTask ? QuantityCaptureSection(controller: _quantities) : null,
+                  onSelected: _selectTask,
                 ),
               ],
               const AppGap.sm(),

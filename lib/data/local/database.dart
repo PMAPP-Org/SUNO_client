@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:meta/meta.dart';
 
+import 'database.steps.dart';
 import 'tables.dart';
 
 part 'database.g.dart';
@@ -30,6 +31,10 @@ part 'database.g.dart';
     Assignments,
     ScheduleTasks,
     ScheduleTaskState,
+    TaskPlannedItems,
+    TaskLocationOptions,
+    ProjectItems,
+    KnownItems,
     EquipmentCache,
     EquipmentCatalogMeta,
     MeterReadingOutbox,
@@ -72,15 +77,29 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.forTesting(QueryExecutor executor) => AppDatabase._(executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
-  // La app `com.suno.app` empieza en el esquema 1: ningún teléfono actualiza desde
-  // la base de la app anterior (otro applicationId). El historial de migraciones
-  // v1–v14 se reinició con el renombre al concepto "registro"; el próximo cambio
-  // de esquema añade aquí su `onUpgrade` y su test de migración.
+  // La app `com.suno.app` empezó en el esquema 1. Cada cambio se exporta con
+  // `dart run drift_dev make-migrations` (drift_schemas/) y su paso se escribe aquí;
+  // `test/drift/app/migration_test.dart` lo verifica contra el esquema exportado.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (migrator) => migrator.createAll(),
+    onUpgrade: stepByStep(
+      // Costos, pieza 4b: cantidades ejecutadas en la captura.
+      from1To2: (m, schema) async {
+        await m.addColumn(schema.records, schema.records.quantitiesJson);
+        await m.addColumn(schema.records, schema.records.knownValidated);
+        await m.addColumn(schema.scheduleTasks, schema.scheduleTasks.measuredBy);
+        await m.createTable(schema.taskPlannedItems);
+        await m.createTable(schema.taskLocationOptions);
+        await m.createTable(schema.projectItems);
+        await m.createTable(schema.knownItems);
+        // La lista guardada no sabe cómo se mide cada tarea: sin su versión, la
+        // próxima sincronización la baja entera.
+        await customStatement('DELETE FROM schedule_task_state');
+      },
+    ),
   );
 
   /// `null`: el dispositivo nunca hizo un pull/bootstrap exitoso todavía —
@@ -92,9 +111,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> writeCursor(String cursor, {required DateTime now}) {
-    return into(
-      syncCursor,
-    ).insertOnConflictUpdate(SyncCursorCompanion.insert(cursor: cursor, updatedAt: now));
+    return into(syncCursor).insertOnConflictUpdate(SyncCursorCompanion.insert(cursor: cursor, updatedAt: now));
   }
 
   /// Olvida el cursor: el siguiente pull pide todo desde el principio. Lo usa
@@ -106,18 +123,47 @@ class AppDatabase extends _$AppDatabase {
   Future<ScheduleTaskListState?> readScheduleTaskState() =>
       (select(scheduleTaskState)..where((t) => t.id.equals(0))).getSingleOrNull();
 
-  /// Reemplaza la lista de tareas del cronograma y su versión (costos, etapa
-  /// 1) en una sola transacción: nunca queda media lista.
+  /// Reemplaza la lista de tareas del cronograma, su versión y lo que cuelga de ella
+  /// (costos, pieza 4b: ítems planeados, opciones de ubicación y el catálogo de ítems
+  /// de sus proyectos) en una sola transacción: nunca queda media lista. Los datos de
+  /// los ítems vistos se guardan además en `KnownItems`, que no se borra.
   Future<void> replaceScheduleTasks({
     required String orgId,
     required String userId,
     required String version,
     required List<ScheduleTasksCompanion> rows,
     required DateTime now,
+    List<TaskPlannedItemsCompanion> planned = const [],
+    List<TaskLocationOptionsCompanion> locations = const [],
+    List<ProjectItemsCompanion> catalog = const [],
   }) {
     return transaction(() async {
       await delete(scheduleTasks).go();
-      await batch((b) => b.insertAll(scheduleTasks, rows));
+      await delete(taskPlannedItems).go();
+      await delete(taskLocationOptions).go();
+      await delete(projectItems).go();
+      await batch((b) {
+        b.insertAll(scheduleTasks, rows);
+        b.insertAll(taskPlannedItems, planned);
+        b.insertAll(taskLocationOptions, locations);
+        b.insertAll(projectItems, catalog);
+        b.insertAllOnConflictUpdate(knownItems, [
+          for (final p in planned)
+            KnownItemsCompanion.insert(
+              itemId: p.itemId.value,
+              code: p.code.value,
+              description: p.description.value,
+              unit: p.unit.value,
+            ),
+          for (final c in catalog)
+            KnownItemsCompanion.insert(
+              itemId: c.itemId.value,
+              code: c.code.value,
+              description: c.description.value,
+              unit: c.unit.value,
+            ),
+        ]);
+      });
       await into(scheduleTaskState).insertOnConflictUpdate(
         ScheduleTaskStateCompanion.insert(orgId: orgId, userId: userId, version: version, updatedAt: now),
       );
@@ -129,10 +175,7 @@ class AppDatabase extends _$AppDatabase {
   /// pasos con riesgo de divergencia si el proceso muere entre medias.
   /// `test/data/local/database_test.dart` verifica la atomicidad real
   /// forzando un fallo a mitad de una transacción equivalente.
-  Future<void> saveRecordWithOutboxOp({
-    required RecordsCompanion record,
-    required OutboxOpsCompanion outboxOp,
-  }) {
+  Future<void> saveRecordWithOutboxOp({required RecordsCompanion record, required OutboxOpsCompanion outboxOp}) {
     return transaction(() async {
       await into(records).insertOnConflictUpdate(record);
       await into(outboxOps).insertOnConflictUpdate(outboxOp);

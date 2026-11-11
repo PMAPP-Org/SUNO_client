@@ -32,6 +32,7 @@ import 'location/gps_sampler.dart';
 import 'location/coordinate_settings.dart';
 import 'location/gps_settings.dart';
 import 'location/location_source.dart';
+import 'location/spot_location.dart';
 import 'location/navigation_target.dart';
 import 'privacy/consent.dart';
 import 'security/pin_store.dart';
@@ -60,6 +61,7 @@ import '../data/local/form_template_repository.dart';
 import '../data/local/schedule_task_repository.dart';
 import '../data/local/record_status_repository.dart';
 import '../data/location/geolocator_location_source.dart';
+import '../data/location/geolocator_spot_location.dart';
 import '../data/location/external_route_launcher.dart';
 
 class AppDependencies {
@@ -69,6 +71,7 @@ class AppDependencies {
     required this.authController,
     required this.deviceId,
     LocationSource? locationSource,
+    SpotLocation? spotLocation,
     RouteLauncher? routeLauncher,
     PhotoCapture? photoCapture,
     SyncEngine? syncEngine,
@@ -138,6 +141,7 @@ class AppDependencies {
              },
            ),
        locationSource = locationSource ?? const GeolocatorLocationSource(),
+       spotLocation = spotLocation ?? CachedSpotLocation(const GeolocatorSpotLocation()),
        routeLauncher = routeLauncher ?? const ExternalRouteLauncher(),
        photoCapture = photoCapture ?? ImagePickerPhotoCapture(),
        signatureStore = signatureStore ?? const FileSignatureStore(),
@@ -181,6 +185,9 @@ class AppDependencies {
   final AuthController authController;
   final String deviceId;
   final LocationSource locationSource;
+
+  /// Costos, pieza 4b: lectura GPS puntual de cada fila de cantidad.
+  final SpotLocation spotLocation;
   final RouteLauncher routeLauncher;
 
   /// Cuándo una posición GPS es buena (Fase A), ajustable en Ajustes.

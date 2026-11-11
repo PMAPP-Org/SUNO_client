@@ -5,6 +5,7 @@
 //   cuál se queda.
 // - Rechazo: el motivo y los campos que señaló el servidor. Corregir (abre el
 //   formulario), reintentar tal cual, o descartar.
+// - Rechazo de cantidades (pieza 4b): la fila señalada y "Corregir cantidades".
 //
 // Las dos acciones que pierden datos —quedarse con la versión del servidor y
 // descartar— piden confirmación en un diálogo cuyo botón destructivo hay que
@@ -21,6 +22,7 @@ import '../../ui/forms/dynamic_form.dart';
 import '../../ui/theme/app_tokens.dart';
 import '../../ui/widgets/app_page_body.dart';
 import 'correction_screen.dart';
+import 'quantity_correction_screen.dart';
 
 class ReviewScreen extends ConsumerStatefulWidget {
   const ReviewScreen({super.key, required this.orgId});
@@ -124,6 +126,15 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 },
                 onRetry: () => _run(() => ref.read(appDependenciesProvider).quarantine.retry(item), l10n.reviewQueued),
                 onUnlinkTask: () => _run(() => ref.read(appDependenciesProvider).quarantine.unlinkTask(item), l10n.reviewQueued),
+                onCorrectQuantities: () async {
+                  final corrected = await Navigator.of(
+                    context,
+                  ).push<bool>(MaterialPageRoute(builder: (_) => QuantityCorrectionScreen(item: item)));
+                  if (corrected == true && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.reviewQueued)));
+                    await _load();
+                  }
+                },
                 onCorrect: () async {
                   final corrected = await Navigator.of(
                     context,
@@ -170,6 +181,7 @@ class _ReviewCard extends StatelessWidget {
     required this.onCorrect,
     required this.onDiscard,
     required this.onUnlinkTask,
+    required this.onCorrectQuantities,
   });
 
   final QuarantinedRecord item;
@@ -181,6 +193,7 @@ class _ReviewCard extends StatelessWidget {
   final VoidCallback onCorrect;
   final VoidCallback onDiscard;
   final VoidCallback onUnlinkTask;
+  final VoidCallback onCorrectQuantities;
 
   @override
   Widget build(BuildContext context) {
@@ -199,6 +212,7 @@ class _ReviewCard extends StatelessWidget {
     String violationLabel(String field) => switch (field) {
       'task_id' => l10n.captureTaskLabel,
       'progress_pct' => l10n.captureProgressLabel,
+      'quantities' => l10n.quantitiesTitle,
       _ when field.startsWith('answers.') => label(field.substring('answers.'.length)),
       _ => field,
     };
@@ -220,7 +234,7 @@ class _ReviewCard extends StatelessWidget {
               style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.error),
             ),
             // El mensaje del servidor (en inglés) sobra cuando el motivo ya tiene texto propio.
-            if (isConflict) Text(l10n.reviewConflictExplain) else if (item.message.isNotEmpty && !item.recordValidated) Text(l10n.reviewServerSays(item.message)),
+            if (isConflict) Text(l10n.reviewConflictExplain) else if (item.message.isNotEmpty && !item.recordValidated && !item.quantityRejected) Text(l10n.reviewServerSays(item.message)),
             for (final v in item.violations)
               // El registro validado no depende de un campo: el mensaje va solo.
               Text(switch ((v.reason, v.field)) {
@@ -232,11 +246,22 @@ class _ReviewCard extends StatelessWidget {
                 ),
                 _ => l10n.reviewViolation(violationLabel(v.field), formErrorMessage(l10n, v.reason)),
               }),
+            for (final flag in item.quantityFlags)
+              Text(
+                switch (flag.reason) {
+                  'item_not_in_project' => l10n.reviewQuantityItemRow(
+                    flag.code.isEmpty ? l10n.reviewQuantityUnknownItem : flag.code,
+                  ),
+                  _ => l10n.reviewQuantityLocationRow(flag.code.isEmpty ? l10n.reviewQuantityUnknownItem : flag.code),
+                },
+                key: ValueKey('review_quantity_flag-${flag.index}-${flag.reason}'),
+              ),
             if (isConflict) ...[
               const AppGap.sm(),
               _DiffTable(
                 diffs: item.differences,
-                label: (key) => key == 'task_id' || key == 'progress_pct' ? violationLabel(key) : label(key),
+                label: (key) =>
+                    key == 'task_id' || key == 'progress_pct' || key == 'quantities' ? violationLabel(key) : label(key),
               ),
             ],
             const AppGap.sm(),
@@ -261,6 +286,12 @@ class _ReviewCard extends StatelessWidget {
                       key: const Key('review_unlink_task'),
                       onPressed: busy ? null : onUnlinkTask,
                       child: Text(l10n.reviewUnlinkTask),
+                    ),
+                  if (item.quantityRejected)
+                    FilledButton(
+                      key: const Key('review_correct_quantities'),
+                      onPressed: busy ? null : onCorrectQuantities,
+                      child: Text(l10n.reviewCorrectQuantities),
                     ),
                   if (item.canCorrect)
                     FilledButton(
@@ -302,6 +333,10 @@ class _DiffTable extends StatelessWidget {
       null => l10n.reviewNoValue,
       true => l10n.reviewYes,
       false => l10n.reviewNo,
+      // Costos, pieza 4b: las filas de cantidad se resumen por cuántas son.
+      final List<Object?> list when list.isNotEmpty && list.every((row) => row is Map) => l10n.reviewQuantityRows(
+        list.length,
+      ),
       final List<Object?> list => list.join(', '),
       final Map<Object?, Object?> map when map.containsKey('lat') => l10n.captureLocation('${map['lat']}', '${map['lon']}'),
       _ => '$value',
