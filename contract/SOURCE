@@ -1,6 +1,4 @@
 # Commit de PMAPP-Org/SUNO_server del que se copió contract/ (ver contract/README.md).
 repo=PMAPP-Org/SUNO_server
-# ref: PROVISIONAL (PR del servidor sin integrar). Último commit de la rama
-# feat/costos-cantidades-campo de la pieza 4b de costos (cantidades en la app); se
-# vuelve a copiar del commit del merge en master antes de integrar este PR.
-ref=2e3c8b855fcbfe852361a898301958575fff1388
+# ref: commit del merge del PR #65 (pieza 4b de costos: cantidades en la app) en master.
+ref=7117e7e1eb0c85b8b7c6a858190a42cb891d7597
