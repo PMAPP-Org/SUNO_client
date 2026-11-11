@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.13.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.12.0...v0.13.0) (2026-11-11)
+
+
+### Agregado
+
+* **capture:** field quantities per item on quantity-measured tasks ([#54](https://github.com/PMAPP-Org/SUNO_client/issues/54)) ([d1850dc](https://github.com/PMAPP-Org/SUNO_client/commit/d1850dc49252da46c132490b59070c5129d84417))
+
 ## [0.12.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.11.0...v0.12.0) (2026-11-10)
 
 
