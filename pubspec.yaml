@@ -50,9 +50,9 @@ dependencies:
   path_provider: ^2.1.6
   path: ^1.9.1
   meta: ^1.18.0
-  geolocator: ^14.0.2
+  geolocator: ^14.1.2
   image_picker: ^1.1.2
-  crypto: ^3.0.6
+  crypto: ^3.0.8
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   # Ya en el árbol (vía flutter_map); directa para mostrar coordenadas en
@@ -61,7 +61,7 @@ dependencies:
   # Ya en el árbol (Drift + SQLCipher); directa porque el mapa offline lee los
   # MBTiles con ella (`data/map/mbtiles_tile_provider.dart`).
   sqlite3: ^3.5.0
-  mobile_scanner: ^7.4.2
+  mobile_scanner: ^7.5.0
   pdf: ^3.13.1
   share_plus: ^13.3.1
   url_launcher: ^6.3.3
@@ -83,7 +83,7 @@ dev_dependencies:
   flutter_secure_storage_platform_interface: ^2.1.1
   build_runner: ^2.15.1
   freezed: ^3.2.6-dev.1
-  json_serializable: ^6.14.1
+  json_serializable: ^6.15.2
   # Fijada junto con `drift` (ver allí): sus herramientas de esquema solo compilan
   # contra drift 2.34.0, y un `drift_dev` más nuevo exige el analyzer 13, que `freezed`
   # no admite todavía.
