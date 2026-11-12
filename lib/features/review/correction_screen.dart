@@ -1,15 +1,15 @@
-// Corregir una visita rechazada (Paso 23): el mismo formulario dinámico de la
+// Corregir un registro rechazado (Paso 23): el mismo formulario dinámico de la
 // captura, con las respuestas del agente y los campos que señaló el servidor
 // marcados desde el principio. Al guardar se reenvía como operación nueva
 // (`QuarantineService.correct`).
 //
 // Foto, firma y ubicación no se pueden recapturar aquí (sin `FormMediaDelegate`):
-// si el servidor señala uno de esos campos, la visita se reintenta o se
+// si el servidor señala uno de esos campos, el registro se reintenta o se
 // descarta desde la revisión.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/capture/visit_capture.dart';
+import '../../core/capture/record_capture.dart';
 import '../../core/providers.dart';
 import '../../core/sync/quarantine_service.dart';
 import '../../data/local/form_template_repository.dart';
@@ -23,7 +23,7 @@ import '../../ui/widgets/app_page_body.dart';
 class CorrectionScreen extends ConsumerStatefulWidget {
   const CorrectionScreen({super.key, required this.item});
 
-  final QuarantinedVisit item;
+  final QuarantinedRecord item;
 
   @override
   ConsumerState<CorrectionScreen> createState() => _CorrectionScreenState();
@@ -47,11 +47,11 @@ class _CorrectionScreenState extends ConsumerState<CorrectionScreen> {
   }
 
   Future<void> _load() async {
-    final visit = widget.item.visit;
+    final record = widget.item.record;
     final lookup = await ref
         .read(appDependenciesProvider)
         .formTemplates
-        .forVisit(orgId: visit.orgId, templateVersionId: visit.templateVersionId);
+        .forRecord(orgId: record.orgId, templateVersionId: record.templateVersionId);
     if (!mounted) return;
     setState(() {
       _lookup = lookup;

@@ -3,11 +3,11 @@
 // URL `http://` como `AuthError.cleartext`.
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/core/security/certificate_info.dart';
-import 'package:visitacampo/core/security/trust_store.dart';
-import 'package:visitacampo/data/http/api_client.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/core/security/certificate_info.dart';
+import 'package:suno/core/security/trust_store.dart';
+import 'package:suno/data/http/api_client.dart';
 
 import 'fake_http_client_adapter.dart';
 

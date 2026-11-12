@@ -1,9 +1,9 @@
-// Mapa (Fase B): dónde están las visitas del teléfono, las asignaciones del
+// Mapa (Fase B): dónde están los registros del teléfono, las asignaciones del
 // agente y él mismo, como en QField. Todo sale de la BD local: funciona sin
 // red.
 //
-// - Visitas: por color según su sincronización (pendiente / sincronizada /
-//   rechazada).
+// - Registros: por color según su sincronización (pendiente / sincronizado /
+//   rechazado).
 // - Asignaciones del agente con punto: pendiente o hecha.
 // - Mi posición en vivo mientras el mapa está abierto (el GPS se apaga al
 //   salir).
@@ -27,7 +27,7 @@ import '../../core/location/location_source.dart';
 import '../../core/providers.dart';
 import '../../data/local/assignment_repository.dart';
 import '../../data/map/mbtiles_tile_provider.dart';
-import '../../data/local/visit_status_repository.dart';
+import '../../data/local/record_status_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/theme/app_colors.dart';
 import '../../ui/theme/app_theme.dart';
@@ -35,7 +35,7 @@ import '../../ui/theme/app_tokens.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../capture/capture_screen.dart';
 import '../assignments/assignment_navigation_screen.dart';
-import '../visits/visit_detail_screen.dart';
+import '../records/record_detail_screen.dart';
 
 /// Centro por defecto sin ningún punto: Bogotá.
 const _fallbackCenter = LatLng(4.6097, -74.0817);
@@ -49,7 +49,7 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   final _controller = MapController();
-  List<MapVisit>? _visits;
+  List<MapRecord>? _records;
   List<AssignmentItem> _assignments = const [];
   LocationFix? _me;
 
@@ -82,7 +82,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final dependencies = ref.read(appDependenciesProvider);
     final auth = dependencies.authController.state;
     if (auth is! Authenticated) return;
-    final visits = await dependencies.visitStatus.mapVisits(orgId: auth.user.orgId);
+    final records = await dependencies.recordStatus.mapRecords(orgId: auth.user.orgId);
     final assignments = await dependencies.assignments.forUser(orgId: auth.user.orgId, userId: auth.user.id);
     if (_basemaps.isEmpty) {
       final downloaded = await dependencies.basemaps.downloaded();
@@ -111,7 +111,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     if (!mounted) return;
     setState(() {
-      _visits = visits;
+      _records = records;
       _assignments = [
         for (final a in assignments)
           if (a.hasPoint) a,
@@ -135,31 +135,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (me != null) _controller.move(LatLng(me.lat, me.lon), 17);
   }
 
-  Future<void> _openVisit(String visitId) async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => VisitDetailScreen(visitId: visitId)));
+  Future<void> _openRecord(String recordId) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => RecordDetailScreen(recordId: recordId)));
     await _load();
   }
 
   Future<void> _openAssignment(AssignmentItem item) async {
-    final visitId = item.visitId;
-    if (visitId != null) return _openVisit(visitId);
+    final recordId = item.recordId;
+    if (recordId != null) return _openRecord(recordId);
     await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CaptureScreen(assignmentId: item.id)));
     await _load();
   }
 
-  Future<void> _showVisit(VisitSummary visit) => _sheet(
-    title: visit.templateName ?? context.l10n.homeVisitUntitled,
-    subtitle: _statusLabel(context.l10n, visit.status),
-    action: context.l10n.mapOpenVisit,
-    onAction: () => _openVisit(visit.id),
+  Future<void> _showRecord(RecordSummary record) => _sheet(
+    title: record.templateName ?? context.l10n.homeRecordUntitled,
+    subtitle: _statusLabel(context.l10n, record.status),
+    action: context.l10n.mapOpenRecord,
+    onAction: () => _openRecord(record.id),
   );
 
   Future<void> _showAssignment(AssignmentItem item) {
     final l10n = context.l10n;
     return _sheet(
-      title: item.title ?? item.templateName ?? l10n.homeVisitUntitled,
+      title: item.title ?? item.templateName ?? l10n.homeRecordUntitled,
       subtitle: item.done ? l10n.assignmentDone : l10n.assignmentPending,
-      action: item.done ? l10n.mapOpenVisit : l10n.mapStartVisit,
+      action: item.done ? l10n.mapOpenRecord : l10n.mapStartRecord,
       onAction: () => _openAssignment(item),
       onNavigate: item.navigationTarget == null ? null : () => _navigate(item),
     );
@@ -177,7 +177,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       MaterialPageRoute(
         builder: (_) => AssignmentNavigationScreen(
           target: item.navigationTarget!,
-          title: item.title ?? item.templateName ?? context.l10n.homeVisitUntitled,
+          title: item.title ?? item.templateName ?? context.l10n.homeRecordUntitled,
         ),
       ),
     );
@@ -265,33 +265,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     ),
   );
 
-  static Color _statusColor(VisitSyncStatus s, AppStatusColors colors, ColorScheme scheme) => switch (s) {
-    VisitSyncStatus.pending => colors.warning,
-    VisitSyncStatus.synced => colors.success,
-    VisitSyncStatus.rejected => scheme.error,
+  static Color _statusColor(RecordSyncStatus s, AppStatusColors colors, ColorScheme scheme) => switch (s) {
+    RecordSyncStatus.pending => colors.warning,
+    RecordSyncStatus.synced => colors.success,
+    RecordSyncStatus.rejected => scheme.error,
   };
 
-  static String _statusLabel(AppLocalizations l10n, VisitSyncStatus status) => switch (status) {
-    VisitSyncStatus.pending => l10n.visitStatusPending,
-    VisitSyncStatus.synced => l10n.visitStatusSynced,
-    VisitSyncStatus.rejected => l10n.visitStatusRejected,
+  static String _statusLabel(AppLocalizations l10n, RecordSyncStatus status) => switch (status) {
+    RecordSyncStatus.pending => l10n.recordStatusPending,
+    RecordSyncStatus.synced => l10n.recordStatusSynced,
+    RecordSyncStatus.rejected => l10n.recordStatusRejected,
   };
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final visits = _visits;
+    final records = _records;
     final scheme = Theme.of(context).colorScheme;
     final status = context.statusColors;
 
-    if (visits == null) {
+    if (records == null) {
       return Scaffold(
         appBar: AppBar(title: Text(l10n.mapTitle)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    final points = [for (final v in visits) LatLng(v.lat, v.lon), for (final a in _assignments) LatLng(a.lat!, a.lon!)];
+    final points = [for (final v in records) LatLng(v.lat, v.lon), for (final a in _assignments) LatLng(a.lat!, a.lon!)];
     final me = _me;
 
     return Scaffold(
@@ -342,7 +342,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
                 ),
               // Capas de referencia (Fase C), sobre el mapa base y debajo de
-              // las visitas; tocar una entidad muestra sus atributos.
+              // los registros; tocar una entidad muestra sus atributos.
               GestureDetector(
                 onTap: _onLayerTap,
                 child: PolygonLayer<LayerFeature>(
@@ -395,11 +395,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ),
                 ],
               ),
-              // Líneas y polígonos de las visitas (Fase C), con el color de
+              // Líneas y polígonos de los registros (Fase C), con el color de
               // su sincronización, debajo de los puntos.
               PolygonLayer(
                 polygons: [
-                  for (final v in visits)
+                  for (final v in records)
                     for (final g in v.geometries)
                       if (kindOf(g) == GeometryKind.polygon && verticesOf(g).length >= 3)
                         Polygon(
@@ -412,7 +412,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
               PolylineLayer(
                 polylines: [
-                  for (final v in visits)
+                  for (final v in records)
                     for (final g in v.geometries)
                       if (kindOf(g) == GeometryKind.line && verticesOf(g).length >= 2)
                         Polyline(
@@ -424,21 +424,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  for (final v in visits)
+                  for (final v in records)
                     Marker(
-                      key: ValueKey('map-visit-${v.summary.id}'),
+                      key: ValueKey('map-record-${v.summary.id}'),
                       point: LatLng(v.lat, v.lon),
                       width: AppSizes.minTouchTarget,
                       height: AppSizes.minTouchTarget,
                       child: _Pin(
                         icon: Icons.location_on,
                         color: switch (v.summary.status) {
-                          VisitSyncStatus.pending => status.warning,
-                          VisitSyncStatus.synced => status.success,
-                          VisitSyncStatus.rejected => scheme.error,
+                          RecordSyncStatus.pending => status.warning,
+                          RecordSyncStatus.synced => status.success,
+                          RecordSyncStatus.rejected => scheme.error,
                         },
-                        label: v.summary.templateName ?? l10n.homeVisitUntitled,
-                        onTap: () => _showVisit(v.summary),
+                        label: v.summary.templateName ?? l10n.homeRecordUntitled,
+                        onTap: () => _showRecord(v.summary),
                       ),
                     ),
                   for (final a in _assignments)
@@ -450,7 +450,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       child: _Pin(
                         icon: a.done ? Icons.check_circle : Icons.flag,
                         color: a.done ? status.success : scheme.primary,
-                        label: a.title ?? a.templateName ?? l10n.homeVisitUntitled,
+                        label: a.title ?? a.templateName ?? l10n.homeRecordUntitled,
                         onTap: () => _showAssignment(a),
                       ),
                     ),

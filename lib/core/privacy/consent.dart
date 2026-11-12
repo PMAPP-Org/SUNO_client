@@ -4,8 +4,8 @@
 // - **Previa**: el aviso de privacidad se muestra al primer arranque, antes del
 //   login, y por tanto antes de capturar ubicación o fotos (`main.dart`).
 // - **Expresa**: cada finalidad se acepta con su propia casilla; sin las tres no
-//   se puede usar la app, porque las tres son el servicio (una visita de campo
-//   es ubicación + fotos + la cuenta de quien la hace).
+//   se puede usar la app, porque las tres son el servicio (un registro de campo
+//   es ubicación + fotos + la cuenta de quien lo hace).
 // - **Informada**: el texto del aviso (`lib/l10n/app_es.arb`, `privacy*`),
 //   identificado por [kPrivacyNoticeVersion]. Cambiar el texto obliga a subir la
 //   versión, y la app vuelve a pedir la autorización.
@@ -17,7 +17,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Versión del aviso que muestra esta build. **Subirla cuando cambie el texto.**
-const String kPrivacyNoticeVersion = '2026-10-18';
+const String kPrivacyNoticeVersion = '2026-11-06';
 
 /// Finalidades del aviso. El nombre es el valor del contrato
 /// (`components.schemas.PrivacyPurpose`).
@@ -73,7 +73,7 @@ class ConsentStore {
 
   final FlutterSecureStorage _storage;
 
-  static const _entry = 'visitacampo.privacy_consent.v1';
+  static const _entry = 'suno.privacy_consent.v1';
 
   Future<StoredConsent?> read() async {
     final raw = await _storage.read(key: _entry);

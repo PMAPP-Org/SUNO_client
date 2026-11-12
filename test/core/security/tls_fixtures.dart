@@ -27,7 +27,7 @@ class CertFactory {
   var _n = 0;
 
   static Future<CertFactory> create() async {
-    final dir = await Directory.systemTemp.createTemp('visitacampo_trust_');
+    final dir = await Directory.systemTemp.createTemp('suno_trust_');
     addTearDown(() => dir.delete(recursive: true));
     return CertFactory._(dir);
   }
@@ -57,7 +57,7 @@ class CertFactory {
   }
 
   /// Una CA propia.
-  Future<Pem> ca({String cn = 'VisitaCampo Test CA'}) async {
+  Future<Pem> ca({String cn = 'SUNO Test CA'}) async {
     final n = _n++;
     final pem = Pem(cert: _path('ca$n.pem'), key: _path('ca$n.key'));
     await _openssl([

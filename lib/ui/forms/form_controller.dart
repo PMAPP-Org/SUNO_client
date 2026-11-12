@@ -17,7 +17,7 @@ class FormController extends ChangeNotifier {
   final FormDefinition definition;
   final Map<String, Object?> _answers;
 
-  /// Errores que señaló el **servidor** al rechazar la visita (Paso 23), por
+  /// Errores que señaló el **servidor** al rechazar el registro (Paso 23), por
   /// clave de campo. Se muestran desde el principio —son la razón de abrir el
   /// formulario— y el de un campo desaparece en cuanto el agente lo cambia.
   final Map<String, String> _serverErrors;

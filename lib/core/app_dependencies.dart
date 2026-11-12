@@ -19,24 +19,27 @@ import 'attachments/attachment_upload_service.dart';
 import 'auth/auth_controller.dart';
 import 'basemaps/basemap_manager.dart';
 import 'layers/layer_manager.dart';
+import 'equipment/equipment_manager.dart';
 import 'auth/auth_state.dart';
 import 'auth/session_store.dart';
 import 'auth/token_store.dart';
 import 'capture/photo_capture.dart';
 import 'capture/signature_store.dart';
-import 'capture/visit_capture.dart';
+import 'capture/record_capture.dart';
 import 'constants.dart';
 import 'device/device_id_store.dart';
 import 'location/gps_sampler.dart';
 import 'location/coordinate_settings.dart';
 import 'location/gps_settings.dart';
 import 'location/location_source.dart';
+import 'location/spot_location.dart';
 import 'location/navigation_target.dart';
 import 'privacy/consent.dart';
 import 'security/pin_store.dart';
 import 'session/device_handover.dart';
 import 'security/secure_storage.dart';
 import 'security/trust_store.dart';
+import 'schedule/schedule_task_sync.dart';
 import 'sync/quarantine_service.dart';
 import 'sync/sync_coordinator.dart';
 import 'sync/sync_engine.dart';
@@ -47,14 +50,18 @@ import '../data/http/attachment_api_client.dart';
 import '../data/http/auth_interceptor.dart';
 import '../data/http/basemap_api_client.dart';
 import '../data/http/layer_api_client.dart';
+import '../data/http/schedule_task_api_client.dart';
+import '../data/http/equipment_api_client.dart';
 import '../data/http/consent_api_client.dart';
 import '../data/http/sync_api_client.dart';
 import '../data/local/assignment_repository.dart';
 import '../data/local/database.dart';
 import '../data/local/encryption_key_store.dart';
 import '../data/local/form_template_repository.dart';
-import '../data/local/visit_status_repository.dart';
+import '../data/local/schedule_task_repository.dart';
+import '../data/local/record_status_repository.dart';
 import '../data/location/geolocator_location_source.dart';
+import '../data/location/geolocator_spot_location.dart';
 import '../data/location/external_route_launcher.dart';
 
 class AppDependencies {
@@ -64,6 +71,7 @@ class AppDependencies {
     required this.authController,
     required this.deviceId,
     LocationSource? locationSource,
+    SpotLocation? spotLocation,
     RouteLauncher? routeLauncher,
     PhotoCapture? photoCapture,
     SyncEngine? syncEngine,
@@ -75,11 +83,23 @@ class AppDependencies {
     Directory? basemapsDirectory,
     LayerManager? layers,
     Directory? layersDirectory,
-    VisitCapture? visitCapture,
+    EquipmentManager? equipment,
+    RecordCapture? recordCapture,
     TrustStore? trustStore,
     ConsentService? consent,
+    ScheduleTaskSync? scheduleTasks,
   }) : gpsSettings = gpsSettings ?? GpsSettings(HardenedSecureStorage()),
        coordinates = coordinates ?? CoordinateSettings(HardenedSecureStorage()),
+       equipment =
+           equipment ??
+           EquipmentManager(
+             db: database,
+             transport: EquipmentApiClient(dio: dio, accessTokenProvider: () => authController.accessToken ?? ''),
+             session: () {
+               final state = authController.state;
+               return state is Authenticated ? (orgId: state.user.orgId, userId: state.user.id) : null;
+             },
+           ),
        layers =
            layers ??
            LayerManager(
@@ -88,7 +108,7 @@ class AppDependencies {
                accessTokenProvider: () => authController.accessToken ?? '',
                downloadDio: Dio()..httpClientAdapter = dio.httpClientAdapter,
              ),
-             directory: layersDirectory ?? Directory(p.join(Directory.systemTemp.path, 'visitacampo-layers')),
+             directory: layersDirectory ?? Directory(p.join(Directory.systemTemp.path, 'suno-layers')),
            ),
        basemaps =
            basemaps ??
@@ -99,7 +119,7 @@ class AppDependencies {
                // Como las subidas: sin bearer, con la misma política TLS.
                downloadDio: Dio()..httpClientAdapter = dio.httpClientAdapter,
              ),
-             directory: basemapsDirectory ?? Directory(p.join(Directory.systemTemp.path, 'visitacampo-basemaps')),
+             directory: basemapsDirectory ?? Directory(p.join(Directory.systemTemp.path, 'suno-basemaps')),
            ),
        trustStore = trustStore ?? TrustStore(pinStore: PinStore(HardenedSecureStorage())),
        consent =
@@ -110,11 +130,22 @@ class AppDependencies {
              accessTokenProvider: () => authController.accessToken ?? '',
              deviceId: deviceId,
            ),
+       scheduleTasks =
+           scheduleTasks ??
+           ScheduleTaskSync(
+             db: database,
+             transport: ScheduleTaskApiClient(dio: dio, accessTokenProvider: () => authController.accessToken ?? ''),
+             currentUser: () => switch (authController.state) {
+               Authenticated(:final user) => user,
+               _ => null,
+             },
+           ),
        locationSource = locationSource ?? const GeolocatorLocationSource(),
+       spotLocation = spotLocation ?? CachedSpotLocation(const GeolocatorSpotLocation()),
        routeLauncher = routeLauncher ?? const ExternalRouteLauncher(),
        photoCapture = photoCapture ?? ImagePickerPhotoCapture(),
        signatureStore = signatureStore ?? const FileSignatureStore(),
-       visitCapture = visitCapture ?? VisitCapture(db: database),
+       recordCapture = recordCapture ?? RecordCapture(db: database),
        syncEngine =
            syncEngine ??
            SyncEngine(
@@ -145,9 +176,18 @@ class AppDependencies {
   /// Ley 1581: autorización del titular (aviso de privacidad antes del login)
   /// y envío de su prueba al servidor.
   final ConsentService consent;
+
+  /// Avance de campo (costos, etapa 1): descarga de las tareas del cronograma.
+  final ScheduleTaskSync scheduleTasks;
+
+  /// Las tareas guardadas, para la captura.
+  ScheduleTaskRepository get scheduleTaskRepository => ScheduleTaskRepository(database);
   final AuthController authController;
   final String deviceId;
   final LocationSource locationSource;
+
+  /// Costos, pieza 4b: lectura GPS puntual de cada fila de cantidad.
+  final SpotLocation spotLocation;
   final RouteLauncher routeLauncher;
 
   /// Cuándo una posición GPS es buena (Fase A), ajustable en Ajustes.
@@ -158,6 +198,9 @@ class AppDependencies {
 
   /// Capas de referencia GeoJSON (Fase C).
   final LayerManager layers;
+
+  /// Maquinaria y equipos (fase 1): lista en caché y lecturas de medidor.
+  final EquipmentManager equipment;
   GpsPolicy get gpsPolicy => gpsSettings.policy;
 
   /// Sistema en que se muestran las coordenadas (Fase C); se guardan en 4326.
@@ -185,14 +228,16 @@ class AppDependencies {
     outstandingAttachments: attachmentUploadService.outstanding,
     pull: syncEngine.pull,
     isAuthenticated: () => authController.state is Authenticated,
+    refreshTasks: scheduleTasks.refresh,
+    syncEquipment: equipment.sync,
   );
 
-  /// Paso 22: dónde se guardan las firmas y el guardado de una visita.
+  /// Paso 22: dónde se guardan las firmas y el guardado de un registro.
   final SignatureStore signatureStore;
-  final VisitCapture visitCapture;
+  final RecordCapture recordCapture;
 
-  /// Estado de sincronización de las visitas, para la pantalla de inicio.
-  VisitStatusRepository get visitStatus => VisitStatusRepository(database);
+  /// Estado de sincronización de los registros, para la pantalla de inicio.
+  RecordStatusRepository get recordStatus => RecordStatusRepository(database);
 
   /// Asignaciones del agente (Fase B).
   AssignmentRepository get assignments => AssignmentRepository(database);
@@ -215,7 +260,7 @@ class AppDependencies {
     final encryptionKeyStore = EncryptionKeyStore(secureStorage);
     final encryptionKey = await encryptionKeyStore.getOrCreateKey();
     final documentsDir = await getApplicationDocumentsDirectory();
-    final dbFile = File(p.join(documentsDir.path, 'visitacampo.db'));
+    final dbFile = File(p.join(documentsDir.path, 'suno.db'));
     final database = AppDatabase.open(
       createEncryptedExecutor(file: dbFile, encryptionKey: encryptionKey),
     );

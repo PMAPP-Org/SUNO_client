@@ -31,7 +31,7 @@ class AuthInterceptor extends Interceptor {
   /// Marca en `RequestOptions.extra` que esta request ya se reintentó una
   /// vez tras un refresh — la guarda que impide el loop si el token nuevo
   /// también resulta rechazado.
-  static const _retriedFlag = 'visitacampo_auth_retried';
+  static const _retriedFlag = 'suno_auth_retried';
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {

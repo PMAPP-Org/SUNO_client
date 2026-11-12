@@ -1,14 +1,14 @@
 // Tipos del transporte de sync (contrato `server/openapi/v1.yaml`, Pasos
 // 1/8/9) + la interfaz `SyncTransport` que el `SyncEngine` consume.
 //
-// **Alcance deliberado**: el cliente (Paso 10/11) solo modela `Visit` como
-// entidad local — `visit_attachment`/`assignment`/`form_template_version`
+// **Alcance deliberado**: el cliente (Paso 10/11) solo modela `Record` como
+// entidad local — `record_attachment`/`assignment`/`form_template_version`
 // no tienen tabla Drift todavía (nota en `data/local/tables.dart`). Por eso
 // `PullRow`/bootstrap dejan esas entidades como `Map<String, dynamic>`
 // genérico (`entity` + `data` sin tipar) en vez de una unión discriminada
 // completa como la del servidor (`sync/schemas.py::EntityRecord`): tipar
 // hoy lo que nada en el cliente puede aplicar todavía sería trabajo muerto.
-// `SyncEngine.pull()` interpreta la rama `visit`, pasa el resto tal cual.
+// `SyncEngine.pull()` interpreta la rama `record`, pasa el resto tal cual.
 //
 // **No hay implementación real todavía** (Dio/HTTP): el Paso 13 conecta
 // `SyncTransport` a `/v1/*` de verdad, con autenticación. Este paso define
@@ -139,15 +139,15 @@ abstract class PullResponse with _$PullResponse {
 }
 
 /// Contrato `BootstrapResponse`, recortado a lo que `SyncEngine` usa hoy
-/// (`cursor`, `visits` y, desde el Paso 21, `form_template_versions`) — ver
+/// (`cursor`, `records` y, desde el Paso 21, `form_template_versions`) — ver
 /// la nota de alcance del archivo.
 @freezed
 abstract class BootstrapResponse with _$BootstrapResponse {
   const factory BootstrapResponse({
     required String cursor,
-    required List<Map<String, dynamic>> visits,
+    required List<Map<String, dynamic>> records,
     @Default(<Map<String, dynamic>>[]) List<Map<String, dynamic>> formTemplateVersions,
-    @Default(<Map<String, dynamic>>[]) List<Map<String, dynamic>> visitAttachments,
+    @Default(<Map<String, dynamic>>[]) List<Map<String, dynamic>> recordAttachments,
     @Default(<Map<String, dynamic>>[]) List<Map<String, dynamic>> assignments,
   }) = _BootstrapResponse;
 

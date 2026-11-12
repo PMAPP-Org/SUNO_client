@@ -20,10 +20,10 @@ import 'form_controller.dart';
 /// Captura de los campos que necesitan hardware. Devuelve `null` si el
 /// usuario cancela.
 abstract interface class FormMediaDelegate {
-  /// Id (UUID) del `visit_attachment` de la foto.
+  /// Id (UUID) del `record_attachment` de la foto.
   Future<String?> capturePhoto(String fieldKey);
 
-  /// Id (UUID) del `visit_attachment` de la firma.
+  /// Id (UUID) del `record_attachment` de la firma.
   Future<String?> captureSignature(String fieldKey);
 
   /// `{"lat": …, "lon": …}`.
@@ -105,6 +105,17 @@ String formErrorMessage(AppLocalizations l10n, String reason) => switch (reason)
   'too_many_selected' => l10n.formErrorTooManySelected,
   'too_few_rows' => l10n.formErrorTooFewRows,
   'too_many_rows' => l10n.formErrorTooManyRows,
+  // Costos, etapa 1: rechazos del push por la tarea del cronograma.
+  'task_retired' => l10n.formErrorTaskRetired,
+  'task_is_summary' => l10n.formErrorTaskIsSummary,
+  'not_responsible' => l10n.formErrorNotResponsible,
+  'task_progress_pair' => l10n.formErrorTaskProgressPair,
+  'record_validated' => l10n.formErrorRecordValidated,
+  // Costos, pieza 4b: rechazos de las filas de cantidad.
+  'item_not_in_project' => l10n.formErrorItemNotInProject,
+  'location_outside_task' => l10n.formErrorLocationOutsideTask,
+  'duplicate_client_id' => l10n.formErrorDuplicateClientId,
+  'greater_than_equal' || 'less_than_equal' => l10n.formErrorOutOfRange,
   _ => l10n.formErrorInvalid,
 };
 

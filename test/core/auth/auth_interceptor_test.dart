@@ -5,11 +5,11 @@
 // mismo `Dio`, no sobre un mock de la request.
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/auth/auth_controller.dart';
-import 'package:visitacampo/core/auth/auth_models.dart';
-import 'package:visitacampo/core/auth/auth_result.dart';
-import 'package:visitacampo/core/auth/auth_state.dart';
-import 'package:visitacampo/data/http/auth_interceptor.dart';
+import 'package:suno/core/auth/auth_controller.dart';
+import 'package:suno/core/auth/auth_models.dart';
+import 'package:suno/core/auth/auth_result.dart';
+import 'package:suno/core/auth/auth_state.dart';
+import 'package:suno/data/http/auth_interceptor.dart';
 
 import 'fake_auth_transport.dart';
 import 'fake_http_client_adapter.dart';
@@ -39,7 +39,7 @@ Future<AuthController> _loggedInController(FakeAuthTransport transport) async {
 }
 
 Dio _dioWith(FakeHttpClientAdapter adapter) {
-  final dio = Dio(BaseOptions(baseUrl: 'https://visitacampo.test'));
+  final dio = Dio(BaseOptions(baseUrl: 'https://suno.test'));
   dio.httpClientAdapter = adapter;
   return dio;
 }

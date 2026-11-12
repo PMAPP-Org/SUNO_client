@@ -1,10 +1,11 @@
-// "Para revisar" (Paso 23): las visitas que el servidor rechazó o que
+// "Para revisar" (Paso 23): los registros que el servidor rechazó o que
 // chocaron con un cambio hecho en el servidor, con lo necesario para decidir.
 //
 // - Conflicto: tabla "tu versión / en el servidor" campo a campo, y elegir
 //   cuál se queda.
 // - Rechazo: el motivo y los campos que señaló el servidor. Corregir (abre el
 //   formulario), reintentar tal cual, o descartar.
+// - Rechazo de cantidades (pieza 4b): la fila señalada y "Corregir cantidades".
 //
 // Las dos acciones que pierden datos —quedarse con la versión del servidor y
 // descartar— piden confirmación en un diálogo cuyo botón destructivo hay que
@@ -21,6 +22,7 @@ import '../../ui/forms/dynamic_form.dart';
 import '../../ui/theme/app_tokens.dart';
 import '../../ui/widgets/app_page_body.dart';
 import 'correction_screen.dart';
+import 'quantity_correction_screen.dart';
 
 class ReviewScreen extends ConsumerStatefulWidget {
   const ReviewScreen({super.key, required this.orgId});
@@ -32,9 +34,9 @@ class ReviewScreen extends ConsumerStatefulWidget {
 }
 
 class _ReviewScreenState extends ConsumerState<ReviewScreen> {
-  List<QuarantinedVisit>? _items;
+  List<QuarantinedRecord>? _items;
 
-  /// Plantilla de cada visita, para mostrar etiquetas en vez de claves.
+  /// Plantilla de cada registro, para mostrar etiquetas en vez de claves.
   final Map<String, FormDefinition?> _definitions = {};
   bool _busy = false;
 
@@ -48,9 +50,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final dependencies = ref.read(appDependenciesProvider);
     final items = await dependencies.quarantine.list(orgId: widget.orgId);
     for (final item in items) {
-      final id = item.visit.templateVersionId;
+      final id = item.record.templateVersionId;
       if (_definitions.containsKey(id)) continue;
-      final lookup = await dependencies.formTemplates.forVisit(orgId: widget.orgId, templateVersionId: id);
+      final lookup = await dependencies.formTemplates.forRecord(orgId: widget.orgId, templateVersionId: id);
       _definitions[id] = lookup is TemplateReady ? lookup.definition : null;
     }
     if (mounted) setState(() => _items = items);
@@ -109,9 +111,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           else
             for (final item in items) ...[
               _ReviewCard(
-                key: ValueKey('review-${item.visit.id}'),
+                key: ValueKey('review-${item.record.id}'),
                 item: item,
-                definition: _definitions[item.visit.templateVersionId],
+                definition: _definitions[item.record.templateVersionId],
                 busy: _busy,
                 onResendMine: () => _run(() => ref.read(appDependenciesProvider).quarantine.resendMine(item), l10n.reviewQueued),
                 onAcceptServer: () async {
@@ -123,6 +125,16 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   if (ok) await _run(() => ref.read(appDependenciesProvider).quarantine.acceptServer(item), l10n.reviewResolved);
                 },
                 onRetry: () => _run(() => ref.read(appDependenciesProvider).quarantine.retry(item), l10n.reviewQueued),
+                onUnlinkTask: () => _run(() => ref.read(appDependenciesProvider).quarantine.unlinkTask(item), l10n.reviewQueued),
+                onCorrectQuantities: () async {
+                  final corrected = await Navigator.of(
+                    context,
+                  ).push<bool>(MaterialPageRoute(builder: (_) => QuantityCorrectionScreen(item: item)));
+                  if (corrected == true && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.reviewQueued)));
+                    await _load();
+                  }
+                },
                 onCorrect: () async {
                   final corrected = await Navigator.of(
                     context,
@@ -133,8 +145,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   }
                 },
                 onDiscard: () async {
-                  // Una edición rechazada de una visita que el servidor ya
-                  // tiene no borra la visita: vuelve a la del servidor.
+                  // Una edición rechazada de un registro que el servidor ya
+                  // tiene no borra el registro: vuelve a la del servidor.
                   final ok = item.existsOnServer
                       ? await _confirm(
                           title: l10n.reviewDiscardChangesTitle,
@@ -168,9 +180,11 @@ class _ReviewCard extends StatelessWidget {
     required this.onRetry,
     required this.onCorrect,
     required this.onDiscard,
+    required this.onUnlinkTask,
+    required this.onCorrectQuantities,
   });
 
-  final QuarantinedVisit item;
+  final QuarantinedRecord item;
   final FormDefinition? definition;
   final bool busy;
   final VoidCallback onResendMine;
@@ -178,6 +192,8 @@ class _ReviewCard extends StatelessWidget {
   final VoidCallback onRetry;
   final VoidCallback onCorrect;
   final VoidCallback onDiscard;
+  final VoidCallback onUnlinkTask;
+  final VoidCallback onCorrectQuantities;
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +201,7 @@ class _ReviewCard extends StatelessWidget {
     final theme = Theme.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final localizations = MaterialLocalizations.of(context);
-    final captured = item.visit.capturedAt.toLocal();
+    final captured = item.record.capturedAt.toLocal();
     final isConflict = item.kind == QuarantineKind.conflict;
 
     String label(String key) {
@@ -193,13 +209,21 @@ class _ReviewCard extends StatelessWidget {
       return field?.label.resolve(locale) ?? key;
     }
 
+    String violationLabel(String field) => switch (field) {
+      'task_id' => l10n.captureTaskLabel,
+      'progress_pct' => l10n.captureProgressLabel,
+      'quantities' => l10n.quantitiesTitle,
+      _ when field.startsWith('answers.') => label(field.substring('answers.'.length)),
+      _ => field,
+    };
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(item.templateName ?? l10n.homeVisitUntitled, style: theme.textTheme.titleMedium),
+            Text(item.templateName ?? l10n.homeRecordUntitled, style: theme.textTheme.titleMedium),
             Text(
               '${localizations.formatShortDate(captured)} ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(captured))}',
               style: theme.textTheme.bodySmall,
@@ -209,17 +233,36 @@ class _ReviewCard extends StatelessWidget {
               isConflict ? l10n.reviewKindConflict : l10n.reviewKindRejected,
               style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.error),
             ),
-            if (isConflict) Text(l10n.reviewConflictExplain) else if (item.message.isNotEmpty) Text(l10n.reviewServerSays(item.message)),
+            // El mensaje del servidor (en inglés) sobra cuando el motivo ya tiene texto propio.
+            if (isConflict) Text(l10n.reviewConflictExplain) else if (item.message.isNotEmpty && !item.recordValidated && !item.quantityRejected) Text(l10n.reviewServerSays(item.message)),
             for (final v in item.violations)
-              Text(
-                l10n.reviewViolation(
-                  v.field.startsWith('answers.') ? label(v.field.substring('answers.'.length)) : v.field,
-                  formErrorMessage(l10n, v.reason),
+              // El registro validado no depende de un campo: el mensaje va solo.
+              Text(switch ((v.reason, v.field)) {
+                ('record_validated', 'id') => l10n.formErrorRecordValidatedDelete,
+                ('record_validated', _) => l10n.formErrorRecordValidated,
+                ('unknown_reference', 'task_id') => l10n.reviewViolation(
+                  violationLabel(v.field),
+                  l10n.formErrorTaskUnknown,
                 ),
+                _ => l10n.reviewViolation(violationLabel(v.field), formErrorMessage(l10n, v.reason)),
+              }),
+            for (final flag in item.quantityFlags)
+              Text(
+                switch (flag.reason) {
+                  'item_not_in_project' => l10n.reviewQuantityItemRow(
+                    flag.code.isEmpty ? l10n.reviewQuantityUnknownItem : flag.code,
+                  ),
+                  _ => l10n.reviewQuantityLocationRow(flag.code.isEmpty ? l10n.reviewQuantityUnknownItem : flag.code),
+                },
+                key: ValueKey('review_quantity_flag-${flag.index}-${flag.reason}'),
               ),
             if (isConflict) ...[
               const AppGap.sm(),
-              _DiffTable(diffs: item.differences, label: label),
+              _DiffTable(
+                diffs: item.differences,
+                label: (key) =>
+                    key == 'task_id' || key == 'progress_pct' || key == 'quantities' ? violationLabel(key) : label(key),
+              ),
             ],
             const AppGap.sm(),
             Wrap(
@@ -238,17 +281,31 @@ class _ReviewCard extends StatelessWidget {
                     child: Text(l10n.reviewAcceptServer),
                   ),
                 ] else ...[
+                  if (item.taskRejected)
+                    FilledButton(
+                      key: const Key('review_unlink_task'),
+                      onPressed: busy ? null : onUnlinkTask,
+                      child: Text(l10n.reviewUnlinkTask),
+                    ),
+                  if (item.quantityRejected)
+                    FilledButton(
+                      key: const Key('review_correct_quantities'),
+                      onPressed: busy ? null : onCorrectQuantities,
+                      child: Text(l10n.reviewCorrectQuantities),
+                    ),
                   if (item.canCorrect)
                     FilledButton(
                       key: const Key('review_correct'),
                       onPressed: busy ? null : onCorrect,
                       child: Text(l10n.reviewCorrect),
                     ),
-                  OutlinedButton(
-                    key: const Key('review_retry'),
-                    onPressed: busy ? null : onRetry,
-                    child: Text(l10n.reviewRetry),
-                  ),
+                  // Un registro validado rechazaría el reintento igual.
+                  if (!item.recordValidated)
+                    OutlinedButton(
+                      key: const Key('review_retry'),
+                      onPressed: busy ? null : onRetry,
+                      child: Text(l10n.reviewRetry),
+                    ),
                   TextButton(
                     key: const Key('review_discard'),
                     onPressed: busy ? null : onDiscard,
@@ -276,6 +333,10 @@ class _DiffTable extends StatelessWidget {
       null => l10n.reviewNoValue,
       true => l10n.reviewYes,
       false => l10n.reviewNo,
+      // Costos, pieza 4b: las filas de cantidad se resumen por cuántas son.
+      final List<Object?> list when list.isNotEmpty && list.every((row) => row is Map) => l10n.reviewQuantityRows(
+        list.length,
+      ),
       final List<Object?> list => list.join(', '),
       final Map<Object?, Object?> map when map.containsKey('lat') => l10n.captureLocation('${map['lat']}', '${map['lon']}'),
       _ => '$value',

@@ -12,7 +12,7 @@ import '../../l10n/l10n.dart';
 import '../../ui/theme/app_tokens.dart';
 import '../../ui/widgets/app_page_body.dart';
 
-/// Orientación local al punto planificado. No registra una visita ni cambia
+/// Orientación local al punto planificado. No crea un registro ni cambia
 /// la asignación; el azimut se refiere al norte, no a la postura del teléfono.
 class AssignmentNavigationScreen extends ConsumerStatefulWidget {
   const AssignmentNavigationScreen({super.key, required this.target, required this.title});
@@ -99,7 +99,7 @@ class _AssignmentNavigationScreenState extends ConsumerState<AssignmentNavigatio
     final fix = _tracker.fix;
     final distance = fix == null ? null : widget.target.distanceFrom(fix);
     // Dentro del margen de error no se presenta una dirección engañosa ni
-    // se declara cumplida la asignación. La visita se inicia aparte.
+    // se declara cumplida la asignación. El registro se inicia aparte.
     final near = fix != null && distance! <= math.max(fix.accuracyM, 1);
     final bearing = fix == null || near ? null : widget.target.bearingFrom(fix);
     final status = _tracker.status;

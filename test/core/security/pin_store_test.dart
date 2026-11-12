@@ -4,10 +4,10 @@
 // almacenamiento) y comprobar que los tres siguen, cada uno el suyo.
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/security/certificate_info.dart';
-import 'package:visitacampo/core/security/pin_store.dart';
-import 'package:visitacampo/core/security/secure_storage.dart';
-import 'package:visitacampo/core/security/trust_store.dart';
+import 'package:suno/core/security/certificate_info.dart';
+import 'package:suno/core/security/pin_store.dart';
+import 'package:suno/core/security/secure_storage.dart';
+import 'package:suno/core/security/trust_store.dart';
 
 import 'fake_keychain.dart';
 
@@ -60,7 +60,7 @@ void main() {
     expect(
       keychain.items.keys,
       everyElement(
-        startsWith('first_unlock_this_device|visitacampo.tls_pin.v1.'),
+        startsWith('first_unlock_this_device|suno.tls_pin.v1.'),
       ),
     );
   });
@@ -80,7 +80,7 @@ void main() {
   test('olvidar un host no toca los demás ni otros secretos', () async {
     await HardenedSecureStorage(
       migrateLegacy: true,
-    ).write(key: 'visitacampo.db_key', value: 'x');
+    ).write(key: 'suno.db_key', value: 'x');
     final session = freshApp();
     await session.approve('campo-a.example', 443, _cert('a'));
     await session.approve('campo-b.example', 443, _cert('b'));
@@ -89,7 +89,7 @@ void main() {
     final restarted = freshApp();
     await restarted.load();
     expect(restarted.approvedPins.keys, ['campo-b.example:443']);
-    expect(keychain.items['first_unlock_this_device|visitacampo.db_key'], 'x');
+    expect(keychain.items['first_unlock_this_device|suno.db_key'], 'x');
   });
 
   test(
@@ -97,7 +97,7 @@ void main() {
     () async {
       await HardenedSecureStorage(
         migrateLegacy: true,
-      ).write(key: 'visitacampo.tls_pin.v1.roto:443', value: '{no-json');
+      ).write(key: 'suno.tls_pin.v1.roto:443', value: '{no-json');
       final restarted = freshApp();
       await restarted.load();
       expect(restarted.approvedPins, isEmpty);

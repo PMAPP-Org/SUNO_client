@@ -1,6 +1,6 @@
 // "Mis asignaciones" (Fase B): el trabajo planificado del agente, primero lo
 // pendiente. Tocar una pendiente abre la captura con su plantilla y su punto;
-// tocar una hecha abre la visita que la cumplió.
+// tocar una hecha abre el registro que la cumplió.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,7 +11,7 @@ import '../../l10n/l10n.dart';
 import '../../ui/theme/app_theme.dart';
 import '../../ui/widgets/app_page_body.dart';
 import '../capture/capture_screen.dart';
-import '../visits/visit_detail_screen.dart';
+import '../records/record_detail_screen.dart';
 import 'assignment_navigation_screen.dart';
 
 class AssignmentsScreen extends ConsumerStatefulWidget {
@@ -39,10 +39,10 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
   }
 
   Future<void> _open(AssignmentItem item) async {
-    final visitId = item.visitId;
+    final recordId = item.recordId;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => visitId != null ? VisitDetailScreen(visitId: visitId) : CaptureScreen(assignmentId: item.id),
+        builder: (_) => recordId != null ? RecordDetailScreen(recordId: recordId) : CaptureScreen(assignmentId: item.id),
       ),
     );
     await _load();
@@ -69,7 +69,7 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                       item.done ? Icons.check_circle : Icons.radio_button_unchecked,
                       color: item.done ? colors.success : null,
                     ),
-                    title: Text(item.title ?? item.templateName ?? l10n.homeVisitUntitled),
+                    title: Text(item.title ?? item.templateName ?? l10n.homeRecordUntitled),
                     subtitle: Text(
                       [
                         if (item.title != null && item.templateName != null) item.templateName!,
@@ -89,7 +89,7 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                               MaterialPageRoute(
                                 builder: (_) => AssignmentNavigationScreen(
                                   target: item.navigationTarget!,
-                                  title: item.title ?? item.templateName ?? l10n.homeVisitUntitled,
+                                  title: item.title ?? item.templateName ?? l10n.homeRecordUntitled,
                                 ),
                               ),
                             ),

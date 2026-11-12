@@ -3,8 +3,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/location/gps_sampler.dart';
-import 'package:visitacampo/core/location/location_source.dart';
+import 'package:suno/core/location/gps_sampler.dart';
+import 'package:suno/core/location/location_source.dart';
 
 class _Gnss implements LocationSource {
   final _controller = StreamController<LocationFix>();

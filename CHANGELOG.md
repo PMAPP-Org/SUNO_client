@@ -4,6 +4,49 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.13.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.12.0...v0.13.0) (2026-11-11)
+
+
+### Agregado
+
+* **capture:** field quantities per item on quantity-measured tasks ([#54](https://github.com/PMAPP-Org/SUNO_client/issues/54)) ([d1850dc](https://github.com/PMAPP-Org/SUNO_client/commit/d1850dc49252da46c132490b59070c5129d84417))
+
+## [0.12.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.11.0...v0.12.0) (2026-11-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* SUNO app (com.suno.app) speaks of records ([#53](https://github.com/PMAPP-Org/SUNO_client/issues/53))
+
+### Agregado
+
+* **equipment:** field equipment: datasheet, readings, preoperational, usage, fuel, trips ([06de511](https://github.com/PMAPP-Org/SUNO_client/commit/06de511096204c3f4ae71f547a4cd8e20d5970bf))
+
+
+### Refactorización
+
+* SUNO app (com.suno.app) speaks of records ([#53](https://github.com/PMAPP-Org/SUNO_client/issues/53)) ([ac74efa](https://github.com/PMAPP-Org/SUNO_client/commit/ac74efaf693886da762e5e0edcf3dbb4678cf8c0))
+
+## [0.11.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.10.0...v0.11.0) (2026-11-01)
+
+
+### Agregado
+
+* **capture:** avance de tareas del cronograma desde las visitas de campo (app) ([#46](https://github.com/PMAPP-Org/SUNO_client/issues/46)) ([2a95096](https://github.com/PMAPP-Org/SUNO_client/commit/2a950966c6b31ba1cf4e260e13c75325b87991ae))
+
+## [0.10.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.9.0...v0.10.0) (2026-10-29)
+
+
+### Agregado
+
+* C5 formularios repetibles y QR, C6 exportación local ([#37](https://github.com/PMAPP-Org/SUNO_client/issues/37)) ([6b7be75](https://github.com/PMAPP-Org/SUNO_client/commit/6b7be759e2973cf107e199cee9dc4d8138f81d96))
+* **navigation:** guide agents to assignment destinations (Fase C4) ([#36](https://github.com/PMAPP-Org/SUNO_client/issues/36)) ([2efdbdb](https://github.com/PMAPP-Org/SUNO_client/commit/2efdbdb0119826362d7c2b44ff7cb1ae9ab7caa2))
+
+
+### Dependencias y build
+
+* **deps:** fix new CVEs in the SAST lock ([#40](https://github.com/PMAPP-Org/SUNO_client/issues/40)) ([3b90ff1](https://github.com/PMAPP-Org/SUNO_client/commit/3b90ff1478471ad9800c8914f02b25946925d05d))
+
 ## [0.9.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.8.0...v0.9.0) (2026-10-18)
 
 

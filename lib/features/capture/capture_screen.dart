@@ -1,14 +1,16 @@
-// Captura de visita (Paso 22): plantilla → formulario dinámico (Paso 21) →
+// Captura de registro (Paso 22): plantilla → formulario dinámico (Paso 21) →
 // ubicación, fotos y firma → guardado offline en una sola transacción.
 //
 // - La plantilla sale de la caché local (`FormTemplateRepository`), la versión
-//   vigente para una visita **nueva**; sin plantillas, se pide sincronizar.
+//   vigente para un registro **nuevo**; sin plantillas, se pide sincronizar.
 // - Foto, firma y ubicación de los campos de la plantilla se capturan aquí
 //   (`FormMediaDelegate`) y el formulario guarda solo el `id` del adjunto.
-// - Aparte del formulario: la ubicación de la visita (`Visit.lat/lon`, con su
+// - Aparte del formulario: la ubicación del registro (`Record.lat/lon`, con su
 //   precisión) y fotos adicionales.
-// - Guardar es local e inmediato (`VisitCapture.save`): la visita aparece en
+// - Guardar es local e inmediato (`RecordCapture.save`): el registro aparece en
 //   la pantalla de inicio sin esperar a la red.
+// - Costos, pieza 4b: en una tarea medida por cantidades, las cantidades por ítem en
+//   lugar del % (`QuantityCaptureSection`).
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -16,15 +18,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_state.dart';
-import '../../core/capture/visit_capture.dart';
+import '../../core/capture/record_capture.dart';
 import '../../core/location/coordinate_system.dart';
 import '../../core/location/geo.dart';
 import '../../core/forms/form_definition.dart';
 import '../../core/forms/geometry.dart';
 import '../../core/location/location_source.dart';
 import '../../core/providers.dart';
+import '../../core/schedule/progress_input.dart';
+import '../../core/schedule/quantity_rows.dart';
 import '../../data/local/assignment_repository.dart';
 import '../../data/local/form_template_repository.dart';
+import '../../data/local/schedule_task_repository.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/forms/dynamic_form.dart';
 import '../../ui/forms/form_controller.dart';
@@ -35,16 +40,18 @@ import 'geometry_capture_screen.dart';
 import 'location_capture_sheet.dart';
 import 'signature_screen.dart';
 import 'qr_capture_screen.dart';
+import 'quantity_capture_section.dart';
+import 'task_progress_section.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
-  const CaptureScreen({super.key, this.editVisitId, this.assignmentId})
-    : assert(editVisitId == null || assignmentId == null);
+  const CaptureScreen({super.key, this.editRecordId, this.assignmentId})
+    : assert(editRecordId == null || assignmentId == null);
 
-  /// Fase A: editar esta visita en vez de crear una. Se abre con su misma
+  /// Fase A: editar este registro en vez de crear uno. Se abre con su misma
   /// versión de plantilla y sus respuestas; solo viaja lo que cambie.
-  final String? editVisitId;
+  final String? editRecordId;
 
-  /// Fase B: la visita nueva cumple esta asignación. Se abre con la versión
+  /// Fase B: el registro nuevo cumple esta asignación. Se abre con la versión
   /// de plantilla de la asignación y muestra su punto y la distancia a él.
   final String? assignmentId;
 
@@ -62,33 +69,163 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
   FormController? _form;
 
   /// Ubicación tomada **en esta pantalla**; al editar, `null` conserva la de
-  /// la visita ([_originalFix]).
+  /// el registro ([_originalFix]).
   LocationFix? _fix;
   LocationFix? _originalFix;
   bool _saving = false;
 
-  bool get _editing => widget.editVisitId != null;
+  bool get _editing => widget.editRecordId != null;
 
   /// Sistema en que se muestran las coordenadas (Fase C).
   CoordinateSystem get _crs => ref.read(appDependenciesProvider).coordinates.current.value;
 
-  /// La asignación que esta visita cumple (Fase B), ya cargada.
+  /// La asignación que este registro cumple (Fase B), ya cargada.
   AssignmentItem? _assignment;
 
   /// Adjuntos de los campos foto/firma, por `id` (lo que guarda `answers`).
   final Map<String, PendingAttachment> _captured = {};
   final List<PendingAttachment> _extraPhotos = [];
 
+  /// Costos, etapa 1: tareas del cronograma del agente y la elegida.
+  List<ScheduleTaskItem> _tasks = const [];
+  bool _tasksLoaded = false;
+  String? _taskId;
+  final _progressController = TextEditingController();
+  String? _progressError;
+
+  /// Costos, pieza 4b: la tarea elegida se mide por cantidades.
+  bool _quantityTask = false;
+  late final QuantityCaptureController _quantities;
+
+  /// Las tareas leídas de la BD (la edición las espera para saber cómo se mide la suya).
+  late final Future<void> _tasksReady;
+
+  /// La tarea con que se abrió el registro que se edita.
+  String? _originalTaskId;
+
+  /// Cuenta las tareas elegidas: una carga que termina después de otra elección se ignora.
+  int _taskSelection = 0;
+
+  /// Las cantidades no viajan: el registro está validado, o se edita sin haber tocado sus
+  /// cantidades ni su tarea (otra respuesta, una foto…). Así un registro viejo se sigue
+  /// guardando aunque su tarea ya no esté en la lista o ahora se mida distinto.
+  bool get _keepQuantities =>
+      _quantityTask && (_quantities.readOnly || (_editing && _taskId == _originalTaskId && !_quantities.touched));
+
   @override
   void initState() {
     super.initState();
+    // En `initState` y no perezoso: `dispose` no puede usar `ref` para crearlo.
+    _quantities = QuantityCaptureController(
+      newId: ref.read(appDependenciesProvider).recordCapture.newAttachmentId,
+      readGps: _spotGps,
+    );
+    _tasksReady = _loadTasks();
     if (_editing) {
-      _loadForEdit(widget.editVisitId!);
+      _loadForEdit(widget.editRecordId!);
     } else if (widget.assignmentId != null) {
       _loadForAssignment(widget.assignmentId!);
     } else {
       _loadTemplates();
     }
+  }
+
+  Future<void> _loadTasks() async {
+    final dependencies = ref.read(appDependenciesProvider);
+    final state = dependencies.authController.state;
+    if (state is! Authenticated) return;
+    final tasks = await dependencies.scheduleTaskRepository.forUser(orgId: state.user.orgId, userId: state.user.id);
+    if (mounted) {
+      setState(() {
+        _tasks = tasks;
+        _tasksLoaded = true;
+      });
+    }
+  }
+
+  Future<GpsReading?> _spotGps() async {
+    final fix = await ref.read(appDependenciesProvider).spotLocation.read();
+    return fix == null ? null : GpsReading(lat: fix.lat, lon: fix.lon, accuracyM: fix.accuracyM);
+  }
+
+  /// Elegir otra tarea. Si había cantidades escritas, se confirma antes de descartarlas;
+  /// una tarea por cantidades carga sus ítems, ubicaciones y catálogo.
+  Future<void> _selectTask(String? id) async {
+    if (id == _taskId) return;
+    if (_quantityTask && _quantities.hasCaptured) {
+      final discard = await _confirmDiscardQuantities();
+      if (!discard || !mounted) return;
+    }
+    final selection = ++_taskSelection;
+    final task = _tasks.where((t) => t.id == id).firstOrNull;
+    final byQuantities = task?.measuredByQuantities ?? false;
+    if (byQuantities) {
+      final quantityContext = await ref
+          .read(appDependenciesProvider)
+          .scheduleTaskRepository
+          .quantityContext(taskId: task!.id, projectId: task.projectId);
+      // Otra tarea elegida mientras esta cargaba: gana la última.
+      if (!mounted || selection != _taskSelection) return;
+      _quantities.load(quantityContext);
+    } else {
+      _quantities.clear();
+    }
+    setState(() {
+      // Otra tarea, otro avance: el % de la anterior no vale.
+      _progressController.clear();
+      _taskId = id;
+      _progressError = null;
+      _quantityTask = byQuantities;
+    });
+  }
+
+  Future<bool> _confirmDiscardQuantities() async {
+    final l10n = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.quantityDiscardTitle),
+        content: Text(l10n.quantityDiscardBody),
+        actions: [
+          TextButton(
+            key: const Key('quantity_discard_cancel'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.reviewConfirmCancel),
+          ),
+          FilledButton(
+            key: const Key('quantity_discard_confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.quantityDiscardConfirm),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  /// Sin tarea: `ok` y nada que enviar. Con tarea: el % o las cantidades leídas, o el
+  /// error en pantalla. Un registro validado (cantidades de solo lectura) no envía nada.
+  ({bool ok, TaskProgress? value}) _readProgress(AppLocalizations l10n) {
+    final taskId = _taskId;
+    if (taskId == null) {
+      setState(() => _progressError = null);
+      return (ok: true, value: null);
+    }
+    if (_quantityTask) {
+      if (_keepQuantities) return (ok: true, value: null);
+      return _quantities.validate()
+          ? (ok: true, value: TaskProgress(taskId: taskId, quantities: _quantities.payload()))
+          : (ok: false, value: null);
+    }
+    final text = _progressController.text.trim();
+    final pct = parseProgressPct(text);
+    final error = text.isEmpty
+        ? l10n.captureProgressRequired
+        : pct == null
+        ? l10n.captureProgressInvalid
+        : null;
+    setState(() => _progressError = error);
+    return error == null ? (ok: true, value: TaskProgress(taskId: taskId, pct: pct)) : (ok: false, value: null);
   }
 
   Future<void> _loadForAssignment(String assignmentId) async {
@@ -102,7 +239,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     }
     // La versión exacta de la asignación: es contra la que el servidor
     // validará las respuestas.
-    final lookup = await dependencies.formTemplates.forVisit(
+    final lookup = await dependencies.formTemplates.forRecord(
       orgId: orgId,
       templateVersionId: assignment.templateVersionId,
     );
@@ -115,34 +252,59 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     });
   }
 
-  Future<void> _loadForEdit(String visitId) async {
+  Future<void> _loadForEdit(String recordId) async {
     final orgId = _orgId;
     if (orgId == null) return;
     final dependencies = ref.read(appDependenciesProvider);
-    final detail = await dependencies.visitStatus.detail(orgId: orgId, visitId: visitId);
+    final detail = await dependencies.recordStatus.detail(orgId: orgId, recordId: recordId);
     if (detail == null) {
       if (mounted) setState(() => _templates = const []);
       return;
     }
-    final lookup = await dependencies.formTemplates.forVisit(
+    final lookup = await dependencies.formTemplates.forRecord(
       orgId: orgId,
-      templateVersionId: detail.visit.templateVersionId,
+      templateVersionId: detail.record.templateVersionId,
     );
+    final record = detail.record;
+
+    // Costos, pieza 4b: cómo se editó el avance. Con cantidades guardadas, por cantidades
+    // (sobre su tarea si sigue en la lista); un registro por % sigue por %, aunque su
+    // tarea se mida ahora por cantidades. Se decide antes de mostrar nada, para que el %
+    // no aparezca un instante.
+    await _tasksReady;
+    final stored = decodeQuantities(record.quantitiesJson);
+    final taskId = record.taskId;
+    final task = _tasks.where((t) => t.id == taskId).firstOrNull;
+    final byQuantities =
+        taskId != null &&
+        (stored.isNotEmpty || (record.progressPct == null && (task?.measuredByQuantities ?? false)));
+    if (byQuantities) {
+      final schedule = dependencies.scheduleTaskRepository;
+      final quantityContext = await schedule.quantityContext(taskId: taskId, projectId: task?.projectId);
+      final known = await schedule.knownItems({for (final row in stored) row['item_id']! as String});
+      if (!mounted) return;
+      _quantities.load(quantityContext, stored: stored, known: known, readOnly: record.knownValidated);
+    }
     if (!mounted) return;
-    final visit = detail.visit;
     setState(() {
       _lookup = lookup;
       _templates = lookup is TemplateReady ? [lookup.info] : const [];
       _form = lookup is TemplateReady ? FormController(lookup.definition, initialAnswers: detail.answers) : null;
-      _originalFix = visit.lat == null || visit.lon == null
+      _originalFix = record.lat == null || record.lon == null
           ? null
-          : LocationFix(lat: visit.lat!, lon: visit.lon!, accuracyM: visit.accuracyM ?? 0, altitudeM: visit.altitudeM);
+          : LocationFix(lat: record.lat!, lon: record.lon!, accuracyM: record.accuracyM ?? 0, altitudeM: record.altitudeM);
+      _taskId = record.taskId;
+      _originalTaskId = record.taskId;
+      _quantityTask = byQuantities;
+      if (record.progressPct != null) _progressController.text = formatProgressPct(record.progressPct!);
     });
   }
 
   @override
   void dispose() {
     _form?.dispose();
+    _progressController.dispose();
+    _quantities.dispose();
     super.dispose();
   }
 
@@ -166,7 +328,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     final lookup = await ref
         .read(appDependenciesProvider)
         .formTemplates
-        .latestForNewVisit(orgId: orgId, templateId: templateId);
+        .latestForNewRecord(orgId: orgId, templateId: templateId);
     if (!mounted) return;
     setState(() {
       _templateId = templateId;
@@ -200,7 +362,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     if (png == null) return null;
     final stored = await dependencies.signatureStore.save(png);
     final signature = PendingAttachment(
-      id: dependencies.visitCapture.newAttachmentId(),
+      id: dependencies.recordCapture.newAttachmentId(),
       sha256: stored.sha256,
       localPath: stored.path,
       mime: 'image/png',
@@ -217,7 +379,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     return fix == null ? null : {'lat': fix.lat, 'lon': fix.lon};
   }
 
-  /// Misma hoja para la ubicación de la visita y para los campos de
+  /// Misma hoja para la ubicación del registro y para los campos de
   /// ubicación del formulario (Fase A: precisión, promedio, tiempo máximo).
   Future<LocationFix?> _sampleLocation() {
     final dependencies = ref.read(appDependenciesProvider);
@@ -247,7 +409,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     final photo = await dependencies.photoCapture.takePhoto();
     if (photo == null) return null;
     return PendingAttachment(
-      id: dependencies.visitCapture.newAttachmentId(),
+      id: dependencies.recordCapture.newAttachmentId(),
       sha256: photo.sha256,
       localPath: photo.file.path,
       mime: photo.mime,
@@ -281,7 +443,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
     if (authState is! Authenticated || form == null || lookup is! TemplateReady) return;
 
     final l10n = context.l10n;
-    if (!form.validate()) {
+    final formOk = form.validate();
+    final progress = _readProgress(l10n);
+    if (!formOk || !progress.ok) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.captureFixErrors)));
       return;
     }
@@ -293,20 +457,23 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
       roles: authState.user.roles,
     );
     setState(() => _saving = true);
-    VisitChange change;
+    RecordChange change;
     try {
       if (_editing) {
-        change = await dependencies.visitCapture.update(
+        change = await dependencies.recordCapture.update(
           identity: identity,
-          visitId: widget.editVisitId!,
+          recordId: widget.editRecordId!,
           definition: lookup.definition,
           answers: form.answers,
           captured: Map.of(_captured),
           extraPhotos: List.of(_extraPhotos),
           fix: _fix,
+          // Un registro validado, o editado sin tocar sus cantidades, no toca su tarea
+          // ni sus cantidades.
+          progress: _keepQuantities ? null : (value: progress.value),
         );
       } else {
-        await dependencies.visitCapture.save(
+        await dependencies.recordCapture.save(
           identity: identity,
           templateVersionId: lookup.info.id,
           definition: lookup.definition,
@@ -315,26 +482,27 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
           extraPhotos: List.of(_extraPhotos),
           fix: _fix,
           assignmentId: _assignment?.id,
+          progress: progress.value,
         );
-        change = VisitChange.saved;
+        change = RecordChange.saved;
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-    // La visita y sus fotos salen ya si hay red, sin esperar al siguiente
+    // El registro y sus fotos salen ya si hay red, sin esperar al siguiente
     // ciclo (Paso 18, Fase A). Sin `await`: no retiene la pantalla ni el
     // guardado; sin red queda en la outbox para el próximo disparo.
-    if (change == VisitChange.saved) unawaited(dependencies.syncCoordinator.syncNow());
+    if (change == RecordChange.saved) unawaited(dependencies.syncCoordinator.syncNow());
     if (!mounted) return;
     final message = switch (change) {
-      VisitChange.saved => _editing ? l10n.captureUpdated : l10n.captureSaved,
-      VisitChange.unchanged => l10n.visitUnchanged,
-      VisitChange.notAllowed => l10n.visitNotEditable,
-      VisitChange.needsReview => l10n.visitNeedsReview,
-      VisitChange.notFound => l10n.visitNotFound,
+      RecordChange.saved => _editing ? l10n.captureUpdated : l10n.captureSaved,
+      RecordChange.unchanged => l10n.recordUnchanged,
+      RecordChange.notAllowed => l10n.recordNotEditable,
+      RecordChange.needsReview => l10n.recordNeedsReview,
+      RecordChange.notFound => l10n.recordNotFound,
     };
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    Navigator.of(context).pop(change == VisitChange.saved);
+    Navigator.of(context).pop(change == RecordChange.saved);
   }
 
   @override
@@ -370,7 +538,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
             ],
             if (_assignment case final assignment?) ...[
               Text(
-                l10n.captureForAssignment(assignment.title ?? assignment.templateName ?? l10n.homeVisitUntitled),
+                l10n.captureForAssignment(assignment.title ?? assignment.templateName ?? l10n.homeRecordUntitled),
                 key: const Key('capture_assignment'),
                 style: Theme.of(context).textTheme.titleSmall,
               ),
@@ -387,8 +555,21 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> implements FormMe
             if (form != null) ...[
               const AppGap.lg(),
               DynamicForm(controller: form, mediaDelegate: this, formatLocation: _crs.format),
+              if (_tasks.isNotEmpty || _taskId != null) ...[
+                const AppGap.sm(),
+                TaskProgressSection(
+                  tasks: _tasks,
+                  tasksLoaded: _tasksLoaded,
+                  selectedId: _taskId,
+                  controller: _progressController,
+                  errorText: _progressError,
+                  locked: _quantityTask && _quantities.readOnly,
+                  quantities: _quantityTask ? QuantityCaptureSection(controller: _quantities) : null,
+                  onSelected: _selectTask,
+                ),
+              ],
               const AppGap.sm(),
-              Text(l10n.captureVisitLocation, style: Theme.of(context).textTheme.titleSmall),
+              Text(l10n.captureRecordLocation, style: Theme.of(context).textTheme.titleSmall),
               if (fix != null) Text(l10n.coordinatesWithAccuracy(_crs.format(fix.lat, fix.lon), fix.accuracyM.round())),
               if (fix != null && fix.accuracyM > ref.read(appDependenciesProvider).gpsPolicy.targetAccuracyM)
                 Text(l10n.captureLocationLowAccuracy, key: const Key('capture_location_low_accuracy')),

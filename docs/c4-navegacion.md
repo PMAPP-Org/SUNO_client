@@ -2,7 +2,7 @@
 
 Desde **Mis asignaciones**, el botón de direcciones abre la orientación al
 punto planificado. En el mapa, la ficha de la asignación ofrece **Ir a la
-asignación**, junto al acceso existente a la visita. Las asignaciones sin
+asignación**, junto al acceso existente al registro. Las asignaciones sin
 coordenadas válidas no ofrecen navegación.
 
 La pantalla muestra distancia en línea recta, precisión y azimut inicial

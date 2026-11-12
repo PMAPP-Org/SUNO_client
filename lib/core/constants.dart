@@ -5,12 +5,12 @@
 // criterio de éxito del demo y añadir el paquete solo para esto sería
 // sobre-construcción (YAGNI). El valor lo actualiza release-please en cada
 // release, junto con `pubspec.yaml` (ver `release-please-config.json`).
-const String kAppVersion = '0.9.0'; // x-release-please-version
+const String kAppVersion = '0.13.0'; // x-release-please-version
 
 /// URL base de la API, configurable en tiempo de build/ejecución con
-/// `flutter run --dart-define=VISITACAMPO_API_BASE_URL=https://tu-dominio`.
+/// `flutter run --dart-define=SUNO_API_BASE_URL=https://tu-dominio`.
 /// Las compilaciones sin override apuntan a la instancia de producción.
 const String kApiBaseUrl = String.fromEnvironment(
-  'VISITACAMPO_API_BASE_URL',
+  'SUNO_API_BASE_URL',
   defaultValue: 'https://pmapp.online',
 );

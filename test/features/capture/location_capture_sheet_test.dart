@@ -4,9 +4,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/location/gps_sampler.dart';
-import 'package:visitacampo/core/location/location_source.dart';
-import 'package:visitacampo/features/capture/location_capture_sheet.dart';
+import 'package:suno/core/location/gps_sampler.dart';
+import 'package:suno/core/location/location_source.dart';
+import 'package:suno/features/capture/location_capture_sheet.dart';
 
 import '../../support/test_app.dart';
 

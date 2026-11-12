@@ -7,9 +7,9 @@
   "brandDescriptor": "GESTIÓN DE CAMPO",
   "loginWelcome": "Continúa tu trabajo.",
   "loginIntro": "Accede con la cuenta de tu organización.",
-  "loginFieldNote": "Prepara tus plantillas con conexión. Registra tus visitas donde estés.",
+  "loginFieldNote": "Prepara tus plantillas con conexión. Captura tus registros donde estés.",
   "homeHeading": "Tu jornada en campo",
-  "homeIntro": "Registra cada visita y mantén al día la información de tu equipo.",
+  "homeIntro": "Captura cada registro y mantén al día la información de tu equipo.",
   "homeOfflineNote": "Guarda en el dispositivo. Sincroniza cuando tengas conexión.",
   "loginTitle": "Iniciar sesión",
   "loginUsernameLabel": "Usuario",
@@ -33,7 +33,7 @@
   "@homeSessionStarted": {
     "placeholders": { "deviceId": { "type": "String" } }
   },
-  "homeNewVisit": "Nueva visita",
+  "homeNewRecord": "Nuevo registro",
   "homeSync": "Sincronizar",
   "homeSyncing": "Sincronizando…",
   "homeLastSync": "Última sincronización completa: {time}",
@@ -41,44 +41,44 @@
     "placeholders": { "time": { "type": "DateTime", "format": "Hm" } }
   },
   "homeSyncPending": "Hay datos sin sincronizar; se reintentará automáticamente.",
-  "homeRecentVisits": "Visitas recientes",
-  "homeNoVisits": "Todavía no hay visitas en este dispositivo.",
-  "homeVisitUntitled": "Visita",
-  "homeVisitAttachments": "{count, plural, =1{1 adjunto} other{{count} adjuntos}}",
-  "@homeVisitAttachments": {
+  "homeRecentRecords": "Registros recientes",
+  "homeNoRecords": "Todavía no hay registros en este dispositivo.",
+  "homeRecordUntitled": "Registro",
+  "homeRecordAttachments": "{count, plural, =1{1 adjunto} other{{count} adjuntos}}",
+  "@homeRecordAttachments": {
     "placeholders": { "count": { "type": "int" } }
   },
-  "homeVisitFailedUploads": "{count, plural, =1{1 con error} other{{count} con error}}",
-  "@homeVisitFailedUploads": {
+  "homeRecordFailedUploads": "{count, plural, =1{1 con error} other{{count} con error}}",
+  "@homeRecordFailedUploads": {
     "description": "Adjuntos que no se pudieron subir y no se reintentan solos.",
     "placeholders": { "count": { "type": "int" } }
   },
-  "homeVisitPendingUploads": "{count, plural, =1{1 por subir} other{{count} por subir}}",
-  "@homeVisitPendingUploads": {
+  "homeRecordPendingUploads": "{count, plural, =1{1 por subir} other{{count} por subir}}",
+  "@homeRecordPendingUploads": {
     "placeholders": { "count": { "type": "int" } }
   },
-  "visitStatusPending": "Pendiente",
-  "visitStatusSynced": "Sincronizada",
-  "visitStatusRejected": "Rechazada",
+  "recordStatusPending": "Pendiente",
+  "recordStatusSynced": "Sincronizado",
+  "recordStatusRejected": "Rechazado",
   "homeSearchHint": "Buscar por formulario o respuesta",
-  "homeNoResults": "Ninguna visita coincide con la búsqueda.",
+  "homeNoResults": "Ningún registro coincide con la búsqueda.",
   "homeLoadMore": "Ver más",
-  "visitNotFound": "Esta visita ya no está en el teléfono.",
-  "visitNoLocation": "Sin ubicación.",
-  "visitAltitude": "Altitud: {meters} m",
-  "@visitAltitude": {
+  "recordNotFound": "Este registro ya no está en el teléfono.",
+  "recordNoLocation": "Sin ubicación.",
+  "recordAltitude": "Altitud: {meters} m",
+  "@recordAltitude": {
     "placeholders": { "meters": { "type": "int" } }
   },
-  "visitAnswers": "Respuestas",
-  "visitExtraPhotos": "Fotos adicionales",
-  "visitId": "Identificador: {id}",
-  "@visitId": {
+  "recordAnswers": "Respuestas",
+  "recordExtraPhotos": "Fotos adicionales",
+  "recordId": "Identificador: {id}",
+  "@recordId": {
     "placeholders": { "id": { "type": "String" } }
   },
-  "visitAttachmentUploaded": "Subida",
-  "visitAttachmentPending": "Por subir",
-  "visitAttachmentFailed": "Error al subir",
-  "visitAttachmentRemote": "En el servidor",
+  "recordAttachmentUploaded": "Subida",
+  "recordAttachmentPending": "Por subir",
+  "recordAttachmentFailed": "Error al subir",
+  "recordAttachmentRemote": "En el servidor",
   "mapTitle": "Mapa",
   "mapBasemaps": "Mapa base: {names}",
   "@mapBasemaps": {
@@ -117,11 +117,11 @@
   "basemapCorrupted": "La descarga llegó incompleta o alterada y se descartó. Inténtalo de nuevo.",
   "basemapNoSpace": "No hay espacio suficiente en el teléfono para este mapa.",
   "basemapUnavailable": "No se pudo descargar. Revisa la conexión e inténtalo de nuevo.",
-  "mapNoBasemap": "Sin mapa base descargado: se ven tus visitas, asignaciones y tu posición.",
-  "mapEmpty": "Todavía no hay visitas ni asignaciones con ubicación.",
+  "mapNoBasemap": "Sin mapa base descargado: se ven tus registros, asignaciones y tu posición.",
+  "mapEmpty": "Todavía no hay registros ni asignaciones con ubicación.",
   "mapCenterOnMe": "Centrar en mi posición",
-  "mapOpenVisit": "Ver visita",
-  "mapStartVisit": "Iniciar visita",
+  "mapOpenRecord": "Ver registro",
+  "mapStartRecord": "Iniciar registro",
   "assignmentsTitle": "Mis asignaciones",
   "assignmentsEmpty": "No tienes asignaciones. Sincroniza para recibir las nuevas.",
   "assignmentPending": "Pendiente",
@@ -192,41 +192,41 @@
   "settingsLogout": "Cerrar sesión",
   "settingsLogoutTitle": "¿Cerrar sesión?",
   "settingsLogoutBody": "Para volver a entrar necesitarás tu usuario y contraseña, y conexión.",
-  "settingsLogoutUnsent": "{count, plural, =1{Tienes 1 visita sin enviar.} other{Tienes {count} visitas sin enviar.}} Se quedan en el teléfono y se enviarán cuando vuelvas a entrar; mientras tanto, nadie más podrá entrar en este teléfono.",
+  "settingsLogoutUnsent": "{count, plural, =1{Tienes 1 registro sin enviar.} other{Tienes {count} registros sin enviar.}} Se quedan en el teléfono y se enviarán cuando vuelvas a entrar; mientras tanto, nadie más podrá entrar en este teléfono.",
   "@settingsLogoutUnsent": {
     "placeholders": { "count": { "type": "int" } }
   },
-  "loginHandoverBlocked": "{count, plural, =1{Este teléfono tiene 1 visita sin enviar de otro usuario.} other{Este teléfono tiene {count} visitas sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "loginHandoverBlocked": "{count, plural, =1{Este teléfono tiene 1 registro sin enviar de otro usuario.} other{Este teléfono tiene {count} registros sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
   "@loginHandoverBlocked": {
     "placeholders": { "count": { "type": "int" } }
   },
   "loginHandoverWiped": "Se borraron del teléfono los datos de la organización anterior.",
-  "visitEdit": "Editar",
-  "visitDelete": "Eliminar",
-  "visitDeleteTitle": "¿Eliminar esta visita?",
-  "visitDeleteBody": "Sale de la lista ahora y se elimina en el servidor al sincronizar. Queda registro del borrado.",
-  "visitDeleteConfirm": "Sí, eliminar",
-  "visitDeleted": "Visita eliminada.",
-  "visitNotEditable": "Solo puedes editar o eliminar tus propias visitas.",
-  "visitNeedsReview": "Esta visita tiene algo en \"Para revisar\": resuélvelo primero.",
-  "visitUnchanged": "No hay cambios que guardar.",
-  "captureEditTitle": "Editar visita",
+  "recordEdit": "Editar",
+  "recordDelete": "Eliminar",
+  "recordDeleteTitle": "¿Eliminar este registro?",
+  "recordDeleteBody": "Sale de la lista ahora y se elimina en el servidor al sincronizar. Queda constancia del borrado.",
+  "recordDeleteConfirm": "Sí, eliminar",
+  "recordDeleted": "Registro eliminado.",
+  "recordNotEditable": "Solo puedes editar o eliminar tus propios registros.",
+  "recordNeedsReview": "Este registro tiene algo en \"Para revisar\": resuélvelo primero.",
+  "recordUnchanged": "No hay cambios que guardar.",
+  "captureEditTitle": "Editar registro",
   "captureUpdated": "Cambios guardados. Se enviarán al sincronizar.",
   "reviewDiscardChanges": "Descartar mis cambios",
   "reviewDiscardChangesTitle": "¿Descartar tus cambios?",
-  "reviewDiscardChangesBody": "La visita vuelve a la versión del servidor. Tus cambios sin enviar se pierden.",
+  "reviewDiscardChangesBody": "El registro vuelve a la versión del servidor. Tus cambios sin enviar se pierden.",
   "reviewDiscardChangesConfirm": "Sí, descartar cambios",
-  "homeReviewPending": "{count, plural, =1{1 visita para revisar} other{{count} visitas para revisar}}",
+  "homeReviewPending": "{count, plural, =1{1 registro para revisar} other{{count} registros para revisar}}",
   "@homeReviewPending": {
-    "description": "Botón de la portada que abre la revisión de visitas rechazadas o en conflicto.",
+    "description": "Botón de la portada que abre la revisión de registros rechazados o en conflicto.",
     "placeholders": { "count": { "type": "int" } }
   },
 
   "reviewTitle": "Para revisar",
-  "reviewEmpty": "No hay visitas para revisar.",
+  "reviewEmpty": "No hay registros para revisar.",
   "reviewKindConflict": "Cambió en el servidor",
-  "reviewKindRejected": "Rechazada por el servidor",
-  "reviewConflictExplain": "Alguien modificó esta visita en el servidor mientras tenías tu versión sin enviar. Elige cuál se queda.",
+  "reviewKindRejected": "Rechazado por el servidor",
+  "reviewConflictExplain": "Alguien modificó este registro en el servidor mientras tenías tu versión sin enviar. Elige cuál se queda.",
   "reviewServerSays": "Motivo: {message}",
   "@reviewServerSays": {
     "placeholders": { "message": { "type": "String" } }
@@ -245,19 +245,19 @@
   "reviewAcceptServer": "Quedarme con la del servidor",
   "reviewCorrect": "Corregir",
   "reviewRetry": "Reintentar",
-  "reviewDiscard": "Descartar visita",
+  "reviewDiscard": "Descartar registro",
   "reviewConfirmCancel": "Cancelar",
   "reviewAcceptServerTitle": "¿Quedarte con la versión del servidor?",
-  "reviewAcceptServerBody": "Se perderán tus cambios en esta visita. No se puede deshacer.",
+  "reviewAcceptServerBody": "Se perderán tus cambios en este registro. No se puede deshacer.",
   "reviewAcceptServerConfirm": "Sí, usar la del servidor",
-  "reviewDiscardTitle": "¿Descartar esta visita?",
+  "reviewDiscardTitle": "¿Descartar este registro?",
   "reviewDiscardBody": "Se borrará del teléfono con sus fotos. El servidor no la tiene, así que no se podrá recuperar.",
   "reviewDiscardConfirm": "Sí, descartar",
   "reviewQueued": "Listo: se enviará en la próxima sincronización.",
-  "reviewResolved": "Listo: la visita quedó con la versión del servidor.",
-  "reviewDiscarded": "Visita descartada.",
+  "reviewResolved": "Listo: el registro quedó con la versión del servidor.",
+  "reviewDiscarded": "Registro descartado.",
 
-  "correctionTitle": "Corregir visita",
+  "correctionTitle": "Corregir registro",
   "correctionSave": "Guardar y reenviar",
 
   "signatureTitle": "Firma",
@@ -266,11 +266,11 @@
   "signatureAccept": "Aceptar firma",
   "signatureEmpty": "Firma antes de aceptar.",
 
-  "syncComplete": "Sincronización completa: {applied, plural, =1{1 visita aplicada} other{{applied} visitas aplicadas}}, {uploaded, plural, =1{1 adjunto subido} other{{uploaded} adjuntos subidos}}.",
+  "syncComplete": "Sincronización completa: {applied, plural, =1{1 registro aplicado} other{{applied} registros aplicados}}, {uploaded, plural, =1{1 adjunto subido} other{{uploaded} adjuntos subidos}}.",
   "@syncComplete": {
     "placeholders": { "applied": { "type": "int" }, "uploaded": { "type": "int" } }
   },
-  "syncIncomplete": "Sincronización incompleta: {applied, plural, =1{1 visita aplicada} other{{applied} visitas aplicadas}}, {quarantined, plural, =1{1 rechazada} other{{quarantined} rechazadas}}, {deferred, plural, =1{1 pendiente de reintento} other{{deferred} pendientes de reintento}}, {uploaded, plural, =1{1 adjunto subido} other{{uploaded} adjuntos subidos}}, {failedAttachments, plural, =1{1 adjunto sin subir} other{{failedAttachments} adjuntos sin subir}}.",
+  "syncIncomplete": "Sincronización incompleta: {applied, plural, =1{1 registro aplicado} other{{applied} registros aplicados}}, {quarantined, plural, =1{1 rechazado} other{{quarantined} rechazados}}, {deferred, plural, =1{1 pendiente de reintento} other{{deferred} pendientes de reintento}}, {uploaded, plural, =1{1 adjunto subido} other{{uploaded} adjuntos subidos}}, {failedAttachments, plural, =1{1 adjunto sin subir} other{{failedAttachments} adjuntos sin subir}}.",
   "@syncIncomplete": {
     "placeholders": {
       "applied": { "type": "int" },
@@ -282,7 +282,7 @@
   },
   "syncPullFailed": "No se pudieron traer los cambios del servidor.",
 
-  "captureTitle": "Nueva visita",
+  "captureTitle": "Nuevo registro",
   "captureTemplateLabel": "Plantilla",
   "captureNoTemplates": "No hay plantillas en este dispositivo. Sincroniza para descargarlas.",
   "captureGetLocation": "Obtener ubicación",
@@ -291,7 +291,7 @@
     "description": "Coordenadas en formato técnico (punto decimal), no localizado: se copian a SIG.",
     "placeholders": { "lat": { "type": "String" }, "lon": { "type": "String" } }
   },
-  "captureVisitLocation": "Ubicación de la visita",
+  "captureRecordLocation": "Ubicación del registro",
   "captureLocationWithAccuracy": "lat: {lat}, lon: {lon} (±{accuracy} m)",
   "@captureLocationWithAccuracy": {
     "description": "Coordenadas en formato técnico y precisión del GPS en metros.",
@@ -301,7 +301,7 @@
       "accuracy": { "type": "int" }
     }
   },
-  "captureLocationUnavailable": "No se pudo obtener la ubicación. Puedes guardar la visita sin ella.",
+  "captureLocationUnavailable": "No se pudo obtener la ubicación. Puedes guardar el registro sin ella.",
   "captureLocationLowAccuracy": "Precisión baja: revisa la ubicación antes de guardar.",
   "gpsTitle": "Ubicación GPS",
   "gpsSearching": "Buscando señal GPS… Al aire libre y con el teléfono quieto se consigue antes.",
@@ -319,9 +319,9 @@
     "placeholders": { "target": { "type": "int" } }
   },
   "gpsMocked": "Ubicación simulada detectada. Desactiva las ubicaciones de prueba: una posición falsa no sirve como evidencia.",
-  "gpsNoSignal": "Sin señal GPS. Puedes reintentar o guardar la visita sin ubicación.",
+  "gpsNoSignal": "Sin señal GPS. Puedes reintentar o guardar el registro sin ubicación.",
   "gpsServiceDisabled": "El GPS del teléfono está apagado.",
-  "gpsPermissionDenied": "La app necesita permiso de ubicación para registrar dónde se hizo la visita.",
+  "gpsPermissionDenied": "La app necesita permiso de ubicación para guardar dónde se hizo el registro.",
   "gpsPermissionDeniedForever": "El permiso de ubicación está bloqueado. Actívalo en los ajustes de la app.",
   "gpsOpenSettings": "Abrir ajustes",
   "gpsRetry": "Reintentar",
@@ -333,9 +333,9 @@
   },
   "captureAddPhoto": "Añadir foto",
   "captureFixErrors": "Revisa los campos marcados antes de guardar.",
-  "captureSave": "Guardar visita",
-  "captureSaving": "Guardando visita…",
-  "captureSaved": "Visita guardada.",
+  "captureSave": "Guardar registro",
+  "captureSaving": "Guardando registro…",
+  "captureSaved": "Registro guardado.",
 
   "formFieldRequired": "{label} *",
   "@formFieldRequired": {
@@ -389,7 +389,7 @@
   "authErrorUntrustedCertificate": "El servidor presentó un certificado en el que la app no confía.",
   "authErrorPinMismatch": "La identidad del servidor no coincide con la esperada. Por seguridad, la app no se conectará. Avisa al administrador.",
   "authErrorCleartext": "La dirección del servidor no usa una conexión segura (https).",
-  "sessionEnded": "Tu sesión terminó. Vuelve a iniciar sesión: las visitas guardadas en el teléfono se conservan y se enviarán después.",
+  "sessionEnded": "Tu sesión terminó. Vuelve a iniciar sesión: los registros guardados en el teléfono se conservan y se enviarán después.",
   "tofuTitle": "¿Confiar en este servidor?",
   "tofuIntro": "El servidor {server} usa un certificado que no está firmado por una autoridad reconocida. Es normal en servidores propios de una organización, pero también es lo que verías si alguien estuviera interceptando la conexión.",
   "@tofuIntro": {
@@ -421,16 +421,16 @@
   "privacyIntro": "Antes de usar la aplicación, lee cómo se tratan tus datos personales y autoriza cada uso.",
   "privacyResponsible": "La organización para la que trabajas es la responsable del tratamiento de tus datos. El operador de la aplicación los trata por encargo suyo, conforme a la Ley 1581 de 2012.",
   "privacyPurposeAccountTitle": "Cuenta y uso de la aplicación",
-  "privacyPurposeAccountBody": "Tu usuario, correo y nombre, y el teléfono desde el que entras: para identificarte, proteger tu cuenta y registrar quién hizo cada visita.",
-  "privacyPurposeLocationTitle": "Ubicación de las visitas",
-  "privacyPurposeLocationBody": "La posición GPS y la hora de cada visita que guardes, como evidencia del trabajo de campo. No se registra tu ubicación fuera de las visitas.",
+  "privacyPurposeAccountBody": "Tu usuario, correo y nombre, y el teléfono desde el que entras: para identificarte, proteger tu cuenta y dejar constancia de quién hizo cada registro.",
+  "privacyPurposeLocationTitle": "Ubicación de los registros",
+  "privacyPurposeLocationBody": "La posición GPS y la hora de cada registro que guardes, como evidencia del trabajo de campo. No se guarda tu ubicación fuera de los registros.",
   "privacyPurposePhotosTitle": "Fotos y firmas",
-  "privacyPurposePhotosBody": "Las fotos y firmas que captures en las visitas. Pueden aparecer otras personas: captura solo lo necesario para la visita.",
+  "privacyPurposePhotosBody": "Las fotos y firmas que captures en los registros. Pueden aparecer otras personas: captura solo lo necesario para el registro.",
   "privacyRights": "Puedes conocer, actualizar, rectificar y pedir que se supriman tus datos, y revocar esta autorización, a través de la administración de tu organización.",
   "privacyAllRequired": "Marca las tres autorizaciones para continuar.",
   "privacyAccept": "Acepto y continúo",
   "privacyDecline": "No acepto",
-  "privacyDeclined": "Sin esta autorización no se puede usar la aplicación: una visita de campo necesita tu cuenta, la ubicación y las fotos. Puedes volver a leer el aviso cuando quieras.",
+  "privacyDeclined": "Sin esta autorización no se puede usar la aplicación: un registro de campo necesita tu cuenta, la ubicación y las fotos. Puedes volver a leer el aviso cuando quieras.",
   "privacyVersion": "Versión del aviso: {version}",
   "@privacyVersion": {
     "placeholders": { "version": { "type": "String" } }
@@ -438,9 +438,9 @@
   "formScanQr": "Escanear QR",
   "formQrUnavailable": "No se pudo abrir la cámara. Revisa el permiso o escribe el código manualmente.",
   "formQrRetry": "Reintentar",
-  "formAddRow": "Añadir registro",
-  "formRemoveRow": "Eliminar registro",
-  "formRepeatRow": "Registro {number}",
+  "formAddRow": "Añadir fila",
+  "formRemoveRow": "Eliminar fila",
+  "formRepeatRow": "Fila {number}",
   "@formRepeatRow": {
     "placeholders": {
       "number": {
@@ -448,25 +448,450 @@
       }
     }
   },
-  "visitExport": "Exportar visita",
-  "visitExportPdf": "Informe PDF",
-  "visitExportGeoJson": "GeoJSON",
-  "visitExportFailed": "No se pudo exportar la visita. Inténtalo de nuevo.",
-  "visitExportLocal": "Informe del dispositivo. Estado de sincronización: {status}",
-  "@visitExportLocal": {
+  "recordExport": "Exportar registro",
+  "recordExportPdf": "Informe PDF",
+  "recordExportGeoJson": "GeoJSON",
+  "recordExportFailed": "No se pudo exportar el registro. Inténtalo de nuevo.",
+  "recordExportLocal": "Informe del dispositivo. Estado de sincronización: {status}",
+  "@recordExportLocal": {
     "placeholders": {
       "status": {
         "type": "String"
       }
     }
   },
-  "visitExportPending": "pendiente",
-  "visitExportSynced": "sincronizada",
-  "visitExportRejected": "rechazada",
-  "visitExportAttachments": "Las referencias de fotos y firmas identifican los adjuntos. Este informe no incorpora sus archivos.",
-  "formErrorTooFewRows": "Añade los registros mínimos requeridos.",
-  "formErrorTooManyRows": "Hay más registros de los permitidos.",
-  "visitExportAuthor": "Autor",
-  "visitExportVersion": "Versión del formulario"
+  "recordExportPending": "pendiente",
+  "recordExportSynced": "sincronizado",
+  "recordExportRejected": "rechazado",
+  "recordExportAttachments": "Las referencias de fotos y firmas identifican los adjuntos. Este informe no incorpora sus archivos.",
+  "formErrorTooFewRows": "Añade las filas mínimas requeridas.",
+  "formErrorTooManyRows": "Hay más filas de las permitidas.",
+  "recordExportAuthor": "Autor",
+  "recordExportVersion": "Versión del formulario",
+  "captureTaskSection": "Avance del cronograma",
+  "captureTaskLabel": "Tarea del cronograma",
+  "captureTaskNone": "Sin tarea (opcional)",
+  "captureTaskUnavailable": "Tarea vinculada (ya no está en tu lista)",
+  "captureProgressLabel": "% avance acumulado",
+  "captureProgressSuffix": "%",
+  "captureProgressReference": "Último validado: {pct} %",
+  "@captureProgressReference": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "captureProgressNoReference": "Sin avance validado todavía.",
+  "captureProgressBelowValidated": "Es menor que el último validado ({pct} %). Se guardará y la supervisión lo verá marcado.",
+  "@captureProgressBelowValidated": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "captureProgressRequired": "Indica el % de avance acumulado.",
+  "captureProgressInvalid": "Escribe un número entre 0 y 100, con hasta dos decimales.",
+  "taskPickerSearch": "Buscar por EDT o nombre",
+  "taskPickerNone": "Sin tarea",
+  "taskPickerEmpty": "No hay tareas que coincidan.",
+  "taskPickerNoneAssigned": "No tienes tareas asignadas en el cronograma.",
+  "taskPickerSubtitle": "{project} · último validado {pct} %",
+  "@taskPickerSubtitle": {
+    "placeholders": {
+      "project": {
+        "type": "String"
+      },
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "formErrorTaskRetired": "La tarea fue retirada del cronograma.",
+  "formErrorTaskIsSummary": "Elige una tarea de detalle, no un resumen.",
+  "formErrorNotResponsible": "Ya no eres responsable de esta tarea.",
+  "formErrorTaskProgressPair": "La tarea y el % de avance van juntos.",
+  "formErrorRecordValidated": "El registro ya fue validado: su tarea, su % y sus cantidades no se pueden cambiar desde el teléfono.",
+  "formErrorRecordValidatedDelete": "El registro ya fue validado: no se puede borrar desde el teléfono.",
+  "formErrorTaskUnknown": "La tarea ya no existe en el cronograma.",
+  "reviewUnlinkTask": "Quitar la tarea y reenviar",
+  "quantitySectionTitle": "Cantidades de hoy",
+  "quantitiesTitle": "Cantidades",
+  "quantityEcho": "= {value}",
+  "@quantityEcho": {
+    "placeholders": { "value": { "type": "String" } }
+  },
+  "quantityCorrectionFailed": "No se pudo guardar la corrección. Inténtalo de nuevo.",
+  "quantityToday": "Cantidad hoy",
+  "quantityPlannedValidated": "Planeado {planned} · validado {validated}",
+  "@quantityPlannedValidated": {
+    "placeholders": { "planned": { "type": "String" }, "validated": { "type": "String" } }
+  },
+  "quantityUnplanned": "No planeado en esta tarea",
+  "quantityInvalid": "Escribe un número con hasta 4 decimales y 15 cifras.",
+  "quantityOverrun": "Con lo validado llega a {total} y supera lo planeado ({planned}). Se guardará y la supervisión lo verá marcado.",
+  "@quantityOverrun": {
+    "placeholders": { "total": { "type": "String" }, "planned": { "type": "String" } }
+  },
+  "quantityAdjustment": "Cantidad negativa: se registra como ajuste y necesita nota.",
+  "quantityLocation": "Ubicación",
+  "quantityLocationTask": "La de la tarea",
+  "quantityLocationTaskNamed": "La de la tarea ({label})",
+  "@quantityLocationTaskNamed": {
+    "placeholders": { "label": { "type": "String" } }
+  },
+  "quantityLocationRefined": "Ubicación precisada",
+  "quantityNote": "Nota (opcional)",
+  "quantityNoteRequiredLabel": "Nota (obligatoria)",
+  "quantityNoteRequired": "Escribe una nota: el ítem no está planeado o la cantidad es negativa.",
+  "quantityNoteTooLong": "La nota admite hasta 500 caracteres.",
+  "quantityAddRow": "Otra fila de este ítem",
+  "quantityRemoveRow": "Quitar fila",
+  "quantityReassign": "Cambiar ítem",
+  "quantityAddUnplanned": "Agregar ítem no planeado",
+  "quantityNoneEntered": "Escribe al menos una cantidad distinta de 0.",
+  "quantityTooManyRows": "Un registro admite hasta {max} filas de cantidad.",
+  "@quantityTooManyRows": {
+    "placeholders": { "max": { "type": "int" } }
+  },
+  "quantityReadOnly": "El registro ya fue validado: sus cantidades no se pueden cambiar.",
+  "quantityRowFlagged": "El servidor rechazó esta fila: cambia el ítem o la ubicación, o quítala.",
+  "quantityItemSearch": "Buscar por código o descripción",
+  "quantityItemEmpty": "No hay ítems que coincidan.",
+  "quantityDiscardTitle": "¿Cambiar de tarea?",
+  "quantityDiscardBody": "Se descartarán las cantidades que escribiste para esta tarea.",
+  "quantityDiscardConfirm": "Sí, cambiar",
+  "quantityCorrectionTitle": "Corregir cantidades",
+  "quantityCorrectionExplain": "El servidor rechazó las filas señaladas. Cambia su ítem o su ubicación, o quítalas; al guardar, el registro se reenvía.",
+  "quantityLineLocation": "Ubicación: {location}",
+  "@quantityLineLocation": {
+    "placeholders": { "location": { "type": "String" } }
+  },
+  "quantityLineNote": "Nota: {note}",
+  "@quantityLineNote": {
+    "placeholders": { "note": { "type": "String" } }
+  },
+  "formErrorItemNotInProject": "El ítem no es del presupuesto del proyecto de la tarea.",
+  "formErrorLocationOutsideTask": "La ubicación no es del proyecto de la tarea.",
+  "formErrorDuplicateClientId": "Dos filas de cantidad tienen el mismo identificador.",
+  "reviewCorrectQuantities": "Corregir cantidades",
+  "reviewQuantityItemRow": "Fila del ítem {code}: el ítem no es del presupuesto del proyecto.",
+  "@reviewQuantityItemRow": {
+    "placeholders": { "code": { "type": "String" } }
+  },
+  "reviewQuantityLocationRow": "Fila del ítem {code}: la ubicación no es del proyecto de la tarea.",
+  "@reviewQuantityLocationRow": {
+    "placeholders": { "code": { "type": "String" } }
+  },
+  "reviewQuantityUnknownItem": "sin código",
+  "reviewQuantityRows": "{count, plural, =1{1 fila} other{{count} filas}}",
+  "@reviewQuantityRows": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "recordExportQuantities": "Cantidades",
+  "recordExportItem": "Ítem",
+  "recordExportQuantity": "Cantidad",
+  "recordExportNote": "Nota",
+  "loginHandoverBlockedReadings": "{count, plural, =1{Este teléfono tiene 1 lectura de medidor sin enviar de otro usuario.} other{Este teléfono tiene {count} lecturas de medidor sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlockedReadings": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "equipmentTitle": "Equipos",
+  "equipmentEmpty": "No tienes equipos disponibles. Sincroniza para recibir los que te asignen.",
+  "equipmentSearchLabel": "Buscar por código, nombre o placa",
+  "equipmentScan": "Escanear QR",
+  "equipmentScanNotFound": "Ese equipo no está disponible en tu teléfono. Sincroniza e inténtalo de nuevo.",
+  "equipmentRefreshFailed": "No se pudo actualizar la lista; se muestra la última descarga.",
+  "equipmentNoMatches": "Ningún equipo coincide con la búsqueda.",
+  "equipmentAlertsCount": "{count, plural, =1{1 alerta} other{{count} alertas}}",
+  "@equipmentAlertsCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "equipmentStatusAvailable": "Disponible",
+  "equipmentStatusAssigned": "Asignado",
+  "equipmentStatusMaintenance": "En mantenimiento",
+  "equipmentStatusOutOfService": "Fuera de servicio",
+  "equipmentStatusRetired": "Retirado",
+  "equipmentSectionDetails": "Datos del equipo",
+  "equipmentFieldType": "Tipo",
+  "equipmentFieldStatus": "Estado",
+  "equipmentFieldPlate": "Placa",
+  "equipmentFieldSerial": "Serie",
+  "equipmentFieldMake": "Fabricante",
+  "equipmentFieldModel": "Modelo",
+  "equipmentFieldDepartment": "Departamento de maquinaria",
+  "equipmentSectionMeters": "Medidores",
+  "equipmentNoReadings": "Sin lecturas registradas.",
+  "equipmentMeterHours": "Horómetro",
+  "equipmentMeterKilometers": "Kilometraje",
+  "equipmentMeterReadAt": "Leído el {date}",
+  "@equipmentMeterReadAt": {
+    "placeholders": { "date": { "type": "DateTime", "format": "yMd" } }
+  },
+  "equipmentRecordReading": "Registrar lectura",
+  "equipmentReadingMeter": "Medidor",
+  "equipmentReadingValue": "Lectura",
+  "equipmentReadingNotes": "Observaciones",
+  "equipmentReadingSave": "Guardar lectura",
+  "equipmentReadingQueued": "Lectura guardada. Se enviará al sincronizar.",
+  "equipmentReadingInvalid": "Escribe una lectura válida (un número mayor o igual que cero).",
+  "equipmentReadingBackwards": "La lectura no puede ser menor que la anterior ({baseline}).",
+  "@equipmentReadingBackwards": {
+    "placeholders": { "baseline": { "type": "String" } }
+  },
+  "equipmentReadingUnavailable": "No se puede registrar la lectura de este equipo.",
+  "equipmentPendingReadings": "Lecturas sin enviar",
+  "equipmentReadingPending": "Pendiente de envío",
+  "equipmentReadingRejected": "Rechazada por el servidor",
+  "equipmentReadingDismiss": "Descartar",
+  "equipmentSectionAlerts": "Alertas de vigencia",
+  "equipmentNoAlerts": "Sin alertas de vigencia.",
+  "equipmentAlertDue": "{name}: vence el {date} (en {days, plural, =0{hoy} =1{1 día} other{{days} días}})",
+  "@equipmentAlertDue": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "date": { "type": "DateTime", "format": "yMd" },
+      "days": { "type": "int" }
+    }
+  },
+  "equipmentAlertExpired": "{name}: venció el {date}",
+  "@equipmentAlertExpired": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "date": { "type": "DateTime", "format": "yMd" }
+    }
+  },
+  "equipmentSectionDocuments": "Documentos",
+  "equipmentNoDocuments": "Sin documentos registrados.",
+  "equipmentDocumentExpires": "Vence el {date}",
+  "@equipmentDocumentExpires": {
+    "placeholders": { "date": { "type": "DateTime", "format": "yMd" } }
+  },
+  "equipmentDocumentNoExpiry": "Sin vencimiento",
+  "equipmentSectionFields": "Campos adicionales",
+  "loginHandoverBlockedInspections": "{count, plural, =1{Este teléfono tiene 1 preoperacional sin enviar de otro usuario.} other{Este teléfono tiene {count} preoperacionales sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlockedInspections": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "equipmentPreoperational": "Preoperacional",
+  "equipmentPreoperationalStart": "Hacer preoperacional",
+  "equipmentPreoperationalNoChecklist": "La tipología de este equipo no tiene lista de chequeo.",
+  "equipmentPreoperationalMeter": "Lectura inicial de {meter}",
+  "@equipmentPreoperationalMeter": {
+    "placeholders": { "meter": { "type": "String" } }
+  },
+  "equipmentPreoperationalItemOk": "Cumple",
+  "equipmentPreoperationalItemFault": "Novedad",
+  "equipmentPreoperationalCritical": "Crítico",
+  "equipmentPreoperationalFaultNote": "Describe la novedad",
+  "equipmentPreoperationalNotes": "Observaciones generales",
+  "equipmentPreoperationalSubmit": "Enviar preoperacional",
+  "equipmentPreoperationalQueued": "Preoperacional guardado. Se enviará al sincronizar.",
+  "equipmentPreoperationalIncomplete": "Falta responder: {item}.",
+  "@equipmentPreoperationalIncomplete": {
+    "placeholders": { "item": { "type": "String" } }
+  },
+  "equipmentPreoperationalFaultNeedsNote": "Describe la novedad de: {item}.",
+  "@equipmentPreoperationalFaultNeedsNote": {
+    "placeholders": { "item": { "type": "String" } }
+  },
+  "equipmentPreoperationalMeterRequired": "Escribe la lectura inicial del medidor.",
+  "equipmentPreoperationalMeterBackwards": "La lectura no puede ser menor que la anterior ({baseline}).",
+  "@equipmentPreoperationalMeterBackwards": {
+    "placeholders": { "baseline": { "type": "String" } }
+  },
+  "equipmentInspectionsTitle": "Mis preoperacionales",
+  "equipmentInspectionSubmitted": "Pendiente de revisión",
+  "equipmentInspectionApproved": "Aprobado",
+  "equipmentInspectionRejected": "Rechazado",
+  "equipmentInspectionCorrection": "Corrección solicitada",
+  "equipmentInspectionSending": "Pendiente de envío",
+  "equipmentInspectionNotSent": "Rechazado al enviar",
+  "equipmentInspectionWithFaults": "con novedades",
+  "equipmentSectionMaintenance": "Mantenimiento preventivo",
+  "equipmentNoPlans": "Este equipo no tiene plan preventivo.",
+  "equipmentPlanOk": "Al día",
+  "equipmentPlanDueSoon": "Próximo a vencer",
+  "equipmentPlanOverdue": "Vencido",
+  "equipmentPlanUnknown": "Sin lecturas para calcularlo",
+  "equipmentMeterShortHours": "h",
+  "equipmentMeterShortKilometers": "km",
+  "equipmentPlanRemaining": "Faltan {value} {unit}",
+  "@equipmentPlanRemaining": {
+    "placeholders": { "value": { "type": "String" }, "unit": { "type": "String" } }
+  },
+  "equipmentPlanPastDue": "Vencido hace {value} {unit}",
+  "@equipmentPlanPastDue": {
+    "placeholders": { "value": { "type": "String" }, "unit": { "type": "String" } }
+  },
+  "equipmentPlanRemainingDays": "{days, plural, =0{Vence hoy} =1{Falta 1 día} other{Faltan {days} días}}",
+  "@equipmentPlanRemainingDays": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "equipmentPlanPastDueDays": "{days, plural, =1{Vencido hace 1 día} other{Vencido hace {days} días}}",
+  "@equipmentPlanPastDueDays": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "equipmentPlanWithOrder": "con orden abierta",
+  "equipmentSectionOrders": "Órdenes de trabajo abiertas",
+  "equipmentNoOrders": "Sin órdenes abiertas.",
+  "equipmentOrderPreventive": "Preventiva",
+  "equipmentOrderCorrective": "Correctiva",
+  "equipmentOrderOverhaul": "Overhaul",
+  "equipmentOrderDraft": "Borrador",
+  "equipmentOrderApproved": "Aprobada",
+  "equipmentOrderInExecution": "En ejecución",
+  "equipmentOrderLine": "{code} · {kind}",
+  "@equipmentOrderLine": {
+    "placeholders": { "code": { "type": "String" }, "kind": { "type": "String" } }
+  },
+  "equipmentLifeSheet": "Hoja de Vida (PDF)",
+  "equipmentLifeSheetFailed": "No se pudo descargar la Hoja de Vida. Revisa tu conexión e inténtalo de nuevo.",
+  "loginHandoverBlockedFuel": "{count, plural, =1{Este teléfono tiene 1 tanqueo sin enviar de otro usuario.} other{Este teléfono tiene {count} tanqueos sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlockedFuel": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "equipmentFuelRegister": "Registrar tanqueo",
+  "equipmentFuelSource": "Origen del combustible",
+  "equipmentFuelSourceStation": "Estación de servicio",
+  "equipmentFuelSourceStore": "Tanque propio",
+  "equipmentFuelStation": "Estación",
+  "equipmentFuelStore": "Tanque",
+  "equipmentFuelStationLabel": "{supplier} · {name}",
+  "@equipmentFuelStationLabel": {
+    "placeholders": { "supplier": { "type": "String" }, "name": { "type": "String" } }
+  },
+  "equipmentFuelNoCatalog": "Todavía no hay estaciones ni tanques en tu teléfono. Sincroniza con conexión.",
+  "equipmentFuelVoucher": "Número de vale",
+  "equipmentFuelGallons": "Galones",
+  "equipmentFuelMeter": "Lectura de {meter}",
+  "@equipmentFuelMeter": {
+    "placeholders": { "meter": { "type": "String" } }
+  },
+  "equipmentFuelFront": "Frente de obra",
+  "equipmentFuelDriver": "Conductor",
+  "equipmentFuelDriverDocument": "Cédula del conductor",
+  "equipmentFuelNotes": "Observaciones",
+  "equipmentFuelSave": "Guardar tanqueo",
+  "equipmentFuelQueued": "Tanqueo guardado. Se enviará al sincronizar.",
+  "equipmentFuelSourceMissing": "Elige la estación o el tanque.",
+  "equipmentFuelVoucherRequired": "Escribe el número de vale.",
+  "equipmentFuelInvalidGallons": "Escribe los galones (un número mayor que cero).",
+  "equipmentFuelMeterRequired": "Escribe la lectura del medidor.",
+  "equipmentFuelMeterBackwards": "La lectura no puede ser menor que la anterior ({baseline}).",
+  "@equipmentFuelMeterBackwards": {
+    "placeholders": { "baseline": { "type": "String" } }
+  },
+  "equipmentFuelPending": "Tanqueos sin enviar",
+  "equipmentFuelPendingLine": "Vale {voucher} · {gallons} gal",
+  "@equipmentFuelPendingLine": {
+    "placeholders": { "voucher": { "type": "String" }, "gallons": { "type": "String" } }
+  },
+  "loginHandoverBlockedTrips": "{count, plural, =1{Este teléfono tiene 1 viaje sin enviar de otro usuario.} other{Este teléfono tiene {count} viajes sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlockedTrips": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "tripRegister": "Registrar viaje",
+  "tripVehicleKind": "Vehículo",
+  "tripVehicleOwn": "Equipo propio",
+  "tripVehicleThird": "De terceros",
+  "tripEquipment": "Equipo",
+  "tripThirdVehicle": "Vehículo de terceros",
+  "tripRoute": "Tramo",
+  "tripRouteLabel": "{origin} → {destination} · {km} km",
+  "@tripRouteLabel": {
+    "placeholders": { "origin": { "type": "String" }, "destination": { "type": "String" }, "km": { "type": "String" } }
+  },
+  "tripThirdVehicleLabel": "{plate} · {contractor}",
+  "@tripThirdVehicleLabel": {
+    "placeholders": { "plate": { "type": "String" }, "contractor": { "type": "String" } }
+  },
+  "tripMaterial": "Material",
+  "tripVolume": "Volumen (m³)",
+  "tripRequestedBy": "Solicita",
+  "tripDispatchedBy": "Despacha",
+  "tripReceivedBy": "Recibe",
+  "tripDriver": "Conductor",
+  "tripDriverDocument": "Cédula del conductor",
+  "tripNotes": "Observaciones",
+  "tripSave": "Guardar viaje",
+  "tripQueued": "Viaje guardado. Se enviará al sincronizar.",
+  "tripNoCatalog": "Todavía no hay tramos ni materiales en tu teléfono. Sincroniza con conexión.",
+  "tripVehicleMissing": "Elige el vehículo del viaje.",
+  "tripRouteMissing": "Elige el tramo.",
+  "tripMaterialMissing": "Elige el material.",
+  "tripInvalidVolume": "Escribe el volumen (un número mayor que cero).",
+  "tripOverCapacity": "El volumen supera la capacidad del vehículo ({capacity} m³).",
+  "@tripOverCapacity": {
+    "placeholders": { "capacity": { "type": "String" } }
+  },
+  "tripPeopleMissing": "Elige quién solicita, quién despacha y quién recibe.",
+  "tripSameDispatcherReceiver": "Quien despacha no puede ser quien recibe.",
+  "tripPending": "Viajes sin enviar",
+  "tripPendingLine": "{vehicle} · {volume} m³",
+  "@tripPendingLine": {
+    "placeholders": { "vehicle": { "type": "String" }, "volume": { "type": "String" } }
+  },
+  "loginHandoverBlockedUsage": "{count, plural, =1{Este teléfono tiene 1 reporte de uso sin enviar de otro usuario.} other{Este teléfono tiene {count} reportes de uso sin enviar de otro usuario.}} Esa persona debe entrar y sincronizar antes.",
+  "@loginHandoverBlockedUsage": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "usagePickerLabel": "{label}: {value}",
+  "@usagePickerLabel": {
+    "placeholders": { "label": { "type": "String" }, "value": { "type": "String" } }
+  },
+  "usageRegister": "Registrar uso",
+  "usageNoProject": "No tienes un proyecto asignado para reportar el uso de este equipo.",
+  "usageProject": "Proyecto",
+  "usageDate": "Fecha",
+  "usageStart": "Hora de inicio",
+  "usageEnd": "Hora de fin",
+  "usageActivity": "Actividad realizada",
+  "usageLocation": "Ubicación o frente de obra",
+  "usageStartMeter": "Lectura inicial de {meter}",
+  "@usageStartMeter": {
+    "placeholders": { "meter": { "type": "String" } }
+  },
+  "usageEndMeter": "Lectura final de {meter}",
+  "@usageEndMeter": {
+    "placeholders": { "meter": { "type": "String" } }
+  },
+  "usageNotes": "Observaciones",
+  "usageSave": "Guardar reporte de uso",
+  "usageQueued": "Uso guardado. Se enviará al sincronizar.",
+  "usageProjectMissing": "Elige el proyecto.",
+  "usageActivityRequired": "Describe la actividad realizada.",
+  "usageInvalidTimes": "La hora de fin debe ser posterior a la de inicio.",
+  "usageFutureTime": "La hora de fin no puede estar en el futuro.",
+  "usageMeterRequired": "Escribe las lecturas inicial y final del medidor.",
+  "usageInvalidMeter": "La lectura final no puede ser menor que la inicial.",
+  "usageMeterBackwards": "La lectura inicial no puede ser menor que la última conocida ({baseline}).",
+  "@usageMeterBackwards": {
+    "placeholders": { "baseline": { "type": "String" } }
+  },
+  "usageOverlap": "Se cruza con otro uso del equipo ({activity}).",
+  "@usageOverlap": {
+    "placeholders": { "activity": { "type": "String" } }
+  },
+  "usageMine": "Mis usos del equipo",
+  "usagePending": "Usos sin enviar",
+  "usageLine": "{date} · {start}–{end}",
+  "@usageLine": {
+    "placeholders": { "date": { "type": "String" }, "start": { "type": "String" }, "end": { "type": "String" } }
+  },
+  "usageHours": "{hours} h",
+  "@usageHours": {
+    "placeholders": { "hours": { "type": "String" } }
+  },
+  "equipmentListTitle": "{code} · {name}",
+  "@equipmentListTitle": {
+    "placeholders": { "code": { "type": "String" }, "name": { "type": "String" } }
+  },
+  "equipmentReadingLine": "{meter}: {value}",
+  "@equipmentReadingLine": {
+    "placeholders": { "meter": { "type": "String" }, "value": { "type": "String" } }
+  }
 
 }

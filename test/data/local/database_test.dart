@@ -1,4 +1,4 @@
-// Paso 11: atomicidad real de "visita + outbox en una sola transacción"
+// Paso 11: atomicidad real de "registro + outbox en una sola transacción"
 // (RD-04/ADR-002) y humo del esquema Drift.
 //
 // Usa `AppDatabase.forTesting` con `NativeDatabase.memory()` — sin cifrado a
@@ -8,7 +8,7 @@
 // de `createEncryptedExecutor`).
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/data/local/database.dart';
 
 void main() {
   late AppDatabase db;
@@ -19,7 +19,7 @@ void main() {
 
   tearDown(() => db.close());
 
-  VisitsCompanion sampleVisit({required String id}) => VisitsCompanion.insert(
+  RecordsCompanion sampleRecord({required String id}) => RecordsCompanion.insert(
     id: id,
     orgId: 'org-1',
     version: 1,
@@ -33,7 +33,7 @@ void main() {
   OutboxOpsCompanion sampleOutboxOp({required String opUuid, required String entityId}) =>
       OutboxOpsCompanion.insert(
         opUuid: opUuid,
-        entity: 'visit',
+        entity: 'record',
         entityId: entityId,
         opType: 'create',
         payloadJson: '{}',
@@ -43,7 +43,7 @@ void main() {
 
   group('esquema', () {
     test('crea las tres tablas del Paso 11 sin error', () async {
-      expect(await db.select(db.visits).get(), isEmpty);
+      expect(await db.select(db.records).get(), isEmpty);
       expect(await db.select(db.outboxOps).get(), isEmpty);
       expect(await db.select(db.attachmentQueue).get(), isEmpty);
     });
@@ -66,40 +66,40 @@ void main() {
     });
   });
 
-  group('atomicidad visita + outbox (RD-04)', () {
+  group('atomicidad registro + outbox (RD-04)', () {
     test('éxito: ambas filas se guardan juntas en una sola transacción', () async {
-      await db.saveVisitWithOutboxOp(
-        visit: sampleVisit(id: 'visit-1'),
-        outboxOp: sampleOutboxOp(opUuid: 'op-1', entityId: 'visit-1'),
+      await db.saveRecordWithOutboxOp(
+        record: sampleRecord(id: 'record-1'),
+        outboxOp: sampleOutboxOp(opUuid: 'op-1', entityId: 'record-1'),
       );
 
-      expect(await db.select(db.visits).get(), hasLength(1));
+      expect(await db.select(db.records).get(), hasLength(1));
       expect(await db.select(db.outboxOps).get(), hasLength(1));
     });
 
     test(
-      'un fallo a mitad de la transacción no deja huérfanos: ni la visita '
+      'un fallo a mitad de la transacción no deja huérfanos: ni el registro '
       'ni el outbox sobreviven',
       () async {
         await expectLater(
           db.transaction(() async {
-            // Simula "guardar visita + encolar operación" pero forzando la
+            // Simula "guardar registro + encolar operación" pero forzando la
             // excepción justo entre las dos escrituras (la técnica que el
             // brief del Paso 11 sugiere explícitamente: "forzar excepción
             // tras el primer insert").
-            await db.into(db.visits).insert(sampleVisit(id: 'visit-huerfana'));
+            await db.into(db.records).insert(sampleRecord(id: 'record-huerfana'));
             throw Exception('fallo simulado entre las dos escrituras');
           }),
           throwsException,
         );
 
-        final storedVisits = await db.select(db.visits).get();
+        final storedRecords = await db.select(db.records).get();
         final storedOps = await db.select(db.outboxOps).get();
 
         expect(
-          storedVisits,
+          storedRecords,
           isEmpty,
-          reason: 'la visita no debe sobrevivir si el outbox nunca se escribió: '
+          reason: 'el registro no debe sobrevivir si el outbox nunca se escribió: '
               'sería una fila de negocio sin su operación de sync, exactamente '
               'la divergencia que ADR-002 dice que la transacción única evita',
         );

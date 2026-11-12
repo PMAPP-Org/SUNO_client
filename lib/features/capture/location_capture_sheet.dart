@@ -7,7 +7,7 @@
 //   si la precisión es baja o la posición es simulada;
 // - si el GPS está apagado o falta el permiso, lo dice y abre los ajustes.
 //
-// Devuelve `null` si el agente cancela o no hay señal: la visita se puede
+// Devuelve `null` si el agente cancela o no hay señal: el registro se puede
 // guardar sin ubicación.
 import 'dart:async';
 

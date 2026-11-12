@@ -23,7 +23,7 @@ class EncryptionKeyStore {
 
   final FlutterSecureStorage _storage;
 
-  static const _storageKey = 'visitacampo.db_encryption_key.v1';
+  static const _storageKey = 'suno.db_encryption_key.v1';
 
   /// Longitud en bytes de la clave generada — 256 bits, el tamaño estándar
   /// de clave de SQLCipher.

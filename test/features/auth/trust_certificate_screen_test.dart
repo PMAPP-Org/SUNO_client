@@ -3,10 +3,10 @@
 // "aceptar" preseleccionado ni accesible sin una acción deliberada.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/security/certificate_info.dart';
-import 'package:visitacampo/core/security/pin_store.dart';
-import 'package:visitacampo/core/security/trust_store.dart';
-import 'package:visitacampo/features/auth/trust_certificate_screen.dart';
+import 'package:suno/core/security/certificate_info.dart';
+import 'package:suno/core/security/pin_store.dart';
+import 'package:suno/core/security/trust_store.dart';
+import 'package:suno/features/auth/trust_certificate_screen.dart';
 
 import '../../support/test_app.dart';
 

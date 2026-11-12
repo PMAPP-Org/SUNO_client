@@ -5,7 +5,7 @@
 //   medias al morir),
 // - al volver la app al primer plano,
 // - cada [interval] mientras la app está abierta,
-// - y al guardar una visita o terminar un push ([nudge]).
+// - y al guardar un registro o terminar un push ([nudge]).
 //
 // **Un solo drenaje a la vez** (single-flight): un disparo que llega durante
 // un drenaje no lanza otro en paralelo, sino que deja pedido uno más al
@@ -45,7 +45,7 @@ class AttachmentUploadScheduler {
   /// Último resultado, para quien quiera mostrarlo.
   AttachmentDrainReport lastReport = AttachmentDrainReport.empty;
 
-  /// Un evento por drenaje terminado: la UI refresca el estado de las visitas.
+  /// Un evento por drenaje terminado: la UI refresca el estado de los registros.
   Stream<AttachmentDrainReport> get drained => _drained.stream;
 
   bool get isStarted => _timer != null;

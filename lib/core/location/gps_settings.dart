@@ -24,7 +24,7 @@ class GpsSettings {
 
   final FlutterSecureStorage _storage;
 
-  static const _entry = 'visitacampo.gps_policy.v1';
+  static const _entry = 'suno.gps_policy.v1';
 
   GpsPolicy _policy = const GpsPolicy();
 

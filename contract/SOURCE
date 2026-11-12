@@ -1,3 +1,4 @@
 # Commit de PMAPP-Org/SUNO_server del que se copió contract/ (ver contract/README.md).
 repo=PMAPP-Org/SUNO_server
-ref=8546e55f867dcae69d2e01f870a95869028137ce
+# ref: commit del merge del PR #65 (pieza 4b de costos: cantidades en la app) en master.
+ref=7117e7e1eb0c85b8b7c6a858190a42cb891d7597

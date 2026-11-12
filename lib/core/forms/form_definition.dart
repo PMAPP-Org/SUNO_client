@@ -1,5 +1,5 @@
 // Definición de plantilla de formulario en el cliente (Paso 21, tareas 1-2):
-// espejo de `server/visitacampo/forms/definition.py` (Paso 20).
+// espejo de `server/suno/forms/definition.py` (Paso 20).
 //
 // `parseFormDefinition` aplica **el mismo meta-schema** que el servidor al
 // publicar: catálogo cerrado de tipos de campo, claves sin extra
@@ -23,8 +23,12 @@ import 'package:meta/meta.dart';
 import 'visibility.dart';
 
 /// Dialecto que habla este cliente (`definition.DSL_VERSION` del servidor).
-const dslVersion = 'visitacampo/form@1';
-const supportedDslVersions = {dslVersion};
+const dslVersion = 'suno/form@1';
+
+/// Identificador anterior al renombrado del servidor:
+/// se sigue aceptando para las plantillas que ya están guardadas en el teléfono.
+const legacyDslVersion = 'visitacampo/form@1';
+const supportedDslVersions = {dslVersion, legacyDslVersion};
 
 const maxFields = 300;
 const maxOptions = 200;
@@ -357,7 +361,7 @@ final class MultiChoiceFieldDef extends ChoiceFieldDef {
   }
 }
 
-/// Campo cuya respuesta es el `id` (UUID) de un `visit_attachment`: el
+/// Campo cuya respuesta es el `id` (UUID) de un `record_attachment`: el
 /// binario viaja por su propio camino (ADR-007), nunca dentro de `answers`.
 sealed class AttachmentRefFieldDef extends FormFieldDef {
   const AttachmentRefFieldDef({

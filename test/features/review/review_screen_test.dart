@@ -8,14 +8,14 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/app_dependencies.dart';
-import 'package:visitacampo/core/auth/auth_controller.dart';
-import 'package:visitacampo/core/providers.dart';
-import 'package:visitacampo/core/sync/result.dart';
-import 'package:visitacampo/core/sync/sync_engine.dart';
-import 'package:visitacampo/core/sync/sync_transport.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/features/review/review_screen.dart';
+import 'package:suno/core/app_dependencies.dart';
+import 'package:suno/core/auth/auth_controller.dart';
+import 'package:suno/core/providers.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_engine.dart';
+import 'package:suno/core/sync/sync_transport.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/features/review/review_screen.dart';
 
 import '../../core/auth/fake_auth_transport.dart';
 import '../../core/auth/fake_token_store.dart';
@@ -66,10 +66,10 @@ void main() {
     );
     await dependencies.formTemplates.upsertFromServerRow(_templateRow());
     await db
-        .into(db.visits)
+        .into(db.records)
         .insert(
-          VisitsCompanion.insert(
-            id: 'visit-1',
+          RecordsCompanion.insert(
+            id: 'record-1',
             orgId: _org,
             version: 1,
             templateVersionId: 'tv-1',
@@ -84,17 +84,17 @@ void main() {
   tearDown(() => db.close());
 
   Future<void> quarantineWith(PushOpOutcome Function(String opUuid) outcome, {String opType = 'create'}) async {
-    await engine.enqueueVisitOp(
-      entityId: 'visit-1',
+    await engine.enqueueRecordOp(
+      entityId: 'record-1',
       opType: opType,
       baseVersion: opType == 'create' ? null : 1,
       payload: {
-        'id': 'visit-1',
+        'id': 'record-1',
         'answers': {'altura_cm': 900},
       },
     );
     final op = await db.select(db.outboxOps).getSingle();
-    transport.pushResponses.add(Result.ok(PushResponse(schemaVersion: 1, results: [outcome(op.opUuid)])));
+    transport.pushResponses.add(Result.ok(PushResponse(schemaVersion: 2, results: [outcome(op.opUuid)])));
     await engine.drainOutbox();
   }
 
@@ -120,9 +120,9 @@ void main() {
       status: 'conflict',
       serverVersion: 3,
       serverRow: {
-        'entity': 'visit',
+        'entity': 'record',
         'data': {
-          'id': 'visit-1',
+          'id': 'record-1',
           'org_id': _org,
           'version': 3,
           'change_seq': 9,
@@ -160,7 +160,7 @@ void main() {
     await rejected();
     await pump(tester);
 
-    expect(find.text('Rechazada por el servidor'), findsOneWidget);
+    expect(find.text('Rechazado por el servidor'), findsOneWidget);
     expect(find.text('Altura (cm): El valor está fuera del rango permitido.'), findsOneWidget);
     expect(find.byKey(const Key('review_correct')), findsOneWidget);
     expect(find.byKey(const Key('review_retry')), findsOneWidget);
@@ -173,11 +173,11 @@ void main() {
 
     await tester.tap(find.byKey(const Key('review_discard')));
     await tester.pumpAndSettle();
-    expect(find.text('¿Descartar esta visita?'), findsOneWidget);
+    expect(find.text('¿Descartar este registro?'), findsOneWidget);
     await tester.tap(find.byKey(const Key('review_confirm_cancel')));
     await tester.pumpAndSettle();
 
-    expect(await db.select(db.visits).get(), hasLength(1), reason: 'sin confirmar, la visita sigue');
+    expect(await db.select(db.records).get(), hasLength(1), reason: 'sin confirmar, el registro sigue');
     expect(await db.select(db.outboxOps).get(), hasLength(1));
 
     // Cerrar el diálogo tocando fuera tampoco descarta.
@@ -185,14 +185,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(5, 5));
     await tester.pumpAndSettle();
-    expect(await db.select(db.visits).get(), hasLength(1));
+    expect(await db.select(db.records).get(), hasLength(1));
 
     await tester.tap(find.byKey(const Key('review_discard')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('review_confirm_destructive')));
     await tester.pumpAndSettle();
 
-    expect(await db.select(db.visits).get(), isEmpty);
+    expect(await db.select(db.records).get(), isEmpty);
     expect(find.byKey(const Key('review_empty')), findsOneWidget);
   });
 
@@ -232,9 +232,9 @@ void main() {
     await tester.tap(find.byKey(const Key('review_confirm_destructive')));
     await tester.pumpAndSettle();
 
-    final visit = await db.select(db.visits).getSingle();
-    expect(visit.version, 3);
-    expect(jsonDecode(visit.answersJson), {'altura_cm': 120});
+    final record = await db.select(db.records).getSingle();
+    expect(record.version, 3);
+    expect(jsonDecode(record.answersJson), {'altura_cm': 120});
   });
 
   testWidgets('conflicto: "enviar mi versión" no pide confirmación (no pierde nada)', (tester) async {
@@ -247,5 +247,91 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
     final op = await db.select(db.outboxOps).getSingle();
     expect((op.opType, op.baseVersion, op.state), ('update', 3, 'pending'));
+  });
+
+  testWidgets('rechazo por la tarea: nombra el campo y ofrece quitarla', (tester) async {
+    await quarantineWith(
+      (opUuid) => PushOpOutcome(
+        opUuid: opUuid,
+        status: 'rejected',
+        error: const PushOpError(
+          code: 'forbidden',
+          message: 'Only a responsible of the task can report its progress.',
+          details: {'field': 'task_id', 'reason': 'not_responsible'},
+        ),
+      ),
+    );
+    await pump(tester);
+
+    expect(find.text('Tarea del cronograma: Ya no eres responsable de esta tarea.'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('review_unlink_task')));
+    await tester.pumpAndSettle();
+
+    expect((await db.select(db.outboxOps).getSingle()).state, 'pending');
+    expect(find.text('Listo: se enviará en la próxima sincronización.'), findsOneWidget);
+  });
+
+  testWidgets('rechazo por registro validado: lo explica y no ofrece quitar la tarea', (tester) async {
+    await quarantineWith(
+      (opUuid) => PushOpOutcome(
+        opUuid: opUuid,
+        status: 'rejected',
+        error: const PushOpError(
+          code: 'validation_error',
+          message: 'The record was already validated.',
+          details: {'field': 'progress_pct', 'reason': 'record_validated'},
+        ),
+      ),
+      opType: 'update',
+    );
+    await pump(tester);
+
+    expect(
+      find.text('El registro ya fue validado: su tarea, su % y sus cantidades no se pueden cambiar desde el teléfono.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('The record was already validated'), findsNothing);
+    expect(find.byKey(const Key('review_unlink_task')), findsNothing);
+    expect(find.byKey(const Key('review_retry')), findsNothing);
+    expect(find.byKey(const Key('review_discard')), findsOneWidget);
+  });
+
+
+  testWidgets('borrar un registro validado: lo explica y no ofrece reintentar', (tester) async {
+    await quarantineWith(
+      (opUuid) => PushOpOutcome(
+        opUuid: opUuid,
+        status: 'rejected',
+        error: const PushOpError(
+          code: 'validation_error',
+          message: 'The record was already validated.',
+          details: {'field': 'id', 'reason': 'record_validated'},
+        ),
+      ),
+      opType: 'delete',
+    );
+    await pump(tester);
+
+    expect(find.text('El registro ya fue validado: no se puede borrar desde el teléfono.'), findsOneWidget);
+    expect(find.textContaining('The record was already validated'), findsNothing);
+    expect(find.byKey(const Key('review_retry')), findsNothing);
+  });
+
+  testWidgets('tarea inexistente: "La tarea ya no existe en el cronograma."', (tester) async {
+    await quarantineWith(
+      (opUuid) => PushOpOutcome(
+        opUuid: opUuid,
+        status: 'rejected',
+        error: const PushOpError(
+          code: 'not_found',
+          message: 'Unknown task.',
+          details: {'field': 'task_id', 'reason': 'unknown_reference'},
+        ),
+      ),
+    );
+    await pump(tester);
+
+    expect(find.text('Tarea del cronograma: La tarea ya no existe en el cronograma.'), findsOneWidget);
+    expect(find.byKey(const Key('review_unlink_task')), findsOneWidget);
   });
 }

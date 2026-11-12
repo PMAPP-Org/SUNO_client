@@ -2,7 +2,7 @@
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:visitacampo/core/basemaps/basemap_manager.dart';
+import 'package:suno/core/basemaps/basemap_manager.dart';
 
 class FakeBasemapTransport implements BasemapTransport {
   List<BasemapInfo>? offered = [];

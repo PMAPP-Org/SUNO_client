@@ -1,10 +1,10 @@
 // `AttachmentUploadService` — la cola de subida de adjuntos (Paso 18).
 //
 // Sube el **blob** de cada fila de `AttachmentQueue` (presign → `PUT` en
-// streaming → commit). La fila `visit_attachment` que lo enlaza con su visita
+// streaming → commit). La fila `record_attachment` que lo enlaza con su registro
 // viaja aparte, por el outbox de datos (Paso 22): las dos colas son
 // **independientes** (doc 08 §4.2, ADR-003). Una foto atascada no bloquea el
-// push de su visita, y una visita rechazada no impide subir sus fotos.
+// push de su registro, y un registro rechazado no impide subir sus fotos.
 //
 // Máquina de estados por fila:
 //
@@ -20,8 +20,8 @@
 // - Cada fila es independiente: un fallo en una no detiene el resto del lote.
 // - El archivo se lee en streaming y se cierra **siempre** en un `finally`
 //   (RD-05, corrige H-05 en el cliente).
-// - No se envía `visit_id` al presign (contrato: opcional): la cuota por
-//   visita exigiría que la visita ya estuviera en el servidor, y eso ataría
+// - No se envía `record_id` al presign (contrato: opcional): la cuota por
+//   registro exigiría que el registro ya estuviera en el servidor, y eso ataría
 //   esta cola al push de datos.
 import 'package:drift/drift.dart';
 

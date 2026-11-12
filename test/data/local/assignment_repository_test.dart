@@ -1,17 +1,17 @@
 // Fase B: las asignaciones llegan por el pull, el agente ve las suyas
-// (pendientes primero) y una visita que la referencia la marca como hecha.
+// (pendientes primero) y un registro que la referencia la marca como hecha.
 import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/capture/visit_capture.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/core/location/geo.dart';
-import 'package:visitacampo/core/sync/result.dart';
-import 'package:visitacampo/core/sync/sync_engine.dart';
-import 'package:visitacampo/core/sync/sync_transport.dart';
-import 'package:visitacampo/data/local/assignment_repository.dart';
-import 'package:visitacampo/data/local/database.dart';
+import 'package:suno/core/capture/record_capture.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/core/location/geo.dart';
+import 'package:suno/core/sync/result.dart';
+import 'package:suno/core/sync/sync_engine.dart';
+import 'package:suno/core/sync/sync_transport.dart';
+import 'package:suno/data/local/assignment_repository.dart';
+import 'package:suno/data/local/database.dart';
 
 import '../../core/sync/fake_sync_transport.dart';
 
@@ -80,9 +80,9 @@ void main() {
     expect(await repository.forUser(orgId: 'org-1', userId: 'user-1'), isEmpty);
   });
 
-  test('la visita guardada desde una asignación la marca como hecha y viaja con su id', () async {
+  test('el registro guardado desde una asignación la marca como hecha y viaja con su id', () async {
     await pull([_assignment('a'), _assignment('b')]);
-    final visitId = await VisitCapture(db: db).save(
+    final recordId = await RecordCapture(db: db).save(
       identity: const CaptureIdentity(orgId: 'org-1', userId: 'user-1', deviceId: 'device-1'),
       templateVersionId: 'tv-1',
       definition: (parseFormDefinition({'fields': <Object>[]}) as DefinitionOk).definition,
@@ -93,7 +93,7 @@ void main() {
 
     final mine = await repository.forUser(orgId: 'org-1', userId: 'user-1');
     expect(mine.map((a) => (a.id, a.done)), [('b', false), ('a', true)], reason: 'pendientes primero');
-    expect(mine.last.visitId, visitId);
+    expect(mine.last.recordId, recordId);
     final op = await db.select(db.outboxOps).getSingle();
     expect((jsonDecode(op.payloadJson) as Map<String, dynamic>)['assignment_id'], 'a');
   });

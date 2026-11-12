@@ -1,16 +1,16 @@
 openapi: 3.1.0
 
 info:
-  title: VisitaCampo API
-  version: 1.0.0
-  summary: Contrato de API v1 (superficie mínima) de VisitaCampo.
+  title: SUNO API
+  version: 2.0.0
+  summary: Contrato de API v1 (superficie mínima) de SUNO.
   description: |
-    Contrato **fuente de verdad** de la API v1 de VisitaCampo, escrito antes que el código
+    Contrato **fuente de verdad** de la API v1 de SUNO, escrito antes que el código
     (doc 08 §8 Fase 0). Ambos extremos —backend Django Ninja + Pydantic v2 y cliente Flutter—
     se validan contra este archivo (**RD-03**).
 
     Alcance: exactamente la superficie mínima enumerada en
-    [doc 08 §6](../../docs/08-arquitectura-propuesta-visitacampo.md#6-contrato-de-api-v1--superficie-mínima).
+    [doc 08 §6](../../docs/08-arquitectura-propuesta-suno.md#6-contrato-de-api-v1--superficie-mínima).
     No se añaden endpoints fuera de esa lista.
 
     ### Semántica de sincronización (ADR-003)
@@ -25,7 +25,7 @@ info:
     - **Server-authoritative sin merge de 3 vías**: una operación en `conflict` devuelve la
       **fila autoritativa completa** (`server_row`) para que el cliente reemplace su fila local.
     - **Pull incremental por cursor** (`change_seq`), con orden estricto y tombstones.
-    - **Carril de adjuntos independiente**: una visita se acepta aunque sus fotos aún no estén subidas.
+    - **Carril de adjuntos independiente**: un registro se acepta aunque sus fotos aún no estén subidas.
 
     ### Límites de lote (ADR-003)
 
@@ -53,14 +53,14 @@ info:
   license:
     name: Propietario
   contact:
-    name: VisitaCampo
+    name: SUNO
 
 servers:
   - url: https://{host}
-    description: Instancia de VisitaCampo (self-hosted o gestionada). TLS estricto siempre (ADR-009).
+    description: Instancia de SUNO (self-hosted o gestionada). TLS estricto siempre (ADR-009).
     variables:
       host:
-        default: api.visitacampo.example
+        default: api.suno.example
         description: Host de la instancia.
 
 tags:
@@ -82,6 +82,10 @@ tags:
     description: Paquetes de mapa base (MBTiles ráster) para trabajar sin red, por organización.
   - name: layers
     description: Capas de referencia GeoJSON (RFC 7946, WGS84) para ver sobre el mapa, por organización.
+  - name: projects
+    description: Cronograma de proyectos (costos, etapa 1) — avance desde campo.
+  - name: equipment
+    description: Maquinaria y equipos — ficha, alertas de vigencia y lecturas de medidor desde campo.
 
 security:
   - bearerAuth: []
@@ -117,6 +121,26 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /v1/auth/access:
+    get:
+      operationId: authAccess
+      tags: [auth]
+      summary: Accesos efectivos del usuario
+      description: |
+        Devuelve el rol, las capacidades y el alcance por proyecto de cada sección disponible.
+        El servidor resuelve estos datos desde la base de datos en cada solicitud: el cliente los
+        usa para navegación y operación offline, pero nunca como sustituto de la autorización del
+        servidor.
+      responses:
+        '200':
+          description: Autorización funcional vigente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessProfile'
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '500': { $ref: '#/components/responses/InternalError' }
 
   /v1/auth/refresh:
@@ -594,6 +618,369 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/InternalError' }
 
+  # ------------------------------------------------------------ projects ----
+
+  /v1/projects/tasks:
+    get:
+      operationId: projectsTasksList
+      tags: [projects]
+      summary: Tareas del cronograma de las que quien llama es responsable
+      description: |
+        Tareas **de detalle vigentes** (ni resumen ni retiradas) de las que quien llama es
+        responsable, directamente o por una tarea superior de la EDT, con su último % validado (el
+        registro validado más reciente vinculado a la tarea). Es lo que la app ofrece para vincular
+        un registro a una tarea (`RecordPayload.task_id`).
+
+        Se entrega la lista **completa** y el cliente reemplaza la suya: una tarea retirada o una
+        responsabilidad quitada desaparecen sin tombstones. Para no repetir la descarga, el cliente
+        envía la `version` de la última lista; si nada cambió, la respuesta trae `changed: false`
+        e `items` y `project_items` vacíos. Desde la pieza 4b de costos la respuesta trae también
+        `project_items`, el catálogo de ítems de los proyectos de la lista, que entra en `version`.
+      parameters:
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 64
+          description: '`version` de la última lista descargada.'
+      responses:
+        '200':
+          description: Lista de tareas, o "sin cambios".
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FieldTaskList'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ----------------------------------------------------------- equipment ----
+
+  /v1/equipment:
+    get:
+      operationId: equipmentList
+      tags: [equipment]
+      summary: Equipos que quien llama puede ver
+      description: |
+        Equipos no retirados dentro del alcance de quien llama: toda la organización o los de sus
+        proyectos y, para un operador, solo los que tiene asignados hoy. Cada uno trae su ficha
+        resumida (identificación, departamento de maquinaria, esquema de control), la última
+        lectura de cada medidor configurado, los documentos, los campos adicionales y las alertas
+        de vigencia (campos de fecha con aviso y documentos vencidos o por vencer).
+
+        Sin acceso a la sección Equipos la lista va vacía. Se entrega la lista **completa** y el
+        cliente reemplaza la suya. Para no repetir la descarga, el cliente envía la `version` de la
+        última lista; si nada cambió, la respuesta trae `changed: false` e `items` vacío. Como las
+        alertas cuentan días, la `version` cambia al pasar la medianoche cuando hay alertas.
+      parameters:
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 64
+          description: '`version` de la última lista descargada.'
+      responses:
+        '200':
+          description: Lista de equipos, o "sin cambios".
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FieldEquipmentList'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /v1/equipment/{equipment_id}/meter-readings:
+    post:
+      operationId: equipmentMeterReadingCreate
+      tags: [equipment]
+      summary: Registra una lectura de medidor (idempotente por `id`)
+      description: |
+        Registra la lectura de un medidor configurado en la ficha del equipo. El `id` lo genera
+        el cliente: reenviar la misma lectura tras un corte de red devuelve la ya registrada, sin
+        duplicarla. Los medidores solo avanzan: una lectura menor que la anterior (o mayor que una
+        posterior) del mismo medidor, una fecha futura o un medidor no configurado responden `422`.
+        Un equipo inexistente o fuera del alcance de quien llama responde `404`.
+      parameters:
+        - name: equipment_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeterReadingIn'
+      responses:
+        '200':
+          description: Lectura registrada (o la ya existente con ese `id`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeterReadingOut'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /v1/transport/catalog:
+    get:
+      operationId: transportCatalog
+      tags: [equipment]
+      summary: Tramos, materiales, vehículos de terceros y usuarios para registrar viajes
+      description: |
+        Los tramos activos del mapa de distancias (con su zona y kilómetros), los materiales, los
+        vehículos subcontratados (con su empresa y capacidad) y las personas de la organización que
+        pueden figurar como quien solicita, despacha o recibe. Los equipos propios que pueden
+        transportar vienen en `GET /v1/equipment`. Sin acceso a la sección Equipos las listas van
+        vacías. El cliente envía la `version` de la última lista; si nada cambió, la respuesta trae
+        `changed: false` y las listas vacías.
+      parameters:
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 64
+      responses:
+        '200':
+          description: Catálogo de transporte, o "sin cambios".
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransportCatalog'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /v1/transport/trips:
+    post:
+      operationId: transportTripCreate
+      tags: [equipment]
+      summary: Registra un viaje de material (idempotente por `id`)
+      description: |
+        Registra un viaje con exactamente un vehículo: un equipo propio (`equipment_id`) o uno
+        subcontratado (`vehicle_id`). El `id` lo genera el cliente: reenviar el mismo viaje tras un
+        corte de red devuelve el ya registrado, sin duplicarlo. El servidor fija la distancia del
+        tramo y la tarifa por m³ vigente del material; sin tarifa, el viaje queda sin valorar.
+
+        Exige tres usuarios de la organización (solicita, despacha, recibe) y quien despacha no
+        puede ser quien recibe. Responde `422` y no guarda nada si falta o sobra el vehículo, el
+        volumen es cero o supera la capacidad del vehículo, la fecha es futura, el tramo o el
+        material no existe o está inactivo, o el equipo está retirado. Un equipo fuera del alcance
+        responde `404`; sin permiso para registrar viajes, `403`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripIn'
+      responses:
+        '200':
+          description: Viaje registrado (o el ya existente con ese `id`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripOut'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /v1/fuel/catalog:
+    get:
+      operationId: fuelCatalog
+      tags: [equipment]
+      summary: Estaciones de servicio y tanques propios para registrar tanqueos
+      description: |
+        Las estaciones de servicio activas (con su proveedor) y los tanques propios de la
+        organización, para elegir el origen de un tanqueo sin red. Sin acceso a la sección Equipos
+        la lista va vacía. El cliente envía la `version` de la última lista; si nada cambió, la
+        respuesta trae `changed: false` y las listas vacías.
+      parameters:
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 64
+      responses:
+        '200':
+          description: Catálogo de combustible, o "sin cambios".
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FuelCatalog'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /v1/equipment/{equipment_id}/fuel-fills:
+    post:
+      operationId: equipmentFuelFillCreate
+      tags: [equipment]
+      summary: Registra un tanqueo (idempotente por `id`)
+      description: |
+        Registra un tanqueo en una estación de servicio (`source: station`) o una salida del
+        tanque propio (`source: store`). El `id` lo genera el cliente: reenviar el mismo tanqueo
+        tras un corte de red devuelve el ya registrado, sin duplicarlo.
+
+        Responde `422` y no guarda nada si el vale ya existe en esa estación o tanque, si falta la
+        lectura del medidor (equipo controlado por medidor) o retrocede, si la fecha es futura, si
+        el equipo está retirado o si el tanque no tiene stock suficiente. Un equipo inexistente o
+        fuera del alcance responde `404`; sin permiso para registrar, `403`.
+      parameters:
+        - name: equipment_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FuelFillIn'
+      responses:
+        '200':
+          description: Tanqueo registrado (o el ya existente con ese `id`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FuelFillOut'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /v1/equipment/{equipment_id}/usage-reports:
+    post:
+      operationId: equipmentUsageReportCreate
+      tags: [equipment]
+      summary: Reporta el uso de un equipo asignado (idempotente por `id`)
+      description: |
+        El operador reporta su propia jornada con un equipo que tiene asignado, en un proyecto donde
+        el equipo está vinculado (`usage_projects` de la ficha). Queda **completada**. El `id` lo
+        genera el cliente: reenviar el mismo reporte tras un corte de red devuelve el ya registrado,
+        sin duplicarlo. Una jornada repartida entre proyectos se reporta en varios reportes que no se
+        solapan.
+
+        Si el equipo se controla por medidor exige las lecturas inicial y final (la final pasa a ser
+        la última lectura del equipo y no puede retroceder). Responde `422` y no guarda nada si la
+        fecha u hora es futura, la hora final no es posterior a la inicial, falta la actividad, hay
+        solape con otro uso del equipo o del operador, el proyecto no está vinculado al equipo, el
+        operador no está asignado o el equipo está retirado. Un equipo fuera del alcance responde
+        `404`; sin permiso, `403`.
+      parameters:
+        - name: equipment_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsageReportIn'
+      responses:
+        '200':
+          description: Uso registrado (o el ya existente con ese `id`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageReportOut'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /v1/equipment/{equipment_id}/life-sheet:
+    get:
+      operationId: equipmentLifeSheet
+      tags: [equipment]
+      summary: Hoja de Vida del equipo en PDF
+      description: |
+        El PDF oficial del equipo: identificación, medidores, vigencia de documentos y campos,
+        matriz preventiva y los últimos cinco preventivos ejecutados. Los datos financieros solo
+        se incluyen si quien llama puede verlos. Un equipo inexistente o fuera del alcance
+        responde `404`. La respuesta no se almacena en cachés compartidas.
+      parameters:
+        - name: equipment_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: Documento PDF.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /v1/equipment/{equipment_id}/inspections:
+    post:
+      operationId: equipmentInspectionCreate
+      tags: [equipment]
+      summary: Envía un preoperacional (idempotente por `id`)
+      description: |
+        Registra la inspección preoperacional de un equipo. El `id` lo genera el cliente: reenviar
+        la misma inspección tras un corte de red devuelve la ya registrada, sin duplicarla.
+
+        **Todo o nada**: debe responder cada ítem de la lista de chequeo vigente exactamente una
+        vez, describir cada ítem fallido y, si el equipo se controla por medidor, traer la lectura
+        inicial (que no puede retroceder). Cualquier incumplimiento, un equipo no disponible o una
+        fecha futura responden `422` y no se guarda nada. Cada ítem fallido abre una novedad.
+        Un equipo inexistente o fuera del alcance responde `404`; sin permiso para registrar
+        inspecciones, `403`. Una inspección enviada no se edita: la revisión añade su decisión.
+      parameters:
+        - name: equipment_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectionIn'
+      responses:
+        '200':
+          description: Inspección registrada (o la ya existente con ese `id`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InspectionOut'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
   # -------------------------------------------------------------- health ----
 
   /v1/healthz:
@@ -755,7 +1142,7 @@ components:
         Versión del *payload* de sincronización (RD-03). Presente en todos los cuerpos de
         `/v1/sync/*`. Se negocia con `GET /v1/server/info`.
       examples:
-        - 1
+        - 2
 
     ChangeSeq:
       type: integer
@@ -934,6 +1321,69 @@ components:
         user:
           $ref: '#/components/schemas/UserProfile'
 
+    AccessProfile:
+      type: object
+      required: [sections]
+      properties:
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SectionAccessProfile'
+
+    SectionAccessProfile:
+      type: object
+      required: [section, role, scope, project_ids, capabilities]
+      properties:
+        section:
+          type: string
+          enum:
+            - FIELD_RECORDS
+            - PROJECTS
+            - BUDGETS
+            - FORMS
+            - EQUIPMENT
+            - GIS
+            - REPORTS
+            - USERS_ACCESS
+            - OPERATIONS
+        role:
+          type: string
+          enum:
+            - MANAGER
+            - REVIEWER
+            - CONTRIBUTOR
+            - VIEWER
+            - EQUIPMENT_OPERATOR
+            - SST_AUDITOR
+            - ACCESS_ADMIN
+        scope:
+          type: string
+          enum: [organization, projects]
+        project_ids:
+          type: array
+          description: Vacío para alcance organizacional o para un alcance de proyectos sin acceso.
+          items:
+            $ref: '#/components/schemas/Uuid'
+        capabilities:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - create
+              - read
+              - update
+              - delete
+              - review
+              - approve
+              - reject
+              - assign
+              - import
+              - publish
+              - export
+              - schedule
+              - manage_access
+
     RefreshToken:
       type: string
       pattern: '^[A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$'
@@ -1047,6 +1497,13 @@ components:
           type: integer
           minimum: 1
           description: Tamaño máximo por adjunto individual.
+        attachment_max_bytes_per_record:
+          type: integer
+          minimum: 1
+          description: |
+            Tope acumulado de bytes de adjuntos por registro (ADR-007; 200 MiB). Opcional: un
+            servidor que no lo anuncie no fija este tope.
+          examples: [209715200]
         attachment_allowed_mime:
           type: array
           items:
@@ -1058,15 +1515,15 @@ components:
       type: string
       description: Entidades que participan en la sincronización.
       enum:
-        - visit
-        - visit_attachment
+        - record
+        - record_attachment
         - assignment
         - form_template_version
 
-    Visit:
+    Record:
       type: object
       description: |
-        Visita de campo. El `id` lo **genera el cliente** (idempotencia real). `answers` se valida
+        Registro de campo. El `id` lo **genera el cliente** (idempotencia real). `answers` se valida
         en el servidor contra el JSON Schema de `template_version_id`. La ubicación son
         **columnas planas**, no geometría (ADR-005).
 
@@ -1090,6 +1547,9 @@ components:
         - captured_at
         - device_id
         - created_by
+        - task_id
+        - progress_pct
+        - quantities
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -1108,7 +1568,7 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
-          description: Asignación que originó la visita, si la hubo.
+          description: Asignación que originó el registro, si la hubo.
         template_version_id:
           $ref: '#/components/schemas/Uuid'
         answers:
@@ -1135,12 +1595,160 @@ components:
           $ref: '#/components/schemas/Uuid'
         created_by:
           $ref: '#/components/schemas/Uuid'
+        task_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Tarea del cronograma (costos, etapa 1) cuyo avance reporta el registro. Sin tarea,
+            `progress_pct` es `null` y `quantities` está vacía; con tarea, hay un `progress_pct`,
+            al menos una cantidad, o ambos.
+        progress_pct:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          description: '% de avance acumulado de `task_id` observado en campo, hasta dos decimales.'
+        quantities:
+          type: array
+          description: |
+            Costos, pieza 4: cantidades ejecutadas en este registro por ítem del presupuesto. Cuentan
+            para el avance de la tarea cuando el registro está validado. Lista vacía si no hay.
+          items:
+            $ref: '#/components/schemas/RecordQuantity'
 
-    VisitAttachment:
+    RecordQuantity:
+      type: object
+      description: Cantidad ejecutada de un ítem del presupuesto en un registro (costos, pieza 4).
+      required: [item_id, location_id, quantity, note, client_id, captured_at, gps, seen, location_mode]
+      properties:
+        item_id:
+          $ref: '#/components/schemas/Uuid'
+        location_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Ubicación precisada en campo; `null` = la ubicación de la tarea.
+        quantity:
+          type: number
+          description: |
+            Distinta de 0, hasta 4 decimales. Negativa solo como ajuste. Sale como número JSON
+            (el servidor la guarda como decimal exacto): es exacta hasta 15 dígitos
+            significativos.
+        note:
+          type: string
+          maxLength: 500
+        client_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Pieza 4b: identificador de la fila generado por la app, único dentro del registro.
+            `null` en filas capturadas antes de la pieza 4b.
+        captured_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+          description: Momento en que se digitó la cantidad (UTC). `null` si no se envió.
+        gps:
+          oneOf:
+            - $ref: '#/components/schemas/QuantityGps'
+            - type: 'null'
+        seen:
+          oneOf:
+            - $ref: '#/components/schemas/QuantitySeen'
+            - type: 'null'
+        location_mode:
+          type: [string, 'null']
+          enum: [task, refined, null]
+          description: '`refined`: el agente precisó la ubicación; `task`: usó la de la tarea.'
+
+    RecordQuantityPayload:
+      type: object
+      additionalProperties: false
+      required: [item_id, quantity]
+      properties:
+        item_id:
+          $ref: '#/components/schemas/Uuid'
+        location_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: El nodo de la tarea o uno de sus descendientes (`FieldTask.location_options`).
+        quantity:
+          type: number
+          description: Distinta de 0, |cantidad| < 10^14, hasta 4 decimales.
+        note:
+          type: string
+          maxLength: 500
+          description: |
+            La app la exige al capturar si la cantidad es negativa o el ítem no está en el plan
+            de la tarea; el servidor la acepta vacía y la revisión lo resalta.
+        client_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Pieza 4b: identificador de la fila generado por la app, único dentro del registro
+            (`duplicate_client_id`). Ausente o `null` no se guarda.
+        captured_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+          description: Momento en que se digitó la cantidad. Ausente o `null` no se guarda.
+        gps:
+          oneOf:
+            - $ref: '#/components/schemas/QuantityGps'
+            - type: 'null'
+          description: Lectura GPS puntual al digitar la cantidad, si había permiso y señal.
+        seen:
+          oneOf:
+            - $ref: '#/components/schemas/QuantitySeen'
+            - type: 'null'
+        location_mode:
+          type: [string, 'null']
+          enum: [task, refined, null]
+
+    QuantityGps:
+      type: object
+      additionalProperties: false
+      description: Lectura GPS puntual de una fila de cantidad (pieza 4b). Sin seguimiento continuo.
+      required: [lat, lon, accuracy_m]
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lon:
+          type: number
+          minimum: -180
+          maximum: 180
+        accuracy_m:
+          type: number
+          minimum: 0
+
+    QuantitySeen:
+      type: object
+      additionalProperties: false
+      description: |
+        Lo que la app mostraba al capturar la fila (pieza 4b): la cantidad planeada y la
+        validada del ítem en la tarea (`null` si el ítem no estaba planeado) y la ubicación de
+        la tarea (`null` si no tenía).
+      required: [planned, validated, location_id]
+      properties:
+        planned:
+          type: [number, 'null']
+        validated:
+          type: [number, 'null']
+        location_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+
+    RecordAttachment:
       type: object
       description: |
-        Uso de un blob dentro de una visita. Separa "qué archivo" (`blob`, inmutable y compartido)
-        de "dónde se usa". Una visita se acepta aunque el blob todavía no esté subido: el adjunto
+        Uso de un blob dentro de un registro. Separa "qué archivo" (`blob`, inmutable y compartido)
+        de "dónde se usa". Un registro se acepta aunque el blob todavía no esté subido: el adjunto
         queda pendiente y se confirma por el carril de adjuntos.
 
         **Todas las propiedades son `required`** (convención de entidades emitidas por el
@@ -1151,7 +1759,7 @@ components:
         - version
         - change_seq
         - deleted_at
-        - visit_id
+        - record_id
         - sha256
         - role
         - caption
@@ -1170,7 +1778,7 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Timestamp'
             - type: 'null'
-        visit_id:
+        record_id:
           $ref: '#/components/schemas/Uuid'
         sha256:
           $ref: '#/components/schemas/Sha256'
@@ -1185,12 +1793,12 @@ components:
         order:
           type: integer
           minimum: 0
-          description: Orden de presentación dentro de la visita.
+          description: Orden de presentación dentro del registro.
 
     Assignment:
       type: object
       description: |
-        Trabajo planificado que origina visitas. Se descarga por el pull; el cliente no la modifica.
+        Trabajo planificado que origina registros. Se descarga por el pull; el cliente no la modifica.
 
         **Todas las propiedades son `required`** (convención de entidades emitidas por el
         servidor); la opcionalidad se expresa con `null` en el valor, no con la ausencia del campo.
@@ -1245,7 +1853,7 @@ components:
         Versión inmutable de una plantilla de formulario. `definition` es **JSON declarativo**
         (campos, tipos, etiquetas i18n, obligatoriedad, rangos, visibilidad condicional de un DSL
         restringido). El cliente la **interpreta**; nunca evalúa código remoto (ADR-012).
-        Cada visita referencia la versión exacta usada, de modo que las visitas históricas siguen
+        Cada registro referencia la versión exacta usada, de modo que los registros históricos siguen
         siendo interpretables tras cambios de formulario.
 
         **Todas las propiedades son `required`** (convención de entidades emitidas por el
@@ -1286,7 +1894,7 @@ components:
           type: object
           additionalProperties: true
           description: |
-            Definición declarativa del formulario (visitacampo/form@1). Nunca contiene código ejecutable.
+            Definición declarativa del formulario (suno/form@1). Nunca contiene código ejecutable.
             C5 añade `qr` (texto capturado o escaneado), `default` (literal validado al publicar,
             aplicado solo al crear un formulario o fila) y `repeat` (lista de objetos de respuestas).
             Un grupo declara `fields`, `min_rows` (0 por defecto) y `max_rows` (100 por defecto).
@@ -1307,37 +1915,37 @@ components:
         Fila autoritativa etiquetada con su entidad. Se usa en el pull (`rows`) y en el resultado
         de conflicto del push (`server_row`). `entity` es el discriminador.
       oneOf:
-        - $ref: '#/components/schemas/VisitRecord'
-        - $ref: '#/components/schemas/VisitAttachmentRecord'
+        - $ref: '#/components/schemas/RecordRow'
+        - $ref: '#/components/schemas/RecordAttachmentRow'
         - $ref: '#/components/schemas/AssignmentRecord'
         - $ref: '#/components/schemas/FormTemplateVersionRecord'
       discriminator:
         propertyName: entity
         mapping:
-          visit: '#/components/schemas/VisitRecord'
-          visit_attachment: '#/components/schemas/VisitAttachmentRecord'
+          record: '#/components/schemas/RecordRow'
+          record_attachment: '#/components/schemas/RecordAttachmentRow'
           assignment: '#/components/schemas/AssignmentRecord'
           form_template_version: '#/components/schemas/FormTemplateVersionRecord'
 
-    VisitRecord:
+    RecordRow:
       type: object
       required: [entity, data]
       properties:
         entity:
           type: string
-          const: visit
+          const: record
         data:
-          $ref: '#/components/schemas/Visit'
+          $ref: '#/components/schemas/Record'
 
-    VisitAttachmentRecord:
+    RecordAttachmentRow:
       type: object
       required: [entity, data]
       properties:
         entity:
           type: string
-          const: visit_attachment
+          const: record_attachment
         data:
-          $ref: '#/components/schemas/VisitAttachment'
+          $ref: '#/components/schemas/RecordAttachment'
 
     AssignmentRecord:
       type: object
@@ -1395,8 +2003,8 @@ components:
         - user
         - form_template_versions
         - assignments
-        - visits
-        - visit_attachments
+        - records
+        - record_attachments
       properties:
         schema_version:
           $ref: '#/components/schemas/SchemaVersion'
@@ -1416,14 +2024,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Assignment'
-        visits:
+        records:
           type: array
           items:
-            $ref: '#/components/schemas/Visit'
-        visit_attachments:
+            $ref: '#/components/schemas/Record'
+        record_attachments:
           type: array
           items:
-            $ref: '#/components/schemas/VisitAttachment'
+            $ref: '#/components/schemas/RecordAttachment'
         has_more:
           type: boolean
           default: false
@@ -1482,13 +2090,13 @@ components:
         idempotencia**: reenviarla devuelve el resultado ya registrado en `sync_op_log`.
         `entity` es el discriminador del payload.
       oneOf:
-        - $ref: '#/components/schemas/VisitOp'
-        - $ref: '#/components/schemas/VisitAttachmentOp'
+        - $ref: '#/components/schemas/RecordOp'
+        - $ref: '#/components/schemas/RecordAttachmentOp'
       discriminator:
         propertyName: entity
         mapping:
-          visit: '#/components/schemas/VisitOp'
-          visit_attachment: '#/components/schemas/VisitAttachmentOp'
+          record: '#/components/schemas/RecordOp'
+          record_attachment: '#/components/schemas/RecordAttachmentOp'
 
     SyncOpBase:
       type: object
@@ -1506,7 +2114,7 @@ components:
             Versión sobre la que el cliente basó el cambio. `null` en `create`.
             El UPSERT aplica `WHERE version = base_version`; si no coincide ⇒ `conflict`.
 
-    VisitOp:
+    RecordOp:
       allOf:
         - $ref: '#/components/schemas/SyncOpBase'
         - type: object
@@ -1514,11 +2122,11 @@ components:
           properties:
             entity:
               type: string
-              const: visit
+              const: record
             payload:
-              $ref: '#/components/schemas/VisitPayload'
+              $ref: '#/components/schemas/RecordPayload'
 
-    VisitAttachmentOp:
+    RecordAttachmentOp:
       allOf:
         - $ref: '#/components/schemas/SyncOpBase'
         - type: object
@@ -1526,14 +2134,14 @@ components:
           properties:
             entity:
               type: string
-              const: visit_attachment
+              const: record_attachment
             payload:
-              $ref: '#/components/schemas/VisitAttachmentPayload'
+              $ref: '#/components/schemas/RecordAttachmentPayload'
 
-    VisitPayload:
+    RecordPayload:
       type: object
       description: |
-        Campos de `visit` que el cliente puede escribir. `org_id`, `version`, `change_seq` y
+        Campos de `record` que el cliente puede escribir. `org_id`, `version`, `change_seq` y
         `deleted_at` son **server-authoritative** y no se envían.
         En `op_type: create` el servidor exige el conjunto completo
         (`template_version_id`, `answers`, `captured_at`, `device_id`); en `update` basta con los
@@ -1569,20 +2177,58 @@ components:
           $ref: '#/components/schemas/Timestamp'
         device_id:
           $ref: '#/components/schemas/Uuid'
+        task_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Opcional (un cliente anterior no lo envía). Tarea **vigente y de detalle** de la que quien
+            envía es responsable (directo o por una tarea superior). Viaja **siempre junto** con
+            `progress_pct`, también en `update`: con tarea, `progress_pct` con valor o `null` si hay
+            al menos una cantidad; los dos `null` (desvincular); o ninguno. Rechazos: `not_found` (`unknown_reference`), `validation_error`
+            (`task_retired`, `task_is_summary`, `task_progress_pair`, `record_validated`: el registro ya fue
+            validado y no puede cambiar de tarea ni de %; también rechaza el `delete` de ese registro, con `field: id`),
+            `forbidden` (`not_responsible`). Una operación con `base_version` obsoleto contesta `conflict`,
+            no `record_validated`.
+        progress_pct:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          description: |
+            % de avance acumulado de `task_id`, hasta dos decimales. Un valor menor que el último
+            validado se acepta y se marca para la supervisión.
+        quantities:
+          type: array
+          maxItems: 200
+          description: |
+            Opcional (un cliente anterior no lo envía). Reemplaza la lista completa. Solo viaja con
+            `task_id` y `progress_pct`; con tarea, `progress_pct` puede ser `null` si hay al menos
+            una cantidad. Un `update` con `task_id` y `progress_pct` sin `quantities` deja la lista
+            vacía. Rechazos (`validation_error`): `quantities_without_task`, `task_progress_pair`,
+            `item_not_in_project` (el ítem no es de un presupuesto del proyecto de la tarea, o es
+            un capítulo fuera del plan de la tarea),
+            `location_outside_task` (la ubicación no es un nodo del proyecto de la tarea),
+            `duplicate_client_id` (dos filas con el mismo `client_id`) y
+            `record_validated` (el registro validado no cambia sus cantidades). Lo demás se acepta y
+            se resalta en la revisión, porque lo registrado sin conexión nunca se pierde: un ítem
+            fuera del plan o un ajuste negativo sin nota (la nota la exige la app al capturar), y
+            una ubicación del proyecto fuera de la ubicación actual de la tarea.
+          items:
+            $ref: '#/components/schemas/RecordQuantityPayload'
 
-    VisitAttachmentPayload:
+    RecordAttachmentPayload:
       type: object
       description: |
-        Campos de `visit_attachment` que el cliente puede escribir. El `sha256` puede referenciar
+        Campos de `record_attachment` que el cliente puede escribir. El `sha256` puede referenciar
         un blob **aún no subido**: el dato estructurado no espera a los bytes.
-        En el MVP solo se admite `op_type: create` (con `visit_id`, `sha256`, `role` y
-        `captured_at`); `update`/`delete` se rechazan con `reason: unsupported_op_type`. La visita
+        En el MVP solo se admite `op_type: create` (con `record_id`, `sha256`, `role` y
+        `captured_at`); `update`/`delete` se rechazan con `reason: unsupported_op_type`. El registro
         tiene que existir en la organización o crearse antes en el mismo lote.
       required: [id]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
-        visit_id:
+        record_id:
           $ref: '#/components/schemas/Uuid'
         sha256:
           $ref: '#/components/schemas/Sha256'
@@ -1612,9 +2258,9 @@ components:
         schema_version:
           allOf:
             - $ref: '#/components/schemas/SchemaVersion'
-          const: 1
+          const: 2
           description: |
-            Versión de payload de este contrato (v1). Otra versión ⇒ `422 schema_unsupported`;
+            Versión de payload de este contrato (2). Otra versión ⇒ `422 schema_unsupported`;
             `GET /v1/server/info` publica el rango aceptado.
         device_id:
           $ref: '#/components/schemas/Uuid'
@@ -1706,11 +2352,11 @@ components:
             por archivo (`ServerCapabilities.attachment_max_bytes`); por encima, `413`.
         mime:
           $ref: '#/components/schemas/Mime'
-        visit_id:
+        record_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
-          description: Visita a la que se destina, para comprobar permisos y cuota por visita.
+          description: Registro al que se destina, para comprobar permisos y cuota por registro.
 
     PresignResponse:
       type: object
@@ -1821,7 +2467,7 @@ components:
           $ref: '#/components/schemas/Uuid'
         type:
           type: string
-          description: Tipo de job (p. ej. `export_visits_csv`).
+          description: Tipo de job (p. ej. `export_records_csv`).
         status:
           $ref: '#/components/schemas/JobStatus'
         attempts:
@@ -1857,7 +2503,7 @@ components:
       enum: [account, location, photos]
       description: |
         Finalidad aceptada en el aviso de privacidad: `account` (cuenta y uso de la app),
-        `location` (ubicación de las visitas), `photos` (fotos y firmas de las visitas).
+        `location` (ubicación de los registros), `photos` (fotos y firmas de los registros).
 
     ConsentRequest:
       type: object
@@ -1997,6 +2643,934 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Layer'
+
+    MeterUnit:
+      type: string
+      enum: [hours, kilometers]
+      description: Medidor del equipo — `hours` (horómetro) o `kilometers` (odómetro).
+
+    FieldEquipmentType:
+      type: object
+      required: [id, code, name, preoperational_template_id]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name:
+          type: string
+        preoperational_template_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Formulario preoperacional de la tipología, si tiene uno.
+
+    FieldEquipmentDepartment:
+      type: object
+      description: Departamento de maquinaria (centro de costo) que absorbe los costos del activo.
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+
+    FieldEquipmentMeter:
+      type: object
+      description: Última lectura de un medidor configurado.
+      required: [unit, label, is_primary, value, read_at]
+      properties:
+        unit:
+          $ref: '#/components/schemas/MeterUnit'
+        label:
+          type: string
+        is_primary:
+          type: boolean
+        value:
+          type: number
+        read_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    FieldEquipmentDocument:
+      type: object
+      required: [id, type, name, number, expires_on]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        type:
+          type: string
+          description: Tipo de documento (`registration`, `insurance`, `technical_review`…).
+        name:
+          type: string
+        number:
+          type: string
+        expires_on:
+          type:
+            - string
+            - 'null'
+          format: date
+
+    FieldEquipmentField:
+      type: object
+      description: Campo adicional definido por la organización (SOAT, certificado de ruido…).
+      required: [name, type, value]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [number, date, text]
+        value:
+          description: Número, fecha ISO (`date`) o texto según `type`; `null` si está vacío.
+          oneOf:
+            - type: number
+            - type: string
+            - type: 'null'
+
+    FieldEquipmentAlert:
+      type: object
+      description: Vigencia próxima o vencida (`days_left` negativo = vencida).
+      required: [source, name, expires_on, days_left]
+      properties:
+        source:
+          type: string
+          enum: [field, document]
+        name:
+          type: string
+        expires_on:
+          type: string
+          format: date
+        days_left:
+          type: integer
+
+    InspectionStatus:
+      type: string
+      enum: [submitted, approved, rejected, correction_requested]
+      description: |
+        `submitted` espera revisión; `approved`, `rejected` y `correction_requested` son
+        decisiones finales (una corrección es una inspección nueva).
+
+    FieldChecklistItem:
+      type: object
+      required: [id, label, critical]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: string
+        critical:
+          type: boolean
+
+    FieldInspectionSummary:
+      type: object
+      required: [id, captured_at, status, has_faults, review_comment]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        captured_at:
+          $ref: '#/components/schemas/Timestamp'
+        status:
+          $ref: '#/components/schemas/InspectionStatus'
+        has_faults:
+          type: boolean
+        review_comment:
+          type: string
+          description: Motivo de la revisión; vacío si aún no se revisó o no hubo comentario.
+
+    InspectionAnswerIn:
+      type: object
+      required: [item_id, ok]
+      properties:
+        item_id:
+          $ref: '#/components/schemas/Uuid'
+        ok:
+          type: boolean
+        note:
+          type: string
+          maxLength: 500
+          default: ''
+          description: "Obligatoria cuando `ok` es `false` (describe la novedad)."
+
+    InspectionIn:
+      type: object
+      required: [id, captured_at, items]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        captured_at:
+          $ref: '#/components/schemas/Timestamp'
+        meter_unit:
+          oneOf:
+            - $ref: '#/components/schemas/MeterUnit'
+            - type: 'null'
+        meter_value:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          maximum: 9999999999.99
+          multipleOf: 0.01
+          description: Lectura inicial. Obligatoria con `meter_unit` si el equipo se controla por medidor.
+        items:
+          type: array
+          maxItems: 200
+          description: Una respuesta por cada ítem de la lista de chequeo vigente, sin repetir.
+          items:
+            $ref: '#/components/schemas/InspectionAnswerIn'
+        notes:
+          type: string
+          maxLength: 1000
+          default: ''
+
+    InspectionOut:
+      type: object
+      required: [id, status, has_faults]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/InspectionStatus'
+        has_faults:
+          type: boolean
+
+    TransportRouteItem:
+      type: object
+      required: [id, origin, destination, zone, distance_km]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        origin:
+          type: string
+        destination:
+          type: string
+        zone:
+          type: string
+        distance_km:
+          type: number
+
+    TransportMaterialItem:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+
+    TransportVehicleItem:
+      type: object
+      required: [id, plate, contractor, capacity_m3]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        plate:
+          type: string
+        contractor:
+          type: string
+        capacity_m3:
+          type:
+            - number
+            - 'null'
+
+    TransportPersonItem:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+
+    TransportCatalog:
+      type: object
+      required: [version, changed, routes, materials, vehicles, people]
+      properties:
+        version:
+          type: string
+          maxLength: 64
+          description: Huella del catálogo. Se reenvía en `?version=` la próxima vez.
+        changed:
+          type: boolean
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportRouteItem'
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportMaterialItem'
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportVehicleItem'
+        people:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportPersonItem'
+
+    TripIn:
+      oneOf:
+        - required: [equipment_id]
+          properties:
+            equipment_id: { $ref: '#/components/schemas/Uuid' }
+            vehicle_id: { type: 'null' }
+        - required: [vehicle_id]
+          properties:
+            equipment_id: { type: 'null' }
+            vehicle_id: { $ref: '#/components/schemas/Uuid' }
+      type: object
+      required:
+        - id
+        - recorded_at
+        - route_id
+        - material_id
+        - volume_m3
+        - requested_by_id
+        - dispatched_by_id
+        - received_by_id
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        recorded_at:
+          $ref: '#/components/schemas/Timestamp'
+        route_id:
+          $ref: '#/components/schemas/Uuid'
+        material_id:
+          $ref: '#/components/schemas/Uuid'
+        volume_m3:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 999999.99
+          multipleOf: 0.01
+        equipment_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Equipo propio. Exactamente uno de `equipment_id` y `vehicle_id`.
+        vehicle_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Vehículo de terceros. Exactamente uno de `equipment_id` y `vehicle_id`.
+        requested_by_id:
+          $ref: '#/components/schemas/Uuid'
+        dispatched_by_id:
+          $ref: '#/components/schemas/Uuid'
+        received_by_id:
+          $ref: '#/components/schemas/Uuid'
+        driver_name:
+          type: string
+          maxLength: 160
+          default: ''
+        driver_document:
+          type: string
+          maxLength: 40
+          default: ''
+        notes:
+          type: string
+          maxLength: 300
+          default: ''
+
+    TripOut:
+      type: object
+      required: [id, code, number]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          description: Consecutivo del viaje por organización, p. ej. `TV-000123`.
+        number:
+          type: integer
+
+    FuelStationItem:
+      type: object
+      required: [id, name, supplier]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        supplier:
+          type: string
+
+    FuelStoreItem:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+
+    FuelCatalog:
+      type: object
+      required: [version, changed, stations, stores]
+      properties:
+        version:
+          type: string
+          maxLength: 64
+          description: Huella del catálogo. Se reenvía en `?version=` la próxima vez.
+        changed:
+          type: boolean
+        stations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FuelStationItem'
+        stores:
+          type: array
+          items:
+            $ref: '#/components/schemas/FuelStoreItem'
+
+    FuelFillIn:
+      type: object
+      required: [id, source, voucher_number, filled_at, gallons]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        source:
+          type: string
+          enum: [station, store]
+        station_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Obligatoria con `source = station`; prohibida con `store`.
+        store_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Obligatoria con `source = store`; prohibida con `station`.
+        fuel_type:
+          type: string
+          enum: [acpm, gasoline, other]
+          default: acpm
+        voucher_number:
+          type: string
+          minLength: 1
+          maxLength: 60
+        filled_at:
+          $ref: '#/components/schemas/Timestamp'
+        gallons:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        meter_unit:
+          oneOf:
+            - $ref: '#/components/schemas/MeterUnit'
+            - type: 'null'
+        meter_value:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          maximum: 9999999999.99
+          multipleOf: 0.01
+          description: Lectura del medidor al tanquear; obligatoria si el equipo se controla por medidor.
+        work_front:
+          type: string
+          maxLength: 160
+          default: ''
+        driver_name:
+          type: string
+          maxLength: 160
+          default: ''
+        driver_document:
+          type: string
+          maxLength: 40
+          default: ''
+        notes:
+          type: string
+          maxLength: 300
+          default: ''
+
+    FuelFillOut:
+      type: object
+      required: [id, voucher_number]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        voucher_number:
+          type: string
+
+    UsageStatus:
+      type: string
+      enum: [scheduled, in_progress, completed, cancelled]
+
+    FieldUsageProject:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+
+    FieldUsageSummary:
+      type: object
+      required: [id, usage_date, start_time, end_time, hours, activity, project_name, status]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        usage_date:
+          type: string
+          format: date
+        start_time:
+          type: string
+          description: Hora de inicio `HH:MM`.
+        end_time:
+          type: string
+          description: Hora de fin `HH:MM`.
+        hours:
+          type:
+            - number
+            - 'null'
+        activity:
+          type: string
+        project_name:
+          type: string
+        status:
+          $ref: '#/components/schemas/UsageStatus'
+
+    UsageReportIn:
+      type: object
+      required: [id, project_id, usage_date, start_time, end_time, activity]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        project_id:
+          $ref: '#/components/schemas/Uuid'
+        usage_date:
+          type: string
+          format: date
+        start_time:
+          type: string
+          format: time
+        end_time:
+          type: string
+          format: time
+        activity:
+          type: string
+          minLength: 1
+          maxLength: 200
+        location:
+          type: string
+          maxLength: 200
+          default: ''
+          description: Ubicación o frente de obra.
+        start_meter:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          maximum: 9999999999.99
+          multipleOf: 0.01
+        end_meter:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          maximum: 9999999999.99
+          multipleOf: 0.01
+        notes:
+          type: string
+          maxLength: 500
+          default: ''
+
+    UsageReportOut:
+      type: object
+      required: [id, hours, status]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        hours:
+          type:
+            - number
+            - 'null'
+        status:
+          $ref: '#/components/schemas/UsageStatus'
+
+    FieldMaintenancePlan:
+      type: object
+      required: [id, name, kind, meter_unit, state, remaining, due_value, due_on, has_open_order]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [meter, date]
+        meter_unit:
+          oneOf:
+            - $ref: '#/components/schemas/MeterUnit'
+            - type: 'null'
+        state:
+          type: string
+          enum: [ok, due_soon, overdue, unknown]
+          description: "`unknown` si un plan por medidor aún no tiene lecturas."
+        remaining:
+          type:
+            - number
+            - 'null'
+          description: Lo que falta (horas/km o días); negativo = vencido.
+        due_value:
+          type:
+            - number
+            - 'null'
+          description: Medidor en el que vence (plan por medidor).
+        due_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: Fecha de vencimiento (plan por fecha).
+        has_open_order:
+          type: boolean
+
+    FieldWorkOrderSummary:
+      type: object
+      required: [id, code, kind, status, description]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          description: Número de orden por organización, p. ej. `OT-0012`.
+        kind:
+          type: string
+          enum: [preventive, corrective, overhaul]
+        status:
+          type: string
+          enum: [draft, approved, in_execution, closed_technical, cancelled]
+        description:
+          type: string
+
+    FieldEquipment:
+      type: object
+      description: Un equipo visible para quien llama, con lo necesario para consultarlo en campo.
+      required:
+        - id
+        - code
+        - name
+        - qr_identifier
+        - equipment_type
+        - status
+        - ownership
+        - license_plate
+        - manufacturer
+        - model
+        - serial_number
+        - manufacture_year
+        - department
+        - control_scheme
+        - work_source
+        - current_project_id
+        - meters
+        - meter_units
+        - documents
+        - fields
+        - alerts
+        - checklist
+        - recent_inspections
+        - usage_projects
+        - recent_usage
+        - maintenance_plans
+        - open_work_orders
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name:
+          type: string
+        qr_identifier:
+          type: string
+          description: Contenido que identifica al equipo en su QR (`suno:eq:<uuid>`).
+        equipment_type:
+          $ref: '#/components/schemas/FieldEquipmentType'
+        status:
+          type: string
+          enum: [available, assigned, maintenance, out_of_service, retired]
+        ownership:
+          type: string
+          enum: [own, rented, contractor]
+        license_plate:
+          type: string
+        manufacturer:
+          type: string
+        model:
+          type: string
+        serial_number:
+          type: string
+        manufacture_year:
+          type:
+            - integer
+            - 'null'
+        department:
+          oneOf:
+            - $ref: '#/components/schemas/FieldEquipmentDepartment'
+            - type: 'null'
+        control_scheme:
+          type: string
+          enum: [meter, date]
+        work_source:
+          type: string
+          enum: [fuel, work_reports]
+        current_project_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        meters:
+          type: array
+          description: Última lectura de cada medidor que ya tiene lecturas.
+          items:
+            $ref: '#/components/schemas/FieldEquipmentMeter'
+        meter_units:
+          type: array
+          description: Medidores configurados en la ficha (principal primero).
+          items:
+            $ref: '#/components/schemas/MeterUnit'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldEquipmentDocument'
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldEquipmentField'
+        alerts:
+          type: array
+          description: Más urgente primero.
+          items:
+            $ref: '#/components/schemas/FieldEquipmentAlert'
+        checklist:
+          type: array
+          description: Lista de chequeo preoperacional vigente de la tipología, en orden.
+          items:
+            $ref: '#/components/schemas/FieldChecklistItem'
+        recent_inspections:
+          type: array
+          description: Las últimas inspecciones de quien llama sobre este equipo (más reciente primero).
+          items:
+            $ref: '#/components/schemas/FieldInspectionSummary'
+        usage_projects:
+          type: array
+          description: |
+            Proyectos en los que quien llama puede reportar uso de este equipo hoy: los de sus
+            asignaciones vigentes en los que el equipo está vinculado.
+          items:
+            $ref: '#/components/schemas/FieldUsageProject'
+        recent_usage:
+          type: array
+          description: Los últimos usos propios del equipo (más reciente primero), sin costos.
+          items:
+            $ref: '#/components/schemas/FieldUsageSummary'
+        maintenance_plans:
+          type: array
+          description: Planes preventivos vigentes con lo que falta para cada uno.
+          items:
+            $ref: '#/components/schemas/FieldMaintenancePlan'
+        open_work_orders:
+          type: array
+          description: Órdenes de trabajo abiertas (borrador, aprobada o en ejecución), por número.
+          items:
+            $ref: '#/components/schemas/FieldWorkOrderSummary'
+
+    FieldEquipmentList:
+      type: object
+      required: [version, changed, items]
+      properties:
+        version:
+          type: string
+          maxLength: 64
+          description: Huella de la lista. Se reenvía en `?version=` la próxima vez.
+        changed:
+          type: boolean
+          description: '`false` si la lista no cambió desde `?version=`; entonces `items` va vacío.'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldEquipment'
+
+    MeterReadingIn:
+      type: object
+      required: [id, meter_unit, value, read_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        meter_unit:
+          $ref: '#/components/schemas/MeterUnit'
+        value:
+          type: number
+          minimum: 0
+          maximum: 9999999999.99
+          multipleOf: 0.01
+          description: Lectura del medidor, con hasta 2 decimales.
+        read_at:
+          $ref: '#/components/schemas/Timestamp'
+        notes:
+          type: string
+          maxLength: 300
+          default: ''
+
+    MeterReadingOut:
+      type: object
+      required: [id, meter_unit, value, read_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        meter_unit:
+          $ref: '#/components/schemas/MeterUnit'
+        value:
+          type: number
+        read_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    FieldTask:
+      type: object
+      description: Una tarea del cronograma a la que la app puede vincular un registro.
+      required:
+        - id
+        - project_id
+        - project_name
+        - wbs
+        - outline_number
+        - name
+        - last_validated_pct
+        - measured_by
+        - location
+        - location_options
+        - planned_items
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        project_id:
+          $ref: '#/components/schemas/Uuid'
+        project_name:
+          type: string
+          maxLength: 200
+        wbs:
+          type: string
+          maxLength: 100
+          description: EDT del Project; puede venir vacía (se muestra `outline_number`).
+        outline_number:
+          type: string
+          maxLength: 100
+        name:
+          type: string
+          maxLength: 500
+        last_validated_pct:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          description: |
+            % SUNO de la tarea: por cantidades validadas si tiene ítems planeados; si no, el del
+            registro validado más reciente. `null` si no hay.
+        measured_by:
+          type: string
+          enum: [pct, quantities]
+          description: |
+            `quantities` si la tarea tiene ítems planeados (costos, pieza 4): la app registra
+            cantidades y no pide %; `pct` en el resto.
+        location:
+          oneOf:
+            - $ref: '#/components/schemas/FieldLocation'
+            - type: 'null'
+        location_options:
+          type: array
+          description: La ubicación de la tarea y sus descendientes vigentes, para precisar en campo.
+          items:
+            $ref: '#/components/schemas/FieldLocation'
+        planned_items:
+          type: array
+          description: >-
+            Ítems planeados que miden la tarea (con cantidad planeada > 0; sin los que hoy
+            son capítulos del presupuesto), sin precios ni montos.
+          items:
+            $ref: '#/components/schemas/FieldPlannedItem'
+
+    FieldTaskList:
+      type: object
+      required: [version, changed, items, project_items]
+      properties:
+        version:
+          type: string
+          maxLength: 64
+          description: Huella de la lista. Se reenvía en `?version=` la próxima vez.
+        changed:
+          type: boolean
+          description: '`false` si la lista no cambió desde `?version=`; entonces `items` y `project_items` van vacíos.'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldTask'
+        project_items:
+          type: array
+          description: |
+            Pieza 4b: por cada proyecto con tareas en la lista, los ítems medibles (no capítulos)
+            de la versión vigente de cada uno de sus presupuestos, sin precios ni montos. La app
+            busca aquí al agregar un ítem no planeado. Entra en `version`.
+          items:
+            $ref: '#/components/schemas/FieldProjectItems'
+
+    FieldLocation:
+      type: object
+      required: [id, label]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: string
+          description: Ruta completa, p. ej. "Tramo 2 / PR 12+300".
+
+    FieldPlannedItem:
+      type: object
+      required: [item_id, code, description, unit, planned_quantity, executed_quantity]
+      properties:
+        item_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          maxLength: 50
+        description:
+          type: string
+        unit:
+          type: string
+          maxLength: 30
+        planned_quantity:
+          type: number
+        executed_quantity:
+          type: number
+          description: Suma de las cantidades de los registros validados (puede pasar lo planeado).
+
+    FieldProjectItems:
+      type: object
+      required: [project_id, items]
+      properties:
+        project_id:
+          $ref: '#/components/schemas/Uuid'
+        items:
+          type: array
+          description: Vacía si el proyecto no tiene presupuesto vigente.
+          items:
+            $ref: '#/components/schemas/FieldProjectItem'
+
+    FieldProjectItem:
+      type: object
+      required: [item_id, code, description, unit]
+      properties:
+        item_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          maxLength: 50
+        description:
+          type: string
+        unit:
+          type: string
+          maxLength: 30
 
     HealthStatus:
       type: object

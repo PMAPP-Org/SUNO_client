@@ -4,7 +4,7 @@
 // cada test, [openNow] tiene que volver a 0.
 import 'dart:async';
 
-import 'package:visitacampo/core/attachments/upload_file_source.dart';
+import 'package:suno/core/attachments/upload_file_source.dart';
 
 class FakeFileSource implements UploadFileSource {
   FakeFileSource([Map<String, List<int>>? files]) : files = files ?? {};

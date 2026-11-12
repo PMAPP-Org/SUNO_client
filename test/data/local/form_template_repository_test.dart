@@ -1,14 +1,14 @@
 // Caché de plantillas (Paso 21, tareas 5-6), incluida la regresión de H-11:
-// una versión nueva de la plantilla deja de servir la anterior para visitas
-// nuevas, sin que las visitas históricas pierdan la suya.
+// una versión nueva de la plantilla deja de servir la anterior para registros
+// nuevas, sin que los registros históricos pierdan la suya.
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visitacampo/core/forms/form_definition.dart';
-import 'package:visitacampo/data/local/database.dart';
-import 'package:visitacampo/data/local/form_template_repository.dart';
+import 'package:suno/core/forms/form_definition.dart';
+import 'package:suno/data/local/database.dart';
+import 'package:suno/data/local/form_template_repository.dart';
 
 const org = '00000000-0000-4000-8000-0000000000aa';
 const template = '00000000-0000-4000-8000-0000000000bb';
@@ -16,7 +16,7 @@ const v1 = '00000000-0000-4000-8000-000000000001';
 const v2 = '00000000-0000-4000-8000-000000000002';
 
 Map<String, dynamic> definitionWith(String fieldKey) => {
-  'dsl': 'visitacampo/form@1',
+  'dsl': 'suno/form@1',
   'fields': [
     {
       'key': fieldKey,
@@ -61,46 +61,46 @@ void main() {
   });
   tearDown(() => db.close());
 
-  test('H-11: al llegar la v2, una visita nueva usa la v2; la histórica sigue leyendo la v1', () async {
+  test('H-11: al llegar la v2, un registro nuevo usa la v2; la histórica sigue leyendo la v1', () async {
     await repo.upsertFromServerRow(serverRow(id: v1, versionNumber: 1));
     // La v1 entra en la caché de parseo.
-    expect(firstFieldKey(await repo.latestForNewVisit(orgId: org, templateId: template)), 'campo_v1');
+    expect(firstFieldKey(await repo.latestForNewRecord(orgId: org, templateId: template)), 'campo_v1');
     expect(repo.cachedEntries, 1);
 
     await repo.upsertFromServerRow(serverRow(id: v2, versionNumber: 2));
     expect(repo.cachedEntries, 0, reason: 'la llegada de la v2 invalida explícitamente la plantilla');
 
     expect(
-      firstFieldKey(await repo.latestForNewVisit(orgId: org, templateId: template)),
+      firstFieldKey(await repo.latestForNewRecord(orgId: org, templateId: template)),
       'campo_v2',
-      reason: 'una visita nueva nunca recibe la versión anterior',
+      reason: 'un registro nuevo nunca recibe la versión anterior',
     );
     expect(
-      firstFieldKey(await repo.forVisit(orgId: org, templateVersionId: v1)),
+      firstFieldKey(await repo.forRecord(orgId: org, templateVersionId: v1)),
       'campo_v1',
-      reason: 'una visita que ya referencia la v1 sigue pudiendo interpretarse',
+      reason: 'un registro que ya referencia la v1 sigue pudiendo interpretarse',
     );
   });
 
   test('la caché se indexa por organización: el mismo id en otra org no se mezcla', () async {
     await repo.upsertFromServerRow(serverRow(id: v1, versionNumber: 1));
-    expect(await repo.forVisit(orgId: 'otra-org', templateVersionId: v1), isA<TemplateMissing>());
-    expect(await repo.latestForNewVisit(orgId: 'otra-org', templateId: template), isA<TemplateMissing>());
+    expect(await repo.forRecord(orgId: 'otra-org', templateVersionId: v1), isA<TemplateMissing>());
+    expect(await repo.latestForNewRecord(orgId: 'otra-org', templateId: template), isA<TemplateMissing>());
   });
 
-  test('un borrador sin publicar no se ofrece para visitas nuevas', () async {
+  test('un borrador sin publicar no se ofrece para registros nuevos', () async {
     await repo.upsertFromServerRow(serverRow(id: v1, versionNumber: 1));
     await repo.upsertFromServerRow(serverRow(id: v2, versionNumber: 2, publishedAt: null));
-    expect(firstFieldKey(await repo.latestForNewVisit(orgId: org, templateId: template)), 'campo_v1');
+    expect(firstFieldKey(await repo.latestForNewRecord(orgId: org, templateId: template)), 'campo_v1');
   });
 
-  test('tombstone: la versión retirada no se ofrece, pero la visita histórica la lee', () async {
+  test('tombstone: la versión retirada no se ofrece, pero el registro histórico la lee', () async {
     await repo.upsertFromServerRow(serverRow(id: v1, versionNumber: 1));
     await repo.upsertFromServerRow(serverRow(id: v2, versionNumber: 2));
     await repo.markDeleted(v2, DateTime.utc(2026, 10, 2));
 
-    expect(firstFieldKey(await repo.latestForNewVisit(orgId: org, templateId: template)), 'campo_v1');
-    expect(firstFieldKey(await repo.forVisit(orgId: org, templateVersionId: v2)), 'campo_v2');
+    expect(firstFieldKey(await repo.latestForNewRecord(orgId: org, templateId: template)), 'campo_v1');
+    expect(firstFieldKey(await repo.forRecord(orgId: org, templateVersionId: v2)), 'campo_v2');
   });
 
   test('definición corrupta en disco: no se interpreta, se borra y se pide un pull completo', () async {
@@ -112,7 +112,7 @@ void main() {
     );
     repo = FormTemplateRepository(db); // sin la caché de parseo de antes
 
-    expect(await repo.forVisit(orgId: org, templateVersionId: v1), isA<TemplateCorrupt>());
+    expect(await repo.forRecord(orgId: org, templateVersionId: v1), isA<TemplateCorrupt>());
     expect(await db.select(db.formTemplateVersions).get(), isEmpty);
     expect(await db.readCursor(), isNull, reason: 'el siguiente pull vuelve a traerla del servidor');
   });
@@ -120,9 +120,9 @@ void main() {
   test('dialecto futuro: "actualiza la app", sin borrar ni re-sincronizar', () async {
     await db.writeCursor('c1:00000000000000000042', now: DateTime.utc(2026));
     await repo.upsertFromServerRow(
-      serverRow(id: v1, versionNumber: 1, definition: {'dsl': 'visitacampo/form@2', 'fields': <Object?>[]}),
+      serverRow(id: v1, versionNumber: 1, definition: {'dsl': 'suno/form@2', 'fields': <Object?>[]}),
     );
-    expect(await repo.latestForNewVisit(orgId: org, templateId: template), isA<TemplateUnsupported>());
+    expect(await repo.latestForNewRecord(orgId: org, templateId: template), isA<TemplateUnsupported>());
     expect(await db.select(db.formTemplateVersions).get(), hasLength(1));
     expect(await db.readCursor(), 'c1:00000000000000000042');
   });
@@ -152,7 +152,7 @@ void main() {
 
   test('la plantilla guardada se parsea con el meta-schema completo', () async {
     await repo.upsertFromServerRow(serverRow(id: v1, versionNumber: 1));
-    final lookup = await repo.forVisit(orgId: org, templateVersionId: v1);
+    final lookup = await repo.forRecord(orgId: org, templateVersionId: v1);
     expect(lookup, isA<TemplateReady>().having((t) => t.definition.fields.first, 'campo', isA<TextFieldDef>()));
   });
 }

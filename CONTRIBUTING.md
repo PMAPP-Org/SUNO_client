@@ -2,7 +2,7 @@
 
 ## Regla obligatoria: nada está terminado sin su CI en verde
 
-Este repositorio sigue el plan de construcción de VisitaCampo ([`PMAPP-Org/SUNO_server` → `plans/`](https://github.com/PMAPP-Org/SUNO_server/tree/master/plans)). Un cambio no está completo si su CI no pasa. Desactivar o vaciar un job "para que pase" cuenta como no hacerlo.
+Este repositorio sigue el plan de construcción de SUNO ([`PMAPP-Org/SUNO_server` → `plans/`](https://github.com/PMAPP-Org/SUNO_server/tree/master/plans)). Un cambio no está completo si su CI no pasa. Desactivar o vaciar un job "para que pase" cuenta como no hacerlo.
 
 ## Cómo ejecutar los checks en local
 
@@ -65,7 +65,7 @@ Las pantallas (`lib/features/`) no deciden cómo se ven: lo decide el tema. `too
 
 ## Base de datos local
 
-Todo cambio de esquema Drift sube `schemaVersion` en `lib/data/local/database.dart` y lleva su test de migración N-1→N con datos de ejemplo en `test/data/local/migration_test.dart`. **Ninguna migración destructiva sin ese test.**
+Todo cambio de esquema Drift sube `schemaVersion` en `lib/data/local/database.dart` y lleva su test de migración N-1→N con datos de ejemplo en `test/data/local/migration_test.dart` (el archivo nace con la primera migración: el esquema volvió a 1 con el renombre a SUNO). **Ninguna migración destructiva sin ese test.**
 
 ## Contrato con el servidor
 
