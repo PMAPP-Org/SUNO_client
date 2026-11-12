@@ -4,7 +4,7 @@
 // - pin SPKI correcto (actual o siguiente) → aceptado;
 // - pin caducado → fail-open a la validación de CA estándar;
 // y además: nada se envía antes de verificar, TOFU, cambio de certificado
-// bloqueado, CA privada aprobada y sin texto plano.
+// bloqueado (también al renovar con la misma CA privada) y sin texto plano.
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -132,30 +132,46 @@ void main() {
     );
 
     test(
-      'aprobar una CA privada deja pasar a sus certificados de servidor',
+      'con CA privada se aprueba el certificado del servidor; una renovación de la misma CA pide reaprobar',
       () async {
         final certs = await CertFactory.create();
         final ca = await certs.ca(cn: 'CA privada del cliente');
-        final server = await TlsServer.start(
-          await certs.signedBy(ca, withChain: true),
-        );
+        final leaf = await certs.signedBy(ca, withChain: true);
+        final server = await TlsServer.start(leaf);
         final trust = _trust();
 
+        // Desde Dart 3.13 el diálogo recibe el certificado del servidor, no la
+        // CA, aunque el servidor envíe la cadena completa.
         final rejection =
             (await _rejection(_dio(trust, server.baseUrl).get<Object?>('/')))!
                 as UntrustedCertificate;
+        expect(rejection.certificate!.commonName, 'localhost');
+        expect(rejection.certificate!.spkiSha256, await certs.spkiPin(leaf));
         await trust.approve('localhost', server.port, rejection.certificate!);
         expect(
           (await _dio(trust, server.baseUrl).get<Object?>('/')).statusCode,
           200,
         );
 
-        // Otro certificado de la misma CA (renovación) sigue valiendo.
+        // Otro certificado de la misma CA (renovación): bloqueado hasta que el
+        // usuario lo vuelva a aprobar, sin enviar nada.
         final port = server.port;
         await server.close();
         final renewed = await TlsServer.start(
           await certs.signedBy(ca, withChain: true),
           port: port,
+        );
+        final changed = await _rejection(
+          _dio(trust, renewed.baseUrl).get<Object?>('/'),
+        );
+        expect(changed, isA<CertificateChanged>());
+        expect((changed! as CertificateChanged).approvable, isTrue);
+        expect(renewed.requests, 0);
+
+        await trust.approve(
+          'localhost',
+          port,
+          (changed as CertificateChanged).certificate!,
         );
         expect(
           (await _dio(trust, renewed.baseUrl).get<Object?>('/')).statusCode,

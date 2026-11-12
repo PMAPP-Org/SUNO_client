@@ -34,9 +34,9 @@ class HostPin {
   final int port;
   final String spkiSha256;
 
-  /// Sujeto del certificado aprobado. Si se aprobó una CA privada (no el
-  /// certificado del servidor), sus certificados hijos llevan este sujeto
-  /// como emisor (ver `TrustStore`).
+  /// Sujeto del certificado aprobado, solo informativo: la decisión se toma
+  /// con [spkiSha256] (ver `TrustStore`). En pines guardados por versiones
+  /// anteriores de la app puede ser el de una CA privada.
   final String subject;
   final DateTime approvedAt;
 

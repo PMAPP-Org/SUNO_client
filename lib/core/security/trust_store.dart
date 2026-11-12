@@ -30,10 +30,14 @@
 //      bloquea hasta que el usuario lo vuelva a aprobar.
 //
 // Lo que se fija es la huella SHA-256 de la clave pública (SPKI), ver
-// `certificate_info.dart`. Si el usuario aprueba una CA privada (el
-// certificado que falla la validación es la raíz, no el del servidor), el
-// pin es esa CA: sus certificados hijos pasan mientras la cadena llegue a
-// ella, y el emisor de cada uno tiene que ser el sujeto aprobado.
+// `certificate_info.dart`, siempre del certificado del **servidor**. Desde
+// Dart 3.13 (BoringSSL con la nueva validación de rutas X.509),
+// `onBadCertificate` solo recibe el certificado del servidor, nunca la CA de
+// la cadena, aunque el servidor la envíe: aprobar un servidor con CA privada
+// fija ese certificado, no la CA. Un certificado renovado, aunque lo firme la
+// misma CA, llega como `CertificateChanged` y hay que volver a aprobarlo. Los
+// pines de CA aprobados con versiones anteriores de la app tampoco coinciden
+// ya con el certificado del servidor: piden la misma reaprobación.
 import 'dart:async';
 import 'dart:io';
 
@@ -241,30 +245,22 @@ class TrustStore {
     final port = uri.port;
 
     CertificateRejection? rejection;
-    var acceptedByPin = false;
     final task = await SecureSocket.startConnect(
       host,
       port,
       context: _context,
       onBadCertificate: (certificate) {
-        // Puede llamarse más de una vez en un handshake (un error por nivel
-        // de la cadena): un rechazo no lo deshace una llamada posterior.
+        // Puede llamarse más de una vez en un handshake: un rechazo no lo
+        // deshace una llamada posterior.
         if (rejection != null) return false;
-        final decision = _decideUntrusted(certificate, host, port);
-        rejection = decision.rejection;
-        acceptedByPin = decision.rejection == null;
-        return acceptedByPin;
+        rejection = _decideUntrusted(certificate, host, port).rejection;
+        return rejection == null;
       },
     );
 
     final checked = task.socket.then<Socket>(
       (socket) {
-        final problem = _checkPeer(
-          socket.peerCertificate,
-          host,
-          port,
-          acceptedByPin: acceptedByPin,
-        );
+        final problem = _checkPeer(socket.peerCertificate, host, port);
         if (problem != null) {
           socket.destroy();
           throw problem;
@@ -305,9 +301,8 @@ class TrustStore {
   CertificateRejection? _checkPeer(
     X509Certificate? peer,
     String host,
-    int port, {
-    required bool acceptedByPin,
-  }) {
+    int port,
+  ) {
     final info = peer == null ? null : _info(peer);
     final official = _official;
     if (official != null && official.appliesTo(host)) {
@@ -322,9 +317,6 @@ class TrustStore {
       return CertificateChanged(host, port, info, previous: pin);
     }
     if (info.spkiSha256 == pin.spkiSha256) return null;
-    // Aprobada una CA privada: el servidor presenta un hijo suyo, y la
-    // cadena ya se aceptó contra el pin en `_decideUntrusted`.
-    if (acceptedByPin && info.issuer == pin.subject) return null;
     return CertificateChanged(host, port, info, previous: pin);
   }
 
