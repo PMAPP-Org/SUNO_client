@@ -97,10 +97,19 @@ Finder _chip(String label) => find.descendant(of: find.byType(RecordStatusChip),
 
 /// Hace visible el widget antes de tocarlo: en la pantalla del emulador el
 /// botón de confiar del TOFU, las casillas del aviso y el de guardar quedan
-/// por debajo del borde.
+/// por debajo del borde. Además espera (hasta 10 s) a que el toque le llegue
+/// de verdad: el SnackBar de la sincronización, que sigue
+/// visible al abrir la captura, queda sobre el teclado y tapa el botón de
+/// guardar hasta que se cierra.
 Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
-  await tester.ensureVisible(finder);
-  await tester.pump();
+  final deadline = DateTime.now().add(const Duration(seconds: 10));
+  while (true) {
+    await tester.ensureVisible(finder);
+    await tester.pump(const Duration(milliseconds: 100));
+    final target = tester.renderObject(finder);
+    final hits = tester.hitTestOnBinding(tester.getCenter(finder)).path;
+    if (hits.any((entry) => entry.target == target) || DateTime.now().isAfter(deadline)) break;
+  }
   await tester.tap(finder);
   await tester.pump();
 }

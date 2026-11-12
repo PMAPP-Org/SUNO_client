@@ -29,13 +29,13 @@ jobs:
           persist-credentials: false
 
       # Versión exacta, no "el stable de hoy": el mismo commit tiene que dar
-      # el mismo resultado mañana. 3.44.x es la serie con la que se generó
-      # pubspec.lock (Dart 3.12.2); Dependabot no actualiza Flutter, se sube a
+      # el mismo resultado mañana. 3.47.x es la serie con la que se generó
+      # pubspec.lock (Dart 3.13.7); Dependabot no actualiza Flutter, se sube a
       # mano junto con pubspec.lock.
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
-          flutter-version: 3.44.9
+          flutter-version: 3.47.9
 
       - name: flutter pub get (respetando pubspec.lock)
         run: flutter pub get --enforce-lockfile
@@ -133,7 +133,7 @@ jobs:
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
-          flutter-version: 3.44.9
+          flutter-version: 3.47.9
 
       - name: flutter pub get + build_runner
         run: |

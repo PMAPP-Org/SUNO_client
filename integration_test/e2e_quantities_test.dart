@@ -202,10 +202,18 @@ Finder _byKeyPrefix(String prefix) => find.byWidgetPredicate(
 
 Finder _chip(String label) => find.descendant(of: find.byType(RecordStatusChip), matching: find.text(label));
 
-/// Hace visible el widget antes de tocarlo.
+/// Hace visible el widget antes de tocarlo y espera (hasta 10 s) a que el
+/// toque le llegue de verdad: un SnackBar abierto puede quedar sobre
+/// el teclado y tapar el botón hasta que se cierra.
 Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
-  await tester.ensureVisible(finder);
-  await tester.pump();
+  final deadline = DateTime.now().add(const Duration(seconds: 10));
+  while (true) {
+    await tester.ensureVisible(finder);
+    await tester.pump(const Duration(milliseconds: 100));
+    final target = tester.renderObject(finder);
+    final hits = tester.hitTestOnBinding(tester.getCenter(finder)).path;
+    if (hits.any((entry) => entry.target == target) || DateTime.now().isAfter(deadline)) break;
+  }
   await tester.tap(finder);
   await tester.pump();
 }
