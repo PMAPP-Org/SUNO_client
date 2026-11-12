@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.13.1](https://github.com/PMAPP-Org/SUNO_client/compare/v0.13.0...v0.13.1) (2026-11-12)
+
+
+### Dependencias y build
+
+* **deps:** bump semgrep from 1.182.1 to 1.183.0 in /tool ([#51](https://github.com/PMAPP-Org/SUNO_client/issues/51)) ([f43e655](https://github.com/PMAPP-Org/SUNO_client/commit/f43e655c5e7cc5adc3e0997b542c068a313f6e3b))
+* **deps:** upgrade to Flutter 3.47.9 and freezed 4 ([#58](https://github.com/PMAPP-Org/SUNO_client/issues/58)) ([3c4d12b](https://github.com/PMAPP-Org/SUNO_client/commit/3c4d12b68c42675715bcf6a57b4ff47679ac49ff))
+
 ## [0.13.0](https://github.com/PMAPP-Org/SUNO_client/compare/v0.12.0...v0.13.0) (2026-11-11)
 
 
