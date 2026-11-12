@@ -27,12 +27,6 @@ updates:
     # más que un PR. Se retiran al planificarlas; las alertas de SEGURIDAD de
     # Dependabot no se ven afectadas.
     ignore:
-      # freezed 4 exige Dart >= 3.13: llega con la subida de Flutter (hoy
-      # 3.44.9, fijada en los workflows), y freezed_annotation va a la par.
-      - dependency-name: "freezed"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "freezed_annotation"
-        update-types: ["version-update:semver-major"]
       # Almacenamiento cifrado de la sesión: sus opciones (Keychain/Keystore,
       # core/security/secure_storage.dart, Paso 16) y la migración de las
       # entradas existentes se revisan con cada versión mayor.

@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 0.13.0 # x-release-please-version
 
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.13.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -40,19 +40,14 @@ dependencies:
   flutter_riverpod: ^3.4.2
   dio: ^5.11.0
   uuid: ^4.6.0
-  # Fijada (costos, pieza 4b): `drift_dev` 2.34.0 es el último que admite el
-  # analyzer 12 de `freezed`, y sus herramientas de esquema (`make-migrations`,
-  # `SchemaVerifier`) solo compilan contra drift 2.34.0. Los parches 2.34.1–2.34.4
-  # tocan la web, `MultiExecutor` y tablas virtuales, que la app no usa. Volver a
-  # `^2.34.x` cuando `freezed` permita `drift_dev` >= 2.34.6.
-  drift: 2.34.0
+  drift: ^2.35.3
   flutter_secure_storage: ^10.3.1
   path_provider: ^2.1.6
   path: ^1.9.1
-  meta: ^1.18.0
-  geolocator: ^14.0.2
+  meta: ^1.19.0
+  geolocator: ^14.1.2
   image_picker: ^1.1.2
-  crypto: ^3.0.6
+  crypto: ^3.0.8
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   # Ya en el árbol (vía flutter_map); directa para mostrar coordenadas en
@@ -61,7 +56,7 @@ dependencies:
   # Ya en el árbol (Drift + SQLCipher); directa porque el mapa offline lee los
   # MBTiles con ella (`data/map/mbtiles_tile_provider.dart`).
   sqlite3: ^3.5.0
-  mobile_scanner: ^7.4.2
+  mobile_scanner: ^7.5.0
   pdf: ^3.13.1
   share_plus: ^13.3.1
   url_launcher: ^6.3.3
@@ -81,14 +76,10 @@ dev_dependencies:
   # Ya en el árbol (vía flutter_secure_storage); declarada para que los tests
   # simulen un Keychain que distingue la accesibilidad (Paso 16).
   flutter_secure_storage_platform_interface: ^2.1.1
-  build_runner: ^2.15.1
-  freezed: ^3.2.6-dev.1
-  json_serializable: ^6.14.1
-  # Fijada junto con `drift` (ver allí): sus herramientas de esquema solo compilan
-  # contra drift 2.34.0, y un `drift_dev` más nuevo exige el analyzer 13, que `freezed`
-  # no admite todavía.
-  drift_dev: 2.34.0
-  test: ^1.31.0
+  build_runner: ^2.17.1
+  freezed: ^4.0.3
+  json_serializable: ^6.15.2
+  drift_dev: ^2.35.3
   # Ya en el árbol (vía build_runner); directa para que las pruebas lean
   # contract/v1.yaml (paridad del contrato de cantidades, costos pieza 4b).
   yaml: ^3.1.3

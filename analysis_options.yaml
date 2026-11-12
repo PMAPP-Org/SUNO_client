@@ -16,6 +16,10 @@ include: package:flutter_lints/flutter.yaml
 # compilación, no una advertencia — la mitad estática de RD-02/RD-03 (nunca
 # acceder sin validar a datos externos: red, disco, plataforma).
 analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
   language:
     strict-casts: true
     strict-inference: true

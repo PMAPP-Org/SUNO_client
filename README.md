@@ -6,7 +6,7 @@ El backend (API, panel de administración e infraestructura) está en [`PMAPP-Or
 
 ## Requisitos
 
-- Flutter **3.44.9** (Dart 3.12.2), la versión con la que se generó `pubspec.lock`. Los demás canales no están probados.
+- Flutter **3.47.9** (Dart 3.13.7), la versión con la que se generó `pubspec.lock`. Los demás canales no están probados.
 - Para el APK: JDK 17 y el Android SDK.
 
 ## Puesta en marcha

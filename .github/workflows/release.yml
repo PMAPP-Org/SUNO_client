@@ -136,7 +136,7 @@ jobs:
         if: steps.key.outputs.present == 'true'
         with:
           channel: stable
-          flutter-version: 3.44.9
+          flutter-version: 3.47.9
 
       - name: Build del APK firmado
         if: steps.key.outputs.present == 'true'
