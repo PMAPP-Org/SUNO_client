@@ -4,6 +4,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), v
 
 Cada release la genera automáticamente [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) a partir de los mensajes de commit en `master`, que siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). No se edita a mano: lo que deba aparecer aquí se describe en el título del PR (`feat: …`, `fix: …`), que con *Squash and merge* es el mensaje del commit.
 
+## [0.13.2](https://github.com/PMAPP-Org/SUNO_client/compare/v0.13.1...v0.13.2) (2026-11-14)
+
+
+### Dependencias y build
+
+* **deps:** bump semgrep from 1.183.0 to 1.184.0 in /tool ([#59](https://github.com/PMAPP-Org/SUNO_client/issues/59)) ([523ada3](https://github.com/PMAPP-Org/SUNO_client/commit/523ada31ee598f6fa5900eaa81715cc9ba897afb))
+* **deps:** bump the actions group across 1 directory with 6 updates ([#60](https://github.com/PMAPP-Org/SUNO_client/issues/60)) ([667d901](https://github.com/PMAPP-Org/SUNO_client/commit/667d901a982a54b269e616a99aaae95ff7b82db8))
+* **deps:** ignore SDK-pinned packages in Dependabot ([#62](https://github.com/PMAPP-Org/SUNO_client/issues/62)) ([3869eed](https://github.com/PMAPP-Org/SUNO_client/commit/3869eed190761d56779619deaaa8cda2906e7802))
+
 ## [0.13.1](https://github.com/PMAPP-Org/SUNO_client/compare/v0.13.0...v0.13.1) (2026-11-12)
 
 
