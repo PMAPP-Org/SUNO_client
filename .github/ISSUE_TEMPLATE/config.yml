@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Vulnerabilidad de seguridad
+    url: https://github.com/PMAPP-Org/SUNO_client/blob/master/SECURITY.md
+    about: No abras un issue público. Repórtala en privado como indica SECURITY.md.
+  - name: Bug o incidente del servidor
+    url: https://github.com/PMAPP-Org/SUNO_server/issues/new/choose
+    about: API, plataforma web, Admin e infraestructura van en SUNO_server.
+  - name: Problemas conocidos
+    url: https://github.com/PMAPP-Org/SUNO_client/issues?q=is%3Aissue+is%3Aopen+label%3Aknown-issue
+    about: Revisa primero si ya está registrado.

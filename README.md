@@ -26,11 +26,21 @@ Ni el código generado (`*.g.dart`, `*.freezed.dart`) ni los textos generados (`
 |---|---|
 | `lib/core/` | Dominio sin UI: sesión, sincronización (outbox, pull, CAS), formularios (DSL de visibilidad, validación), captura de registros |
 | `lib/data/` | Adaptadores: HTTP (Dio), base de datos local (Drift + SQLCipher), cámara, GPS |
-| `lib/features/` | Pantallas: login, inicio, captura, firma |
+| `lib/features/` | Pantallas: login, aviso de privacidad, inicio, captura (formulario, geometría, QR, firma, avance y cantidades), detalle, revisión, asignaciones y navegación, mapa, mapas base, equipos y ajustes |
 | `lib/ui/` | Sistema de diseño (tema, tokens, widgets) y el renderer de formularios |
 | `lib/l10n/` | Textos (`app_es.arb`) |
 | `contract/` | Copia fijada del contrato del servidor: OpenAPI y casos de paridad ([`contract/README.md`](contract/README.md)) |
 | `tool/` | Gates de CI propios de la app: lints, cobertura y el lock de Semgrep |
+
+## Documentación
+
+| Qué | Dónde |
+|---|---|
+| Arquitectura de la app (C4 y stack) | [`docs/arquitectura/`](docs/arquitectura/README.md) |
+| Decisiones propias de la app (ADR) | [`docs/adr/`](docs/adr/README.md) |
+| Bugs corregidos y problemas conocidos | [`docs/bugs/historial.md`](docs/bugs/historial.md), [`docs/bugs/problemas-conocidos.md`](docs/bugs/problemas-conocidos.md) |
+| Cómo reportar un bug | [`CONTRIBUTING.md`](CONTRIBUTING.md#bugs-y-parches) y las plantillas de issues |
+| Arquitectura del sistema, flujo de sincronización y ADR transversales | [SUNO_server `docs/`](https://github.com/PMAPP-Org/SUNO_server/tree/master/docs) |
 
 ## Calidad y seguridad
 

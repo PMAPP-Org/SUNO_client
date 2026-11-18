@@ -1,0 +1,70 @@
+name: Bug
+description: Un defecto de la app móvil en master o en una versión publicada.
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de abrirlo, busca en los issues abiertos (incluidos los `known-issue`).
+        **Vulnerabilidades no**: repórtalas en privado como dice SECURITY.md.
+        Los defectos del servidor van en SUNO_server.
+  - type: textarea
+    id: reproduccion
+    attributes:
+      label: Pasos para reproducir
+      description: Lo mínimo para que otra persona lo vea. Sin datos personales reales.
+      placeholder: |
+        1. Sin conexión, crear un registro con 3 fotos
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Resultado esperado
+    validations:
+      required: true
+  - type: textarea
+    id: obtenido
+    attributes:
+      label: Resultado obtenido
+    validations:
+      required: true
+  - type: dropdown
+    id: severidad
+    attributes:
+      label: Severidad
+      description: "Definiciones en CONTRIBUTING.md, sección Bugs y parches."
+      options:
+        - "S1 — crítica: pérdida de registros o fotos, datos expuestos, la app no abre"
+        - "S2 — alta: no se puede capturar o sincronizar y no hay rodeo"
+        - "S3 — media: falla con un rodeo posible o en pocos casos"
+        - "S4 — baja: cosmético, textos, documentación o herramientas"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versión o commit
+      description: Versión de la app (Ajustes) o SHA si es una build de desarrollo.
+      placeholder: "0.13.1"
+    validations:
+      required: true
+  - type: textarea
+    id: entorno
+    attributes:
+      label: Entorno
+      description: Modelo de teléfono, versión de Android/iOS, con o sin conexión, servidor (producción o pruebas).
+    validations:
+      required: true
+  - type: textarea
+    id: evidencia
+    attributes:
+      label: Evidencia
+      description: Capturas, video, logs. Quita tokens, ubicaciones reales y datos personales.
+  - type: textarea
+    id: notas
+    attributes:
+      label: Notas
+      description: Causa sospechada, desde qué versión pasa, issues o PR relacionados.

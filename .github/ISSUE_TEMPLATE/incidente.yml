@@ -1,0 +1,59 @@
+name: Incidente en campo
+description: Una versión publicada pierde datos, no sincroniza para varios usuarios, expone datos o un teléfono con sesión activa se perdió.
+title: "Incidente: "
+labels: ["incidente"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Si el problema está en el servidor (API caída, errores 5xx), abre el incidente en SUNO_server.
+        El procedimiento y el postmortem están en docs/operacion/incidentes.md de SUNO_server.
+        Si puede haber datos personales afectados, avisa ya al responsable de seguridad.
+        **No pegues secretos, tokens, ubicaciones reales ni datos personales.**
+  - type: dropdown
+    id: severidad
+    attributes:
+      label: Severidad
+      options:
+        - "S1 — crítica: pérdida o fuga de datos, teléfono perdido con sesión activa"
+        - "S2 — alta: varios agentes no pueden capturar o sincronizar"
+        - "S3 — media: degradación con rodeo"
+        - "S4 — baja: aviso sin impacto en el trabajo de campo"
+    validations:
+      required: true
+  - type: input
+    id: deteccion
+    attributes:
+      label: Detección
+      description: Hora de inicio y quién lo reportó.
+    validations:
+      required: true
+  - type: textarea
+    id: impacto
+    attributes:
+      label: Impacto
+      description: Cuántos teléfonos o agentes, qué registros, si hay datos personales involucrados.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versión de la app y del servidor
+      placeholder: "app 0.13.1, servidor v0.19.0"
+    validations:
+      required: true
+  - type: textarea
+    id: cronologia
+    attributes:
+      label: Cronología y acciones
+      description: Una línea por acción con su hora (UTC-5).
+    validations:
+      required: true
+  - type: checkboxes
+    id: cierre
+    attributes:
+      label: Cierre
+      options:
+        - label: Datos recuperados o pérdida acotada y comunicada.
+        - label: Postmortem sin culpables registrado en docs/operacion/incidentes.md de SUNO_server.
+        - label: Un issue por cada acción correctiva, enlazado aquí.
