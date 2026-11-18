@@ -98,3 +98,37 @@ Los PR se integran con **Squash and merge**, y su título es el mensaje del comm
   - `ANDROID_UPLOAD_KEYSTORE_PASSWORD`;
   - `ANDROID_UPLOAD_KEY_PASSWORD`;
   - opcionalmente, `RELEASE_PLEASE_TOKEN`.
+
+## Bugs y parches
+
+**Todo bug que llega a `master` o a una versión publicada lleva issue**, abierto con la plantilla [Bug](.github/ISSUE_TEMPLATE/bug.yml), o [Incidente en campo](.github/ISSUE_TEMPLATE/incidente.yml) si afecta a usuarios con una versión publicada. Si el defecto está en el servidor, va en SUNO_server.
+
+**Severidades** (las mismas de SUNO_server):
+
+| Severidad | Qué es en la app | Primera respuesta |
+|---|---|---|
+| S1 crítica | Pérdida de registros o fotos, datos expuestos, la app no abre. | 1 h; se trata como incidente. |
+| S2 alta | No se puede capturar o sincronizar y no hay rodeo. | 4 h. |
+| S3 media | Falla con rodeo posible o en pocos casos. | 1 día hábil. |
+| S4 baja | Cosmético, textos, documentación, herramientas. | Se planifica. |
+
+**El parche:**
+
+1. PR con título `fix(<área>): …` y en la descripción `Fixes #N`.
+2. **Prueba de regresión obligatoria** (`flutter test`): falla sin el parche y pasa con él. Si de verdad no se puede automatizar (p. ej. solo se ve en un dispositivo), el PR explica por qué y cómo se comprobó.
+3. Una fila nueva en [`docs/bugs/historial.md`](docs/bugs/historial.md).
+
+**Defectos encontrados en revisión antes del merge**: se corrigen y se discuten en el propio PR; no llevan issue.
+
+**Problemas conocidos**: issues abiertos con la etiqueta `known-issue` y su severidad, no comentarios en el código. Punto de partida: [`docs/bugs/problemas-conocidos.md`](docs/bugs/problemas-conocidos.md).
+
+**Incidentes**: se atienden y se cierran con un **postmortem sin culpables** en `docs/operacion/incidentes.md` de [SUNO_server](https://github.com/PMAPP-Org/SUNO_server/blob/master/docs/operacion/incidentes.md), que es el registro único de postmortems del sistema.
+
+## Documentación
+
+- **Cada pieza** entrega en su PR:
+  - su ADR o ADRs en [`docs/adr/`](docs/adr/README.md) si toma decisiones propias de la app (las transversales van en SUNO_server);
+  - la actualización de [`docs/arquitectura/`](docs/arquitectura/README.md) si cambia algo de lo que describe;
+  - en su tarea final, un issue `known-issue` por cada limitación conocida que deja.
+- Una dependencia nueva lleva su fila en [`DEPENDENCIES.md`](DEPENDENCIES.md) ([ADR-0003](docs/adr/0003-presupuesto-de-dependencias.md)).
+- `docs/arquitectura/` describe el estado **actual**: si el código y un documento difieren, se corrige el documento en el mismo PR.
