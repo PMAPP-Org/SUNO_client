@@ -3,6 +3,7 @@
 Problemas abiertos al 2026-11-17, para convertir en issues con la etiqueta `known-issue`. Desde ese momento **el issue es la fuente de verdad**. Severidades en [`CONTRIBUTING.md`](../../CONTRIBUTING.md#bugs-y-parches). Los del servidor y la infraestructura están en `docs/bugs/problemas-conocidos.md` de SUNO_server.
 
 ## KI-C01. Las releases salen sin APK: faltan los secretos de firma
+- **Issue:** [#65](https://github.com/PMAPP-Org/SUNO_client/issues/65)
 
 - **Título propuesto:** `Release: configurar los secretos ANDROID_UPLOAD_* para publicar el APK firmado`
 - **Severidad:** S3. No hay APK oficial y verificable (con checksum y atestación) para instalar en campo.
@@ -10,6 +11,7 @@ Problemas abiertos al 2026-11-17, para convertir en issues con la etiqueta `know
 - **Evidencia:** run 43319669217 de `release.yml`; `gh release view v0.13.1` (assets: `sbom-app.cdx.json`, `sbom-app.spdx.json`); [`CONTRIBUTING.md`](../../CONTRIBUTING.md#releases).
 
 ## KI-C02. `RELEASE_PLEASE_TOKEN` sin configurar
+- **Issue:** [#66](https://github.com/PMAPP-Org/SUNO_client/issues/66)
 
 - **Título propuesto:** `Release: configurar RELEASE_PLEASE_TOKEN para que el PR de release corra la CI`
 - **Severidad:** S4.
@@ -17,6 +19,7 @@ Problemas abiertos al 2026-11-17, para convertir en issues con la etiqueta `know
 - **Evidencia:** `.github/workflows/release.yml` (línea del `token:`); [`CONTRIBUTING.md`](../../CONTRIBUTING.md#releases).
 
 ## KI-C03. No se sincroniza con la app cerrada
+- **Issue:** [#67](https://github.com/PMAPP-Org/SUNO_client/issues/67)
 
 - **Título propuesto:** `Sync: sincronizar y subir adjuntos con la app cerrada (WorkManager / BGTaskScheduler)`
 - **Severidad:** S3.
@@ -24,6 +27,7 @@ Problemas abiertos al 2026-11-17, para convertir en issues con la etiqueta `know
 - **Evidencia:** `lib/core/sync/sync_coordinator.dart` y `lib/core/attachments/attachment_upload_scheduler.dart` («Alcance»); `plans/suno-progreso.md` del servidor (Paso 18).
 
 ## KI-C04. Pruebas en dispositivo real pendientes
+- **Issue:** [#68](https://github.com/PMAPP-Org/SUNO_client/issues/68)
 
 - **Título propuesto:** `Pruebas en dispositivo: TrustStore, navegación C4, QR y GPS de C5/C6`
 - **Severidad:** S3.
@@ -31,6 +35,7 @@ Problemas abiertos al 2026-11-17, para convertir en issues con la etiqueta `know
 - **Evidencia:** `docs/c4-navegacion.md` («Pendiente de dispositivo real»); `plans/suno-progreso.md` del servidor («Sigue pendiente»).
 
 ## KI-C05. Hallazgos de revisión de C4 y C5/C6 sin verificar
+- **Issue:** [#69](https://github.com/PMAPP-Org/SUNO_client/issues/69)
 
 - **Título propuesto:** `Verificar hallazgos de revisión de C4 (#36) y C5/C6 (#37) en la app`
 - **Severidad:** S3 hasta verificarlos (uno bloquea el guardado de un registro).
@@ -38,6 +43,7 @@ Problemas abiertos al 2026-11-17, para convertir en issues con la etiqueta `know
 - **Evidencia:** `plans/suno-progreso.md` del servidor, «Estado al 2026-10-29».
 
 ## KI-C06. `DEPENDENCIES.md` desactualizado
+- **Issue:** [#70](https://github.com/PMAPP-Org/SUNO_client/issues/70)
 
 - **Título propuesto:** `DEPENDENCIES.md no refleja pubspec.yaml`
 - **Severidad:** S4.
